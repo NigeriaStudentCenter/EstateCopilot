@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PropertyType {
+  LONG_TERM
+  SHORT_LET
+}
+
+enum LeaseStatus {
+  ACTIVE
+  PENDING
+  OVERDUE
+  TERMINATED
+}
+
+enum LevyStatus {
+  CLEARED
+  ARREARS
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum PaymentPurpose {
+  RENT
+  CAUTION_DEPOSIT
+  UTILITY
+  LEVY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESSFUL
+  FAILED
+}
+
+enum MaintenanceStatus {
+  OPEN
+  DISPATCHED
+  AWAITING_TENANT_SIGNOFF
+  RESOLVED
+}
+
+enum RepairResponsibility {
+  LANDLORD
+  TENANT
+  UNCLEAR
+}
+
+enum RentPaymentPlan {
+  FULL
+  INSTALLMENTS
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum CorrespondenceChannel {
+  WHATSAPP
+  EMAIL
+  SMS
+  NOTE
+  PORTAL // composed in the tenant portal directly
+}
+
+enum CorrespondenceDirection {
+  INBOUND // tenant -> landlord/platform
+  OUTBOUND // landlord/platform -> tenant
+  INTERNAL // landlord/agent note, not sent to the tenant
+}
+
+enum DraftStatus {
+  PENDING_REVIEW
+  APPROVED
+  EDITED_AND_SENT
+  REJECTED
+}
+
+enum BookingType {
+  PROPERTY_VIEWING
+  REPAIR_QUOTE_VISIT
+}
+
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum QuoteStatus {
+  SUBMITTED
+  ACCEPTED
+  DECLINED
+}
+
+enum SubscriptionStatus {
+  PENDING_PAYMENT // account created, first charge not yet confirmed
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+}
+
+model Landlord {
+  id           String     @id @default(cuid())
+  name         String
+  phone        String     @unique
+  email        String     @unique
+  passwordHash String?
+  properties   Property[]
+  createdAt    DateTime   @default(now())
+
+  // ₦10,000/month flat subscription — gates landlord-portal access.
+  subscriptionStatus     SubscriptionStatus @default(PENDING_PAYMENT)
+  paystackCustomerCode   String?
+  paystackSubscriptionCode String?
+  paystackPlanCode       String?
+  currentPeriodEnd       DateTime?
+
+  // The landlord's OWN bank account, registered as a Paystack Subaccount —
+  // every tenant rent payment settles here directly. The platform's Paystack
+  // key never receives or holds this money; it only reads payment webhooks
+  // to know a charge happened, the same way it would watch any receipt.
+  bankAccountNumber    String?
+  bankCode             String?
+  bankAccountName      String? // returned by Paystack's account-resolve check, not typed by the landlord
+  paystackSubaccountCode String?
+}
+
+model Agent {
+  id         String     @id @default(cuid())
+  name       String
+  phone      String     @unique
+  email      String?
+  properties Property[]
+  createdAt  DateTime   @default(now())
+}
+
+// Pillar D: municipal levy identity + state law jurisdiction for the tenancy agreement generator
+model Property {
+  id                   String       @id @default(cuid())
+  title                String
+  address              String
+  state                String
+  lga                  String
+  propertyType         PropertyType
+  rentAmount           Int
+  cautionDepositAmount Int
+  municipalId          String? // Tenement Rate ID with the LGA
+  discoProvider        String? // EKEDC / IKEDC / AEDC / PHED etc.
+  meterNumber          String?
+  isAdvertised         Boolean      @default(false) // shown on the public marketing site's listings page
+  listingDescription   String? // marketing copy shown on the public listing, separate from internal notes
+  imageUrls            String[] // gallery photos; the public site shows labeled placeholders when empty
+  landlordId           String
+  landlord             Landlord     @relation(fields: [landlordId], references: [id])
+  agentId              String?
+  agent                Agent?       @relation(fields: [agentId], references: [id])
+  tenancies            Tenancy[]
+  levies               Levy[]
+  maintenanceTickets   MaintenanceTicket[]
+  bookings             Booking[]
+  createdAt            DateTime     @default(now())
+}
+
+model Tenant {
+  id           String        @id @default(cuid())
+  name         String
+  phone        String        @unique // WhatsApp-reachable number
+  email        String?       @unique // tenant-portal login + where approved replies go
+  passwordHash String? // tenant-portal login credential; null until they sign up
+  nin          String?
+  bvn          String?
+  kycStatus    KycStatus     @default(PENDING)
+  guarantor    Guarantor?
+  tenancies    Tenancy[]
+  createdAt    DateTime      @default(now())
+}
+
+// Pillar A: automated guarantor consent + identity check over WhatsApp
+model Guarantor {
+  id          String    @id @default(cuid())
+  name        String
+  phone       String
+  employer    String?
+  verified    Boolean   @default(false)
+  tenantId    String    @unique
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime  @default(now())
+}
+
+// Pillar B: the core lease record — upfront/split rent tracking + deposit escrow
+model Tenancy {
+  id                  String      @id @default(cuid())
+  propertyId          String
+  property            Property    @relation(fields: [propertyId], references: [id])
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id])
+  leaseStart          DateTime
+  leaseEnd            DateTime
+  rentAmount           Int
+  paymentStatus       LeaseStatus @default(PENDING)
+  cautionDepositHeld  Int         @default(0)
+  cautionDepositReleased Boolean  @default(false)
+  virtualAccountRef   String? // Paystack/Flutterwave dedicated virtual account
+  paymentPlan         RentPaymentPlan @default(FULL)
+  payments            Payment[]
+  installments        RentInstallment[]
+  correspondence      Correspondence[]
+  drafts              CorrespondenceDraft[]
+  createdAt           DateTime    @default(now())
+}
+
+// Pillar B: generated when a tenancy chooses INSTALLMENTS — each row is one
+// Paystack payment request the tenant can be reminded about and pay against.
+model RentInstallment {
+  id                String             @id @default(cuid())
+  tenancyId         String
+  tenancy           Tenancy            @relation(fields: [tenancyId], references: [id])
+  sequence          Int // 1-based position in the schedule
+  amount            Int
+  dueDate           DateTime
+  status            InstallmentStatus  @default(PENDING)
+  paystackRequestCode String?
+  paymentLink       String?
+  paidAt            DateTime?
+  createdAt         DateTime           @default(now())
+}
+
+// Every tenant <-> landlord exchange, whatever the channel — the system of
+// record a landlord can point to if a dispute ever reaches a rent tribunal.
+model Correspondence {
+  id         String                  @id @default(cuid())
+  tenancyId  String
+  tenancy    Tenancy                 @relation(fields: [tenancyId], references: [id])
+  channel    CorrespondenceChannel
+  direction  CorrespondenceDirection
+  author     String // display name of sender: tenant, landlord, or "System"
+  body       String
+  createdAt  DateTime                @default(now())
+}
+
+// AI-drafted reply to an inbound tenant message. Never sent on its own — a
+// landlord must approve (as-is or edited) before it becomes a real
+// Correspondence row the tenant can see.
+model CorrespondenceDraft {
+  id             String      @id @default(cuid())
+  tenancyId      String
+  tenancy        Tenancy     @relation(fields: [tenancyId], references: [id])
+  inReplyToBody  String // the tenant message this is responding to, kept for display
+  suggestedBody  String
+  channel        CorrespondenceChannel @default(EMAIL)
+  status         DraftStatus @default(PENDING_REVIEW)
+  reviewedBy     String?
+  sentBody       String? // final body actually sent, if approved/edited
+  createdAt      DateTime    @default(now())
+  reviewedAt     DateTime?
+}
+
+// Pillar B: rent/deposit/utility/levy collections + 90/10 landlord split payout
+model Payment {
+  id            String         @id @default(cuid())
+  tenancyId     String
+  tenancy       Tenancy        @relation(fields: [tenancyId], references: [id])
+  purpose       PaymentPurpose
+  amount        Int
+  status        PaymentStatus  @default(PENDING)
+  provider      String // paystack | flutterwave
+  providerRef   String?
+  landlordPayoutAmount Int?
+  platformFeeAmount    Int?
+  createdAt     DateTime       @default(now())
+}
+
+// Pillar D: Tenement Rate / LAWMA / environmental dues tied to a property
+model Levy {
+  id          String     @id @default(cuid())
+  propertyId  String
+  property    Property   @relation(fields: [propertyId], references: [id])
+  type        String // TENEMENT_RATE | LAWMA_ENVIRONMENTAL | OTHER
+  authority   String // e.g. "Eti-Osa LGA"
+  amountDue   Int
+  status      LevyStatus @default(ARREARS)
+  periodLabel String // e.g. "2026 Assessment"
+  clearedAt   DateTime?
+  createdAt   DateTime   @default(now())
+}
+
+// Pillar C: artisan dispatch with proof-of-work photos + tenant sign-off
+model MaintenanceTicket {
+  id              String             @id @default(cuid())
+  propertyId      String
+  property        Property           @relation(fields: [propertyId], references: [id])
+  description     String
+  categoryId      String? // key into the shared repair checklist (src/lib/repairChecklist.ts)
+  categoryLabel   String? // display label at the time of reporting
+  responsibility  RepairResponsibility @default(UNCLEAR) // derived server-side from categoryId, never client-trusted
+  raisedBy        String? // tenant/reporter display name
+  sourceMessage   String? // raw WhatsApp message that triggered this ticket
+  status          MaintenanceStatus  @default(OPEN)
+  openToMarketplace Boolean          @default(false) // shown on the public handyman marketplace page
+  artisanName     String?
+  artisanPhone    String?
+  proofPhotoUrls  String[]
+  tenantSignedOff Boolean            @default(false)
+  createdAt       DateTime           @default(now())
+  resolvedAt      DateTime?
+  bookings        Booking[]
+  quotes          RepairQuote[]
+}
+
+// A handyman's response to a marketplace repair job — either a direct quote,
+// or (when they need to see the job first) a request to book a site visit,
+// tracked via the Booking model with type REPAIR_QUOTE_VISIT instead.
+model RepairQuote {
+  id                  String            @id @default(cuid())
+  maintenanceTicketId String
+  maintenanceTicket   MaintenanceTicket @relation(fields: [maintenanceTicketId], references: [id])
+  handymanName        String
+  handymanPhone       String
+  handymanEmail       String?
+  amount              Int
+  message             String?
+  status              QuoteStatus       @default(SUBMITTED)
+  createdAt           DateTime          @default(now())
+}
+
+// One shared scheduling model for both public booking flows — a prospective
+// tenant booking a property viewing, or a handyman booking a site visit to
+// price a repair. Landlord/ops see both in one calendar-style list.
+model Booking {
+  id                  String             @id @default(cuid())
+  type                BookingType
+  propertyId          String?
+  property            Property?          @relation(fields: [propertyId], references: [id])
+  maintenanceTicketId String?
+  maintenanceTicket   MaintenanceTicket? @relation(fields: [maintenanceTicketId], references: [id])
+  requesterName        String
+  requesterPhone       String
+  requesterEmail       String?
+  scheduledFor         DateTime
+  status                BookingStatus     @default(REQUESTED)
+  notes                 String?
+  createdAt             DateTime          @default(now())
+}
+
+// Every inbound/outbound WhatsApp message, for audit + the commitment/reminder engine
+model WhatsAppMessage {
+  id          String   @id @default(cuid())
+  direction   String // INBOUND | OUTBOUND
+  fromNumber  String
+  toNumber    String
+  body        String
+  waMessageId String?
+  createdAt   DateTime @default(now())
+}
