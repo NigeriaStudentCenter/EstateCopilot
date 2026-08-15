@@ -1,0 +1,24 @@
+name: Deploy tenant portal
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tenant-portal/**'
+      - '.github/workflows/deploy-tenant.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN_TENANT }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: 'tenant-portal'
+          output_location: 'dist'
+          skip_api_build: true

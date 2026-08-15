@@ -28,6 +28,8 @@ npm-debug.log*
 
 # Claude Code local-only settings (machine-specific, not project config)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Vite
 .vite/
+*.tsbuildinfo
