@@ -6,6 +6,7 @@ import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
 import { mockTickets } from './maintenance.js';
 import { createMockBooking, createMockQuote } from '../lib/mockBookings.js';
 import { notifyOps } from '../lib/notifyOps.js';
+import { pushArtisanRequestToSharePoint } from '../services/sharepoint.js';
 
 // Everything in this file is unauthenticated — it's what the public
 // marketing site (properties page, handyman marketplace page) talks to.
@@ -153,6 +154,16 @@ publicRouter.post('/public/repair-jobs/:id/quote', async (req, res) => {
     `New repair quote: ${job.description}`,
     `${parsed.data.handymanName} (${parsed.data.handymanPhone}) quoted ₦${parsed.data.amount.toLocaleString()} for "${job.description}".${parsed.data.message ? `\n\nNote: ${parsed.data.message}` : ''}`,
   );
+  void pushArtisanRequestToSharePoint({
+    requestType: 'Quote',
+    jobDescription: job.description,
+    propertyTitle: job.propertyTitle,
+    handymanName: parsed.data.handymanName,
+    handymanPhone: parsed.data.handymanPhone,
+    handymanEmail: parsed.data.handymanEmail,
+    amount: parsed.data.amount,
+    message: parsed.data.message,
+  });
 
   res.status(201).json(quote);
 });
@@ -208,6 +219,16 @@ publicRouter.post('/public/repair-jobs/:id/book-viewing', async (req, res) => {
     `Site-visit request: ${job.description}`,
     `${handymanName} (${handymanPhone}) wants to view "${job.description}" (${job.propertyTitle}) on ${new Date(scheduledFor).toLocaleString('en-GB')} before quoting.${message ? `\n\nNote: ${message}` : ''}`,
   );
+  void pushArtisanRequestToSharePoint({
+    requestType: 'Site Visit',
+    jobDescription: job.description,
+    propertyTitle: job.propertyTitle,
+    handymanName,
+    handymanPhone,
+    handymanEmail,
+    scheduledFor,
+    message,
+  });
 
   res.status(201).json(booking);
 });

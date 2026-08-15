@@ -54,4 +54,14 @@ export const env = {
     whatsappNumber: process.env.OPS_WHATSAPP_NUMBER ?? '2348000000000',
     email: process.env.OPS_EMAIL ?? 'ops@estatecopilot.example',
   },
+  sharepoint: {
+    // Mirrors every artisan quote/visit-request into a SharePoint list via
+    // Microsoft Graph (app-only, client credentials). Unset means the mirror
+    // is skipped — it's a best-effort side effect, never a hard dependency.
+    tenantId: process.env.SHAREPOINT_TENANT_ID,
+    clientId: process.env.SHAREPOINT_CLIENT_ID,
+    clientSecret: process.env.SHAREPOINT_CLIENT_SECRET,
+    siteId: process.env.SHAREPOINT_SITE_ID,
+    listId: process.env.SHAREPOINT_LIST_ID,
+  },
 };
