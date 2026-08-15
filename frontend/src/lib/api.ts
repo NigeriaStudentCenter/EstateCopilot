@@ -73,6 +73,9 @@ export const api = {
   getRemindersDue: () => request<any[]>('/api/tenancies/reminders/due'),
   runReminders: () => request<{ remindersSent: number; results: any[] }>('/api/tenancies/reminders/run', { method: 'POST' }),
 
+  getAgreement: (tenancyId: string) => request<any | null>(`/api/tenancies/${tenancyId}/agreement`),
+  sendAgreement: (tenancyId: string) => request<any>(`/api/tenancies/${tenancyId}/agreement`, { method: 'POST' }),
+
   getPaymentPlan: (tenancyId: string) => request<{ plan: string; installments: any[] }>(`/api/tenancies/${tenancyId}/payment-plan`),
   setPaymentPlan: (tenancyId: string, plan: 'FULL' | 'INSTALLMENTS', installmentCount?: number) =>
     request<{ plan: string; installments: any[] }>(`/api/tenancies/${tenancyId}/payment-plan`, {

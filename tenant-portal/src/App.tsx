@@ -5,6 +5,7 @@ import Nav, { TenantView } from './components/Nav';
 import OverviewPage from './pages/OverviewPage';
 import CorrespondencePage from './pages/CorrespondencePage';
 import MaintenancePage from './pages/MaintenancePage';
+import AgreementPage from './pages/AgreementPage';
 
 const App: React.FC = () => {
   const [authed, setAuthed] = useState(isAuthed());
@@ -26,6 +27,7 @@ const App: React.FC = () => {
         {view === 'Overview' && <OverviewPage />}
         {view === 'Correspondence' && <CorrespondencePage />}
         {view === 'Maintenance' && <MaintenancePage />}
+        {view === 'Agreement' && <AgreementPage />}
       </main>
     </div>
   );

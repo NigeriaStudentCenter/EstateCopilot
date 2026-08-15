@@ -35,6 +35,9 @@ const TenanciesPage: React.FC = () => {
   const [noteBody, setNoteBody] = useState('');
   const [noteAuthor, setNoteAuthor] = useState('Landlord');
 
+  const [agreement, setAgreement] = useState<any>(null);
+  const [sendingAgreement, setSendingAgreement] = useState(false);
+
   useEffect(() => {
     api
       .getTenancies()
@@ -54,11 +57,29 @@ const TenanciesPage: React.FC = () => {
       setInstallments(res.installments as RentInstallment[]);
     });
     refreshThread(selectedId);
+    refreshAgreement(selectedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   function refreshThread(tenancyId: string) {
     api.getCorrespondence(tenancyId).then((data) => setThread(data as CorrespondenceEntry[]));
+  }
+
+  function refreshAgreement(tenancyId: string) {
+    api.getAgreement(tenancyId).then((data) => setAgreement(data));
+  }
+
+  async function handleSendAgreement() {
+    if (!selected) return;
+    setSendingAgreement(true);
+    try {
+      const res = await api.sendAgreement(selected.id);
+      setAgreement(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send the tenancy agreement');
+    } finally {
+      setSendingAgreement(false);
+    }
   }
 
   const selected = tenancies.find((t) => t.id === selectedId);
@@ -154,6 +175,42 @@ const TenanciesPage: React.FC = () => {
                   {reminderStatus && <p className="text-xs text-gray-500 mt-2">{reminderStatus}</p>}
                 </div>
               </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Tenancy agreement</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {!agreement && 'Not sent yet — the tenant signs it themselves from their own portal.'}
+                    {agreement?.status === 'SENT' && 'Sent — awaiting the tenant\'s signature.'}
+                    {agreement?.status === 'SIGNED' && (
+                      <>
+                        Signed by <span className="font-medium text-gray-700">{agreement.signedByName}</span> on{' '}
+                        {new Date(agreement.signedAt).toLocaleString('en-GB')}
+                      </>
+                    )}
+                  </p>
+                </div>
+                {agreement?.status === 'SIGNED' ? (
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Signed</span>
+                ) : agreement?.status === 'SENT' ? (
+                  <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900">Awaiting signature</span>
+                ) : (
+                  <button
+                    onClick={handleSendAgreement}
+                    disabled={sendingAgreement}
+                    className="shrink-0 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {sendingAgreement ? 'Sending…' : 'Send tenancy agreement'}
+                  </button>
+                )}
+              </div>
+              {agreement && (
+                <pre className="whitespace-pre-wrap font-sans text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg p-4 max-h-56 overflow-y-auto">
+                  {agreement.content}
+                </pre>
+              )}
             </div>
 
             <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">

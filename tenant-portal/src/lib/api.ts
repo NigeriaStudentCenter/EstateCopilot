@@ -49,6 +49,10 @@ export const api = {
 
   getPaymentPlan: () => request<{ plan: string; installments: any[] }>('/api/tenant/payment-plan'),
 
+  getAgreement: () => request<any | null>('/api/tenant/agreement'),
+  signAgreement: (fullName: string) =>
+    request<any>('/api/tenant/agreement/sign', { method: 'POST', body: JSON.stringify({ fullName, confirmed: true }) }),
+
   getChecklist: () => request<any[]>('/api/maintenance/checklist'),
   getMaintenance: () => request<any[]>('/api/tenant/maintenance'),
   reportIssue: (description: string, categoryId?: string) =>

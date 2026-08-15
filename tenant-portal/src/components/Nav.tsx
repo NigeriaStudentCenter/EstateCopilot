@@ -1,8 +1,8 @@
 import React from 'react';
 
-export type TenantView = 'Overview' | 'Correspondence' | 'Maintenance';
+export type TenantView = 'Overview' | 'Correspondence' | 'Maintenance' | 'Agreement';
 
-const links: TenantView[] = ['Overview', 'Correspondence', 'Maintenance'];
+const links: TenantView[] = ['Overview', 'Correspondence', 'Maintenance', 'Agreement'];
 
 const Nav: React.FC<{ active: TenantView; onNavigate: (v: TenantView) => void; onLogout: () => void }> = ({
   active,

@@ -8,6 +8,7 @@ import { mockCorrespondence, logMockCorrespondence, createMockDraft } from '../l
 import { mockTickets } from './maintenance.js';
 import { resolveCategory } from '../lib/repairChecklist.js';
 import { draftReply, type DraftReplyParams } from '../services/aiReply.js';
+import { mockAgreements } from '../lib/mockAgreements.js';
 
 export const tenantPortalRouter = Router();
 // Scoped to /tenant/* only — an unscoped `.use(requireTenantAuth)` here would
@@ -31,6 +32,36 @@ tenantPortalRouter.get('/tenant/me', async (req: AuthedRequest, res) => {
     include: { tenant: true, property: true },
   });
   res.json(tenancy);
+});
+
+tenantPortalRouter.get('/tenant/agreement', async (req: AuthedRequest, res) => {
+  const { tenancyId } = req.tenant!;
+  res.json(mockAgreements.get(tenancyId) ?? null);
+});
+
+const signSchema = z.object({
+  fullName: z.string().min(2),
+  confirmed: z.literal(true),
+});
+
+tenantPortalRouter.post('/tenant/agreement/sign', async (req: AuthedRequest, res) => {
+  const parsed = signSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  const { tenancyId } = req.tenant!;
+  const agreement = mockAgreements.get(tenancyId);
+  if (!agreement) return res.status(404).json({ error: 'No agreement has been sent for this tenancy yet.' });
+  if (agreement.status === 'SIGNED') {
+    return res.status(409).json({ error: 'This agreement has already been signed.' });
+  }
+
+  agreement.status = 'SIGNED';
+  agreement.signedAt = new Date().toISOString();
+  agreement.signedByName = parsed.data.fullName.trim();
+  mockAgreements.set(tenancyId, agreement);
+
+  res.json(agreement);
 });
 
 // Filtered version of GET /api/correspondence/:tenancyId — INTERNAL notes

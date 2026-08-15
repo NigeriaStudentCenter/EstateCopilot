@@ -7,6 +7,7 @@ import { buildInstallmentSchedule, createPaymentRequest } from '../services/pays
 import { logMockCorrespondence } from '../lib/correspondenceStore.js';
 import { MOCK_TENANCIES, mockPaymentPlans } from '../lib/mockTenancies.js';
 import { requireLandlordAuth } from './landlordAuth.js';
+import { mockAgreements, generateAgreementContent } from '../lib/mockAgreements.js';
 
 async function logReminderCorrespondence(tenancyId: string, body: string) {
   if (env.mockMode) {
@@ -165,4 +166,33 @@ tenanciesRouter.get('/tenancies/:id/payment-plan', async (req, res) => {
     orderBy: { sequence: 'asc' },
   });
   res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments });
+});
+
+// Landlord-initiated tenancy agreement. The Tenant signs it from their own
+// portal (POST /api/tenant/agreement/sign) — the Landlord only sends it and
+// views its status here, never signs on the Tenant's behalf.
+tenanciesRouter.get('/tenancies/:id/agreement', async (req, res) => {
+  const agreement = mockAgreements.get(req.params.id);
+  res.json(agreement ?? null);
+});
+
+tenanciesRouter.post('/tenancies/:id/agreement', async (req, res) => {
+  const existing = mockAgreements.get(req.params.id);
+  if (existing?.status === 'SIGNED') {
+    return res.status(409).json({ error: 'This tenancy already has a signed agreement.' });
+  }
+
+  const content = generateAgreementContent(req.params.id);
+  if (!content) return res.status(404).json({ error: 'Tenancy not found' });
+
+  const agreement = { tenancyId: req.params.id, status: 'SENT' as const, content, initiatedAt: new Date().toISOString() };
+  mockAgreements.set(req.params.id, agreement);
+
+  const tenancy = MOCK_TENANCIES.find((t) => t.id === req.params.id);
+  await logReminderCorrespondence(
+    req.params.id,
+    `Your tenancy agreement for ${tenancy?.propertyTitle ?? 'your property'} is ready to review and sign in your tenant portal.`,
+  );
+
+  res.status(201).json(agreement);
 });
