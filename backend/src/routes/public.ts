@@ -6,7 +6,7 @@ import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
 import { mockTickets } from './maintenance.js';
 import { createMockBooking, createMockQuote } from '../lib/mockBookings.js';
 import { notifyOps } from '../lib/notifyOps.js';
-import { pushArtisanRequestToSharePoint } from '../services/sharepoint.js';
+import { pushQuotation, pushHandymanVisitBooking, pushPropertyViewingBooking } from '../services/sharepoint.js';
 
 // Everything in this file is unauthenticated — it's what the public
 // marketing site (properties page, handyman marketplace page) talks to.
@@ -80,6 +80,14 @@ publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
     `New viewing request: ${property.title}`,
     `${name} (${phone}${email ? `, ${email}` : ''}) wants to view "${property.title}" on ${new Date(scheduledFor).toLocaleString('en-GB')}.${notes ? `\n\nNote: ${notes}` : ''}`,
   );
+  void pushPropertyViewingBooking({
+    propertyTitle: property.title,
+    requesterName: name,
+    requesterPhone: phone,
+    requesterEmail: email,
+    scheduledFor,
+    notes,
+  });
 
   res.status(201).json(booking);
 });
@@ -154,8 +162,7 @@ publicRouter.post('/public/repair-jobs/:id/quote', async (req, res) => {
     `New repair quote: ${job.description}`,
     `${parsed.data.handymanName} (${parsed.data.handymanPhone}) quoted ₦${parsed.data.amount.toLocaleString()} for "${job.description}".${parsed.data.message ? `\n\nNote: ${parsed.data.message}` : ''}`,
   );
-  void pushArtisanRequestToSharePoint({
-    requestType: 'Quote',
+  void pushQuotation({
     jobDescription: job.description,
     propertyTitle: job.propertyTitle,
     handymanName: parsed.data.handymanName,
@@ -219,8 +226,7 @@ publicRouter.post('/public/repair-jobs/:id/book-viewing', async (req, res) => {
     `Site-visit request: ${job.description}`,
     `${handymanName} (${handymanPhone}) wants to view "${job.description}" (${job.propertyTitle}) on ${new Date(scheduledFor).toLocaleString('en-GB')} before quoting.${message ? `\n\nNote: ${message}` : ''}`,
   );
-  void pushArtisanRequestToSharePoint({
-    requestType: 'Site Visit',
+  void pushHandymanVisitBooking({
     jobDescription: job.description,
     propertyTitle: job.propertyTitle,
     handymanName,

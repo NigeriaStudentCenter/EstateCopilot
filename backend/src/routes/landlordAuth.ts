@@ -6,6 +6,7 @@ import { mockLandlords, mockLandlordsByEmail, createMockLandlord, findMockLandlo
 import { hashPassword, verifyPassword, signLandlordToken, verifyLandlordToken, type LandlordTokenPayload } from '../services/landlordAuth.js';
 import { initializeSubscription, verifySubscriptionTransaction } from '../services/paystackSubscription.js';
 import { resolveBankAccount, createLandlordSubaccount } from '../services/paystackSubaccount.js';
+import { pushSubscribedLandlord } from '../services/sharepoint.js';
 
 export const landlordAuthRouter = Router();
 
@@ -79,6 +80,15 @@ landlordAuthRouter.post('/landlord-auth/confirm', async (req, res) => {
     landlord.currentPeriodEnd = verification.currentPeriodEnd?.toISOString();
     landlord.pendingReference = undefined;
     const token = signLandlordToken({ landlordId: landlord.id, name: landlord.name, email: landlord.email });
+    void pushSubscribedLandlord({
+      landlordName: landlord.name,
+      email: landlord.email,
+      phone: landlord.phone,
+      subscriptionStatus: landlord.subscriptionStatus,
+      monthlyAmountNaira: env.subscription.monthlyAmountKobo / 100,
+      bankAccountName: landlord.bankAccountName,
+      paystackConnected: !!landlord.paystackSubaccountCode,
+    });
     return res.json({ token });
   }
 
@@ -95,6 +105,15 @@ landlordAuthRouter.post('/landlord-auth/confirm', async (req, res) => {
     },
   });
   const token = signLandlordToken({ landlordId: landlord.id, name: landlord.name, email: landlord.email });
+  void pushSubscribedLandlord({
+    landlordName: landlord.name,
+    email: landlord.email,
+    phone: landlord.phone ?? undefined,
+    subscriptionStatus: landlord.subscriptionStatus,
+    monthlyAmountNaira: env.subscription.monthlyAmountKobo / 100,
+    bankAccountName: landlord.bankAccountName ?? undefined,
+    paystackConnected: !!landlord.paystackSubaccountCode,
+  });
   res.json({ token });
 });
 

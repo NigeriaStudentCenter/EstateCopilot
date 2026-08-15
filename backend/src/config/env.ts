@@ -55,13 +55,18 @@ export const env = {
     email: process.env.OPS_EMAIL ?? 'ops@estatecopilot.example',
   },
   sharepoint: {
-    // Mirrors every artisan quote/visit-request into a SharePoint list via
-    // Microsoft Graph (app-only, client credentials). Unset means the mirror
-    // is skipped — it's a best-effort side effect, never a hard dependency.
+    // Mirrors bookings/quotes/subscriptions into dedicated SharePoint lists
+    // via Microsoft Graph (app-only, client credentials). Each list ID is
+    // independently optional — an unset one just skips that particular
+    // mirror. Always best-effort, never a hard dependency.
     tenantId: process.env.SHAREPOINT_TENANT_ID,
     clientId: process.env.SHAREPOINT_CLIENT_ID,
     clientSecret: process.env.SHAREPOINT_CLIENT_SECRET,
     siteId: process.env.SHAREPOINT_SITE_ID,
-    listId: process.env.SHAREPOINT_LIST_ID,
+    listIdArtisanRequests: process.env.SHAREPOINT_LIST_ID,
+    listIdQuotations: process.env.SHAREPOINT_LIST_ID_QUOTATIONS,
+    listIdHandymanVisits: process.env.SHAREPOINT_LIST_ID_HANDYMAN_VISITS,
+    listIdPropertyViewings: process.env.SHAREPOINT_LIST_ID_PROPERTY_VIEWINGS,
+    listIdSubscribedLandlords: process.env.SHAREPOINT_LIST_ID_SUBSCRIBED_LANDLORDS,
   },
 };

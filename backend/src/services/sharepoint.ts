@@ -1,9 +1,9 @@
 import { env } from '../config/env.js';
 
-// App-only (client credentials) Microsoft Graph access, scoped to a single
-// SharePoint list. Best-effort mirror only — a failure here must never break
-// the actual quote/visit-request flow, so every call is caught and logged,
-// never thrown.
+// App-only (client credentials) Microsoft Graph access. Every push in this
+// file is a best-effort mirror into a SharePoint list — a failure here must
+// never break the actual booking/quote/signup flow, so every call is caught
+// and logged, never thrown.
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
@@ -34,21 +34,9 @@ async function getAccessToken(): Promise<string | null> {
   return cachedToken.value;
 }
 
-interface ArtisanRequestFields {
-  requestType: 'Quote' | 'Site Visit';
-  jobDescription: string;
-  propertyTitle?: string;
-  handymanName: string;
-  handymanPhone: string;
-  handymanEmail?: string;
-  amount?: number;
-  scheduledFor?: string;
-  message?: string;
-}
-
-export async function pushArtisanRequestToSharePoint(data: ArtisanRequestFields): Promise<void> {
-  const { siteId, listId } = env.sharepoint;
-  if (!siteId || !listId) return; // integration not configured — silently skip
+async function pushListItem(listId: string | undefined, fields: Record<string, unknown>): Promise<void> {
+  const { siteId } = env.sharepoint;
+  if (!siteId || !listId) return; // that particular list isn't configured — silently skip
 
   try {
     const token = await getAccessToken();
@@ -60,21 +48,7 @@ export async function pushArtisanRequestToSharePoint(data: ArtisanRequestFields)
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        fields: {
-          Title: `${data.requestType} — ${data.propertyTitle ?? 'Repair job'}`,
-          RequestType: data.requestType,
-          JobDescription: data.jobDescription,
-          PropertyTitle: data.propertyTitle ?? '',
-          HandymanName: data.handymanName,
-          HandymanPhone: data.handymanPhone,
-          HandymanEmail: data.handymanEmail ?? '',
-          Amount: data.amount ?? null,
-          ScheduledFor: data.scheduledFor ?? null,
-          Message: data.message ?? '',
-          SubmittedAt: new Date().toISOString(),
-        },
-      }),
+      body: JSON.stringify({ fields }),
     });
     if (!res.ok) {
       console.error('[sharepoint] list item write failed', res.status, await res.text());
@@ -82,4 +56,90 @@ export async function pushArtisanRequestToSharePoint(data: ArtisanRequestFields)
   } catch (err) {
     console.error('[sharepoint] mirror failed', err);
   }
+}
+
+export async function pushQuotation(data: {
+  jobDescription: string;
+  propertyTitle?: string;
+  handymanName: string;
+  handymanPhone: string;
+  handymanEmail?: string;
+  amount: number;
+  message?: string;
+}): Promise<void> {
+  await pushListItem(env.sharepoint.listIdQuotations, {
+    Title: `Quote — ${data.propertyTitle ?? 'Repair job'}`,
+    JobDescription: data.jobDescription,
+    PropertyTitle: data.propertyTitle ?? '',
+    HandymanName: data.handymanName,
+    HandymanPhone: data.handymanPhone,
+    HandymanEmail: data.handymanEmail ?? '',
+    Amount: data.amount,
+    Message: data.message ?? '',
+    SubmittedAt: new Date().toISOString(),
+  });
+}
+
+export async function pushHandymanVisitBooking(data: {
+  jobDescription: string;
+  propertyTitle?: string;
+  handymanName: string;
+  handymanPhone: string;
+  handymanEmail?: string;
+  scheduledFor: string;
+  message?: string;
+}): Promise<void> {
+  await pushListItem(env.sharepoint.listIdHandymanVisits, {
+    Title: `Site visit — ${data.propertyTitle ?? 'Repair job'}`,
+    JobDescription: data.jobDescription,
+    PropertyTitle: data.propertyTitle ?? '',
+    HandymanName: data.handymanName,
+    HandymanPhone: data.handymanPhone,
+    HandymanEmail: data.handymanEmail ?? '',
+    ScheduledFor: data.scheduledFor,
+    Message: data.message ?? '',
+    SubmittedAt: new Date().toISOString(),
+  });
+}
+
+export async function pushPropertyViewingBooking(data: {
+  propertyTitle?: string;
+  requesterName: string;
+  requesterPhone: string;
+  requesterEmail?: string;
+  scheduledFor: string;
+  notes?: string;
+}): Promise<void> {
+  await pushListItem(env.sharepoint.listIdPropertyViewings, {
+    Title: `Viewing — ${data.propertyTitle ?? 'Property'}`,
+    PropertyTitle: data.propertyTitle ?? '',
+    RequesterName: data.requesterName,
+    RequesterPhone: data.requesterPhone,
+    RequesterEmail: data.requesterEmail ?? '',
+    ScheduledFor: data.scheduledFor,
+    Notes: data.notes ?? '',
+    SubmittedAt: new Date().toISOString(),
+  });
+}
+
+export async function pushSubscribedLandlord(data: {
+  landlordName: string;
+  email: string;
+  phone?: string;
+  subscriptionStatus: string;
+  monthlyAmountNaira: number;
+  bankAccountName?: string;
+  paystackConnected: boolean;
+}): Promise<void> {
+  await pushListItem(env.sharepoint.listIdSubscribedLandlords, {
+    Title: data.landlordName,
+    LandlordName: data.landlordName,
+    Email: data.email,
+    Phone: data.phone ?? '',
+    SubscriptionStatus: data.subscriptionStatus,
+    MonthlyAmount: data.monthlyAmountNaira,
+    BankAccountName: data.bankAccountName ?? '',
+    PaystackConnected: data.paystackConnected,
+    SubscribedAt: new Date().toISOString(),
+  });
 }
