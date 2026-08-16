@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import VideoEmbed from '../components/VideoEmbed';
 import { TENANT_PORTAL_URL } from '../lib/links';
+import dashboardScreenshot from '../assets/landlord-dashboard-screenshot.jpg';
 
 const problems = [
   {
@@ -156,6 +157,27 @@ const Home: React.FC = () => {
               <p className="text-sm text-gray-600">{f.body}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* See it before you believe it */}
+      <section className="bg-[#f6f2e9] border-y border-amber-100/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-20">
+          <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">See it before you believe it</p>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 max-w-2xl mb-4 text-balance">
+            This is the actual dashboard you'll get — not a mockup
+          </h2>
+          <p className="text-gray-600 max-w-2xl mb-10">
+            No stock photos, no "coming soon." This is a real screenshot of the landlord portal — your properties,
+            your tenants, your rent, your repairs, all in one place from the day you sign up.
+          </p>
+          <div className="bg-white border border-gray-100 shadow-md rounded-2xl p-2 md:p-3">
+            <img
+              src={dashboardScreenshot}
+              alt="EstateCopilot landlord dashboard showing portfolio revenue, active tenancies, pending repairs, and tenant compliance status"
+              className="w-full h-auto rounded-xl border border-gray-100"
+            />
+          </div>
         </div>
       </section>
 
