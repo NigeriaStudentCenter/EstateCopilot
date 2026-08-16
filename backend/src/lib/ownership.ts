@@ -10,6 +10,7 @@ import { MOCK_PROPERTIES } from './mockProperties.js';
 import { MOCK_TENANCIES } from './mockTenancies.js';
 import { mockTickets } from './mockMaintenance.js';
 import { mockQuotes } from './mockBookings.js';
+import { mockLegalRequests, mockLegalQuotes } from './mockLegal.js';
 
 export function propertyLandlordId(propertyId?: string): string | undefined {
   return propertyId ? MOCK_PROPERTIES.find((p) => p.id === propertyId)?.landlordId : undefined;
@@ -38,4 +39,16 @@ export function quoteLandlordId(quoteId?: string): string | undefined {
   if (!quoteId) return undefined;
   const quote = mockQuotes.find((q) => q.id === quoteId);
   return quote ? ticketLandlordId(quote.maintenanceTicketId) : undefined;
+}
+
+export function legalRequestLandlordId(requestId?: string): string | undefined {
+  if (!requestId) return undefined;
+  const request = mockLegalRequests.find((r) => r.id === requestId);
+  return request ? propertyLandlordId(request.propertyId) : undefined;
+}
+
+export function legalQuoteLandlordId(quoteId?: string): string | undefined {
+  if (!quoteId) return undefined;
+  const quote = mockLegalQuotes.find((q) => q.id === quoteId);
+  return quote ? legalRequestLandlordId(quote.legalRequestId) : undefined;
 }

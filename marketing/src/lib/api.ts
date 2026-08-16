@@ -29,6 +29,12 @@ export const api = {
     data: { handymanName: string; handymanPhone: string; handymanEmail?: string; scheduledFor: string; message?: string },
   ) => request(`/api/public/repair-jobs/${jobId}/book-viewing`, { method: 'POST', body: JSON.stringify(data) }),
 
+  getLegalRequests: () => request<any[]>('/api/public/legal-requests'),
+  submitLegalQuote: (
+    requestId: string,
+    data: { lawyerName: string; lawyerPhone: string; lawyerEmail?: string; lawFirm?: string; amount: number; message?: string },
+  ) => request(`/api/public/legal-requests/${requestId}/quote`, { method: 'POST', body: JSON.stringify(data) }),
+
   landlordSignup: (data: { name: string; email: string; phone: string; password: string }) =>
     request<{ landlordId: string; reference: string; authorizationUrl: string | null; monthlyAmountKobo: number }>(
       '/api/landlord-auth/signup',

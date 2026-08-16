@@ -288,6 +288,66 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* Legal help, new add-on */}
+      <section className="bg-emerald-950 text-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-20">
+          <p className="text-sm font-semibold text-emerald-400 uppercase tracking-wide mb-2">New — a lawyer, whenever you actually need one</p>
+          <h2 className="font-serif text-3xl md:text-4xl font-bold max-w-2xl mb-6 text-balance">
+            You used to need your own retained lawyer. Now the platform provides one, on demand.
+          </h2>
+          <p className="text-emerald-100 max-w-2xl mb-10">
+            Every landlord in Nigeria eventually needs a lawyer — a tenant stops paying, a lease needs to hold up on
+            paper, someone won't leave when they're supposed to. Before now, that meant keeping your own solicitor on
+            retainer, whether you needed them that month or not. EstateCopilot now puts a vetted legal team directly
+            inside your dashboard: log what you need, and it's opened to verified Nigerian lawyers who send you a
+            proposal — you only ever engage one, and only when you actually have a case.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div className="text-2xl mb-3">📄</div>
+              <p className="font-semibold mb-1.5">Notice to quit, done right</p>
+              <p className="text-sm text-emerald-200">
+                Under the Lagos Tenancy Law, a wrongly-served notice — wrong length, wrong wording, wrong person
+                signing it — can invalidate the entire eviction, sending you back to day one. A lawyer drafts and
+                signs it correctly the first time.
+              </p>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div className="text-2xl mb-3">✍️</div>
+              <p className="font-semibold mb-1.5">Tenancy agreements that hold up</p>
+              <p className="text-sm text-emerald-200">
+                Get your lease reviewed or drafted by someone who knows what a Nigerian court will actually enforce —
+                not a template copied from a friend's old agreement.
+              </p>
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div className="text-2xl mb-3">⚖️</div>
+              <p className="font-semibold mb-1.5">Rent recovery &amp; disputes</p>
+              <p className="text-sm text-emerald-200">
+                A tenant owing months of rent, or disputing a deposit, is exactly the kind of case worth an NBA-licensed
+                lawyer — engaged directly through the platform, no personal contact needed.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <p className="text-sm text-emerald-200 max-w-lg">
+              <span className="font-semibold text-white">No retainer, no platform fee.</span> You log the request,
+              lawyers propose their fee directly to you, and you pick who to engage — the same way repairs work with
+              artisans. It's part of your subscription; the only thing you ever pay for is the actual legal work you
+              choose to accept.
+            </p>
+            <Link
+              to="/legal-team"
+              className="shrink-0 bg-emerald-400 text-emerald-950 px-6 py-3 rounded-xl font-semibold hover:bg-emerald-300 transition whitespace-nowrap"
+            >
+              See how it works →
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Tenant cross-link */}
       <section className="bg-[#f6f2e9] border-y border-amber-100/60">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -318,7 +378,8 @@ const Home: React.FC = () => {
         </Link>
         <p className="text-sm text-gray-400 mt-6">
           Have a vacant unit right now? <Link to="/properties" className="text-emerald-700 hover:underline">See how listings look</Link> ·
-          {' '}Repair-ready and looking for work? <Link to="/handymen" className="text-emerald-700 hover:underline">Browse open jobs</Link>
+          {' '}Repair-ready and looking for work? <Link to="/handymen" className="text-emerald-700 hover:underline">Browse open jobs</Link> ·
+          {' '}Practicing law in Nigeria? <Link to="/legal-team" className="text-emerald-700 hover:underline">See open requests</Link>
         </p>
       </section>
     </>

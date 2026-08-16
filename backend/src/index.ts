@@ -18,6 +18,7 @@ import { tenantPortalRouter } from './routes/tenantPortal.js';
 import { landlordAuthRouter } from './routes/landlordAuth.js';
 import { publicRouter } from './routes/public.js';
 import { bookingsRouter } from './routes/bookings.js';
+import { legalRouter } from './routes/legal.js';
 import { whatsappRouter } from './routes/whatsapp.js';
 import { seedDemoLandlord } from './lib/mockLandlords.js';
 
@@ -53,6 +54,7 @@ app.use('/api', tenantPortalRouter);
 app.use('/api', landlordAuthRouter);
 app.use('/api', publicRouter);
 app.use('/api', bookingsRouter);
+app.use('/api', legalRouter);
 app.use(whatsappRouter); // mounted at root: /webhooks/whatsapp*
 
 app.use(errorHandler);

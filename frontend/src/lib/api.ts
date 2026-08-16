@@ -130,4 +130,15 @@ export const api = {
   getBookings: () => request<any[]>('/api/bookings'),
   setBookingStatus: (bookingId: string, status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED') =>
     request(`/api/bookings/${bookingId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  getLegalRequests: () => request<any[]>('/api/legal-requests'),
+  createLegalRequest: (data: { propertyId: string; category: string; description: string; raisedBy?: string }) =>
+    request('/api/legal-requests', { method: 'POST', body: JSON.stringify(data) }),
+  setLegalMarketplaceListing: (requestId: string, openToMarketplace: boolean) =>
+    request(`/api/legal-requests/${requestId}/marketplace`, {
+      method: 'PATCH',
+      body: JSON.stringify({ openToMarketplace }),
+    }),
+  getLegalQuotes: (requestId: string) => request<any[]>(`/api/legal-requests/${requestId}/quotes`),
+  acceptLegalQuote: (quoteId: string) => request(`/api/legal-quotes/${quoteId}/accept`, { method: 'PATCH', body: JSON.stringify({}) }),
 };

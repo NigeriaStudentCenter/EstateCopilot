@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type NavView = 'Dashboard' | 'Properties' | 'Tenancies' | 'Tenant Vetting' | 'Finance & Levies' | 'Maintenance' | 'Bookings' | 'AI Inbox' | 'Settings';
+export type NavView = 'Dashboard' | 'Properties' | 'Tenancies' | 'Tenant Vetting' | 'Finance & Levies' | 'Maintenance' | 'Legal' | 'Bookings' | 'AI Inbox' | 'Settings';
 
 interface SidebarProps {
   active: NavView;
@@ -14,6 +14,7 @@ const links: { name: NavView; icon: string }[] = [
   { name: 'Tenant Vetting', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
   { name: 'Finance & Levies', icon: 'M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z' },
   { name: 'Maintenance', icon: 'M14.7 19.3l1.8-1.8c.4-.4.4-1.1 0-1.5l-4.5-4.5c-.4-.4-1.1-.4-1.5 0l-1.8 1.8c-.4.4-.4 1.1 0 1.5l4.5 4.5c.4.4 1.1.4 1.5 0zM20 11a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1zM6 12a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H6zm9.7-8.3l1.8 1.8c.4.4.4 1.1 0 1.5l-4.5 4.5c-.4.4-1.1.4-1.5 0L9.7 9.7c-.4-.4-.4-1.1 0-1.5l4.5-4.5c.4-.4 1.1-.4 1.5 0zM12 20a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1zm0-10V8a2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2zM4 6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H4z' },
+  { name: 'Legal', icon: 'M12 3v2m0 0c-2.5 0-6 1-6 4l-2 5h4m4-9c2.5 0 6 1 6 4l2 5h-4m-8-9v14m-4 0h8M9 8l-3 6m9-6l3 6' },
   { name: 'Bookings', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
   { name: 'AI Inbox', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
   { name: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },

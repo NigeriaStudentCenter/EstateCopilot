@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
 import { mockTickets } from '../lib/mockMaintenance.js';
 import { createMockBooking, createMockQuote } from '../lib/mockBookings.js';
+import { mockLegalRequests, createMockLegalQuote } from '../lib/mockLegal.js';
 import { notifyOps } from '../lib/notifyOps.js';
 import { pushQuotation, pushHandymanVisitBooking, pushPropertyViewingBooking } from '../services/sharepoint.js';
 
@@ -250,4 +251,56 @@ publicRouter.post('/public/repair-jobs/:id/book-viewing', async (req, res) => {
   });
 
   res.status(201).json(booking);
+});
+
+// ---- Legal team marketplace -------------------------------------------
+
+function toPublicLegalRequest(r: (typeof mockLegalRequests)[number]) {
+  // Same privacy pattern as repair jobs — enough for a lawyer to scope and
+  // price the work, not enough to identify the tenant or exact address.
+  return {
+    id: r.id,
+    propertyTitle: r.propertyTitle,
+    category: r.category,
+    description: r.description,
+    status: r.status,
+    createdAt: r.createdAt,
+  };
+}
+
+publicRouter.get('/public/legal-requests', async (_req, res) => {
+  const requests = mockLegalRequests.filter((r) => r.openToMarketplace && r.status === 'OPEN');
+  res.json(requests.map(toPublicLegalRequest));
+});
+
+publicRouter.get('/public/legal-requests/:id', async (req, res) => {
+  const request = mockLegalRequests.find((r) => r.id === req.params.id && r.openToMarketplace);
+  return request ? res.json(toPublicLegalRequest(request)) : res.status(404).json({ error: 'Request not found' });
+});
+
+const legalQuoteSchema = z.object({
+  lawyerName: z.string().min(2),
+  lawyerPhone: z.string().min(7),
+  lawyerEmail: z.string().email().optional(),
+  lawFirm: z.string().optional(),
+  amount: z.number().int().positive(),
+  message: z.string().optional(),
+});
+
+publicRouter.post('/public/legal-requests/:id/quote', async (req, res) => {
+  const parsed = legalQuoteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  const request = mockLegalRequests.find((r) => r.id === req.params.id && r.openToMarketplace);
+  if (!request) return res.status(404).json({ error: 'Request not found' });
+
+  const quote = createMockLegalQuote({ legalRequestId: request.id, ...parsed.data });
+
+  await notifyOps(
+    `New legal proposal: ${request.category}`,
+    `${parsed.data.lawyerName}${parsed.data.lawFirm ? ` (${parsed.data.lawFirm})` : ''} (${parsed.data.lawyerPhone}) proposed ₦${parsed.data.amount.toLocaleString()} for "${request.description}".${parsed.data.message ? `\n\nNote: ${parsed.data.message}` : ''}`,
+  );
+
+  res.status(201).json(quote);
 });

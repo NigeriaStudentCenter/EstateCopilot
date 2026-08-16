@@ -3,6 +3,7 @@ import Sidebar, { NavView } from './components/dashboard/Sidebar';
 import Header from './components/dashboard/Header';
 import DashboardHome from './pages/DashboardHome';
 import MaintenancePage from './pages/MaintenancePage';
+import LegalPage from './pages/LegalPage';
 import TenanciesPage from './pages/TenanciesPage';
 import AiInboxPage from './pages/AiInboxPage';
 import PropertiesPage from './pages/PropertiesPage';
@@ -27,6 +28,7 @@ const Dashboard: React.FC<DashboardProps> = ({ landlord, onLogout }) => {
           {view === 'Dashboard' && <DashboardHome />}
           {view === 'Tenancies' && <TenanciesPage />}
           {view === 'Maintenance' && <MaintenancePage />}
+          {view === 'Legal' && <LegalPage />}
           {view === 'AI Inbox' && <AiInboxPage />}
           {view === 'Properties' && <PropertiesPage />}
           {view === 'Bookings' && <BookingsPage />}

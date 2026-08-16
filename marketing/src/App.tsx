@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Properties from './pages/Properties';
 import Handymen from './pages/Handymen';
+import LegalTeam from './pages/LegalTeam';
 import Signup from './pages/Signup';
 import SignupCallback from './pages/SignupCallback';
 
@@ -17,6 +18,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Home />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/handymen" element={<Handymen />} />
+          <Route path="/legal-team" element={<LegalTeam />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/signup/callback" element={<SignupCallback />} />
         </Routes>
