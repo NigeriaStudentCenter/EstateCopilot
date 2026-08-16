@@ -62,8 +62,26 @@ export const api = {
     }),
 
   getProperties: () => request<any[]>('/api/properties'),
+  createProperty: (data: {
+    title: string;
+    address: string;
+    state: string;
+    lga: string;
+    propertyType: 'LONG_TERM' | 'SHORT_LET';
+    rentAmount: number;
+    cautionDepositAmount: number;
+    municipalId?: string;
+  }) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(data) }),
   updateProperty: (propertyId: string, data: { isAdvertised?: boolean; listingDescription?: string; imageUrls?: string[] }) =>
     request(`/api/properties/${propertyId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  inviteTenant: (
+    propertyId: string,
+    data: { tenantName?: string; tenantPhone: string; rentAmount?: number; leaseStart?: string; leaseEnd?: string },
+  ) =>
+    request<{ tenancyId: string; inviteUrl: string }>('/api/tenancies/invite', {
+      method: 'POST',
+      body: JSON.stringify({ propertyId, ...data }),
+    }),
   getTenancies: () => request<any[]>('/api/tenancies'),
   sendRentReminder: (tenancyId: string, tenantPhone: string, daysOut: number) =>
     request(`/api/tenancies/${tenancyId}/send-rent-reminder`, {

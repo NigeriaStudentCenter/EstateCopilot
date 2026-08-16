@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
-import { mockTickets } from './maintenance.js';
+import { mockTickets } from '../lib/mockMaintenance.js';
 import { createMockBooking, createMockQuote } from '../lib/mockBookings.js';
 import { notifyOps } from '../lib/notifyOps.js';
 import { pushQuotation, pushHandymanVisitBooking, pushPropertyViewingBooking } from '../services/sharepoint.js';
@@ -100,7 +100,7 @@ function toPublicJob(t: any) {
   // address is shared only once a quote is accepted.
   return {
     id: t.id,
-    propertyTitle: t.propertyTitle,
+    propertyTitle: t.propertyTitle ?? t.property?.title,
     description: t.description,
     categoryLabel: t.categoryLabel,
     responsibility: t.responsibility,
@@ -116,6 +116,7 @@ publicRouter.get('/public/repair-jobs', async (_req, res) => {
   }
   const jobs = await prisma.maintenanceTicket.findMany({
     where: { openToMarketplace: true, status: { not: 'RESOLVED' } },
+    include: { property: true },
     orderBy: { createdAt: 'desc' },
   });
   res.json(jobs.map(toPublicJob));
@@ -126,7 +127,10 @@ publicRouter.get('/public/repair-jobs/:id', async (req, res) => {
     const job = mockTickets.find((t) => t.id === req.params.id && t.openToMarketplace);
     return job ? res.json(toPublicJob(job)) : res.status(404).json({ error: 'Job not found' });
   }
-  const job = await prisma.maintenanceTicket.findFirst({ where: { id: req.params.id, openToMarketplace: true } });
+  const job = await prisma.maintenanceTicket.findFirst({
+    where: { id: req.params.id, openToMarketplace: true },
+    include: { property: true },
+  });
   return job ? res.json(toPublicJob(job)) : res.status(404).json({ error: 'Job not found' });
 });
 
@@ -146,17 +150,21 @@ publicRouter.post('/public/repair-jobs/:id/quote', async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
 
-  let job;
+  let job: any;
   let quote;
   if (env.mockMode) {
     job = mockTickets.find((t) => t.id === req.params.id && t.openToMarketplace);
     if (!job) return res.status(404).json({ error: 'Job not found' });
     quote = createMockQuote({ maintenanceTicketId: job.id, ...parsed.data });
   } else {
-    job = await prisma.maintenanceTicket.findFirst({ where: { id: req.params.id, openToMarketplace: true } });
+    job = await prisma.maintenanceTicket.findFirst({
+      where: { id: req.params.id, openToMarketplace: true },
+      include: { property: true },
+    });
     if (!job) return res.status(404).json({ error: 'Job not found' });
     quote = await prisma.repairQuote.create({ data: { maintenanceTicketId: job.id, ...parsed.data } });
   }
+  const jobPropertyTitle = job.propertyTitle ?? job.property?.title;
 
   await notifyOps(
     `New repair quote: ${job.description}`,
@@ -164,7 +172,7 @@ publicRouter.post('/public/repair-jobs/:id/quote', async (req, res) => {
   );
   void pushQuotation({
     jobDescription: job.description,
-    propertyTitle: job.propertyTitle,
+    propertyTitle: jobPropertyTitle,
     handymanName: parsed.data.handymanName,
     handymanPhone: parsed.data.handymanPhone,
     handymanEmail: parsed.data.handymanEmail,
@@ -192,7 +200,7 @@ publicRouter.post('/public/repair-jobs/:id/book-viewing', async (req, res) => {
   }
   const { handymanName, handymanPhone, handymanEmail, scheduledFor, message } = parsed.data;
 
-  let job;
+  let job: any;
   let booking;
   if (env.mockMode) {
     job = mockTickets.find((t) => t.id === req.params.id && t.openToMarketplace);
@@ -207,7 +215,10 @@ publicRouter.post('/public/repair-jobs/:id/book-viewing', async (req, res) => {
       notes: message,
     });
   } else {
-    job = await prisma.maintenanceTicket.findFirst({ where: { id: req.params.id, openToMarketplace: true } });
+    job = await prisma.maintenanceTicket.findFirst({
+      where: { id: req.params.id, openToMarketplace: true },
+      include: { property: true },
+    });
     if (!job) return res.status(404).json({ error: 'Job not found' });
     booking = await prisma.booking.create({
       data: {
@@ -222,13 +233,15 @@ publicRouter.post('/public/repair-jobs/:id/book-viewing', async (req, res) => {
     });
   }
 
+  const jobPropertyTitle = job.propertyTitle ?? job.property?.title;
+
   await notifyOps(
     `Site-visit request: ${job.description}`,
-    `${handymanName} (${handymanPhone}) wants to view "${job.description}" (${job.propertyTitle}) on ${new Date(scheduledFor).toLocaleString('en-GB')} before quoting.${message ? `\n\nNote: ${message}` : ''}`,
+    `${handymanName} (${handymanPhone}) wants to view "${job.description}" (${jobPropertyTitle}) on ${new Date(scheduledFor).toLocaleString('en-GB')} before quoting.${message ? `\n\nNote: ${message}` : ''}`,
   );
   void pushHandymanVisitBooking({
     jobDescription: job.description,
-    propertyTitle: job.propertyTitle,
+    propertyTitle: jobPropertyTitle,
     handymanName,
     handymanPhone,
     handymanEmail,

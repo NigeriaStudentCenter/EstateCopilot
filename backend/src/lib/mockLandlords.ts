@@ -1,6 +1,8 @@
 // In-memory (MOCK_MODE only) landlord accounts — separate from env.ai.landlordDisplayName,
 // which just names who AI-drafted replies are signed by.
 
+import { hashPassword } from './passwords.js';
+
 export interface MockLandlord {
   id: string;
   name: string;
@@ -36,4 +38,26 @@ export function createMockLandlord(data: Omit<MockLandlord, 'id' | 'createdAt' |
 
 export function findMockLandlordByReference(reference: string): MockLandlord | undefined {
   return Array.from(mockLandlords.values()).find((l) => l.pendingReference === reference);
+}
+
+// Fixed-ID landlord that owns every pre-seeded demo property/tenancy
+// (p1-p18, t1-t3). Keeps all the demo/QA flows this project was built and
+// verified against working exactly as before, while every other (real)
+// landlord signup starts with a genuinely empty portfolio.
+export const DEMO_LANDLORD_ID = 'll_demo_estatecopilot';
+
+export function seedDemoLandlord(): void {
+  if (mockLandlords.has(DEMO_LANDLORD_ID)) return;
+  const email = process.env.DEMO_LANDLORD_EMAIL ?? 'demo@estatecopilot.ng';
+  const landlord: MockLandlord = {
+    id: DEMO_LANDLORD_ID,
+    name: 'Demo Landlord',
+    email,
+    phone: '2348000000000',
+    passwordHash: hashPassword(process.env.DEMO_LANDLORD_PASSWORD ?? 'ChangeMe123!'),
+    subscriptionStatus: 'ACTIVE',
+    createdAt: new Date().toISOString(),
+  };
+  mockLandlords.set(landlord.id, landlord);
+  mockLandlordsByEmail.set(email, landlord.id);
 }

@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { requireTenantAuth, type AuthedRequest } from './tenantAuth.js';
 import { MOCK_TENANCIES, mockPaymentPlans } from '../lib/mockTenancies.js';
 import { mockCorrespondence, logMockCorrespondence, createMockDraft } from '../lib/correspondenceStore.js';
-import { mockTickets } from './maintenance.js';
+import { mockTickets } from '../lib/mockMaintenance.js';
 import { resolveCategory } from '../lib/repairChecklist.js';
 import { draftReply, type DraftReplyParams } from '../services/aiReply.js';
 import { mockAgreements } from '../lib/mockAgreements.js';

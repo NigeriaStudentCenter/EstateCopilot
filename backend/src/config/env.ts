@@ -54,6 +54,9 @@ export const env = {
     whatsappNumber: process.env.OPS_WHATSAPP_NUMBER ?? '2348000000000',
     email: process.env.OPS_EMAIL ?? 'ops@estatecopilot.example',
   },
+  tenantPortal: {
+    baseUrl: process.env.TENANT_PORTAL_URL ?? 'http://localhost:5174',
+  },
   sharepoint: {
     // Mirrors bookings/quotes/subscriptions into dedicated SharePoint lists
     // via Microsoft Graph (app-only, client credentials). Each list ID is

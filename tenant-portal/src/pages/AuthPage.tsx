@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { api, setToken } from '../lib/api';
 
+const codeFromLink = new URLSearchParams(window.location.search).get('code') ?? '';
+
 const AuthPage: React.FC<{ onAuthed: () => void }> = ({ onAuthed }) => {
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
-  const [tenancyId, setTenancyId] = useState('t3');
+  const [tenancyId, setTenancyId] = useState(codeFromLink);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,11 +62,14 @@ const AuthPage: React.FC<{ onAuthed: () => void }> = ({ onAuthed }) => {
                   <input
                     value={tenancyId}
                     onChange={(e) => setTenancyId(e.target.value)}
-                    placeholder="e.g. t3"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Ask your landlord for your invite code"
+                    readOnly={!!codeFromLink}
+                    className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm ${codeFromLink ? 'bg-gray-50 text-gray-500' : ''}`}
                     required
                   />
-                  <p className="text-xs text-gray-400 mt-1">Sent to you by your landlord or agent at move-in. Demo IDs: t1, t2, t3.</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {codeFromLink ? 'Pre-filled from your invite link.' : 'Sent to you by your landlord at move-in.'}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Full name</label>

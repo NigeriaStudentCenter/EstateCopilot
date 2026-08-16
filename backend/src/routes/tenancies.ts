@@ -5,9 +5,11 @@ import { prisma } from '../lib/prisma.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { buildInstallmentSchedule, createPaymentRequest } from '../services/paystackPaymentRequest.js';
 import { logMockCorrespondence } from '../lib/correspondenceStore.js';
-import { MOCK_TENANCIES, mockPaymentPlans } from '../lib/mockTenancies.js';
-import { requireLandlordAuth } from './landlordAuth.js';
+import { MOCK_TENANCIES, mockPaymentPlans, type MockTenancy } from '../lib/mockTenancies.js';
+import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
+import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.js';
 import { mockAgreements, generateAgreementContent } from '../lib/mockAgreements.js';
+import { tenancyLandlordId } from '../lib/ownership.js';
 
 async function logReminderCorrespondence(tenancyId: string, body: string) {
   if (env.mockMode) {
@@ -22,11 +24,19 @@ async function logReminderCorrespondence(tenancyId: string, body: string) {
 export const tenanciesRouter = Router();
 tenanciesRouter.use('/tenancies', requireLandlordAuth);
 
-tenanciesRouter.get('/tenancies', async (_req, res) => {
+// Every route below is scoped to req.landlord.landlordId. Tenancy has no
+// direct landlordId column — ownership is resolved by walking
+// tenancy -> property -> landlordId (see lib/ownership.ts for the mock-mode
+// walk; Prisma mode expresses the same thing as a `property: { landlordId }`
+// relation filter).
+
+tenanciesRouter.get('/tenancies', async (req: LandlordAuthedRequest, res) => {
+  const landlordId = req.landlord!.landlordId;
   if (env.mockMode) {
-    return res.json(MOCK_TENANCIES);
+    return res.json(MOCK_TENANCIES.filter((t) => tenancyLandlordId(t.id) === landlordId));
   }
   const tenancies = await prisma.tenancy.findMany({
+    where: { property: { landlordId } },
     include: { tenant: true, property: true },
   });
   res.json(tenancies);
@@ -42,13 +52,15 @@ function daysUntil(dateStr: string): number {
 // Pillar B: which tenancies fall inside a 90/60/30-day reminder window right now.
 // Meant to be polled by a daily cron; exposed here as a plain GET so it's easy
 // to wire into any scheduler (cron, GitHub Actions, a serverless timer, etc).
-tenanciesRouter.get('/tenancies/reminders/due', async (_req, res) => {
+tenanciesRouter.get('/tenancies/reminders/due', async (req: LandlordAuthedRequest, res) => {
+  const landlordId = req.landlord!.landlordId;
   if (env.mockMode) {
-    const due = MOCK_TENANCIES.map((t) => ({ ...t, daysUntilLeaseEnd: daysUntil(t.leaseEndDate) }))
+    const due = MOCK_TENANCIES.filter((t) => tenancyLandlordId(t.id) === landlordId)
+      .map((t) => ({ ...t, daysUntilLeaseEnd: daysUntil(t.leaseEndDate) }))
       .filter((t) => REMINDER_WINDOWS.some((w) => Math.abs(t.daysUntilLeaseEnd - w) <= 3));
     return res.json(due);
   }
-  const tenancies = await prisma.tenancy.findMany({ include: { tenant: true } });
+  const tenancies = await prisma.tenancy.findMany({ where: { property: { landlordId } }, include: { tenant: true } });
   const due = tenancies
     .map((t) => ({ ...t, daysUntilLeaseEnd: Math.round((t.leaseEnd.getTime() - Date.now()) / 86400000) }))
     .filter((t) => REMINDER_WINDOWS.some((w) => Math.abs(t.daysUntilLeaseEnd - w) <= 3));
@@ -57,11 +69,12 @@ tenanciesRouter.get('/tenancies/reminders/due', async (_req, res) => {
 
 // Sends the 90/60/30-day reminder to every tenancy currently due. This is the
 // endpoint a daily cron should call.
-tenanciesRouter.post('/tenancies/reminders/run', async (_req, res) => {
+tenanciesRouter.post('/tenancies/reminders/run', async (req: LandlordAuthedRequest, res) => {
+  const landlordId = req.landlord!.landlordId;
   const due = env.mockMode
-    ? MOCK_TENANCIES.map((t) => ({ ...t, daysUntilLeaseEnd: daysUntil(t.leaseEndDate) })).filter((t) =>
-        REMINDER_WINDOWS.some((w) => Math.abs(t.daysUntilLeaseEnd - w) <= 3),
-      )
+    ? MOCK_TENANCIES.filter((t) => tenancyLandlordId(t.id) === landlordId)
+        .map((t) => ({ ...t, daysUntilLeaseEnd: daysUntil(t.leaseEndDate) }))
+        .filter((t) => REMINDER_WINDOWS.some((w) => Math.abs(t.daysUntilLeaseEnd - w) <= 3))
     : [];
 
   const results = await Promise.all(
@@ -77,7 +90,13 @@ tenanciesRouter.post('/tenancies/reminders/run', async (_req, res) => {
 });
 
 // Manual single-tenancy reminder (e.g. a "remind now" button in the portal).
-tenanciesRouter.post('/tenancies/:id/send-rent-reminder', async (req, res) => {
+tenanciesRouter.post('/tenancies/:id/send-rent-reminder', async (req: LandlordAuthedRequest, res) => {
+  const landlordId = req.landlord!.landlordId;
+  const owns = env.mockMode
+    ? tenancyLandlordId(req.params.id) === landlordId
+    : !!(await prisma.tenancy.findFirst({ where: { id: req.params.id, property: { landlordId } } }));
+  if (!owns) return res.status(404).json({ error: 'Tenancy not found' });
+
   const daysOut = Number(req.body?.daysOut ?? 30);
   const body = `Reminder: your lease renews in ${daysOut} days. Reply to this message to begin renewal or ask a question.`;
   const result = await sendWhatsAppMessage(req.body?.tenantPhone ?? '2348000000000', body);
@@ -93,17 +112,20 @@ const paymentPlanSchema = z.object({
 
 // Pillar B: choose FULL (one Paystack payment request for the whole rent) or
 // INSTALLMENTS (rent split N ways, one payment request per installment).
-tenanciesRouter.post('/tenancies/:id/payment-plan', async (req, res) => {
+tenanciesRouter.post('/tenancies/:id/payment-plan', async (req: LandlordAuthedRequest, res) => {
   const parsed = paymentPlanSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   const { plan, startDate } = parsed.data;
   const installmentCount = parsed.data.installmentCount ?? 4;
+  const landlordId = req.landlord!.landlordId;
 
   const tenancy = env.mockMode
-    ? MOCK_TENANCIES.find((t) => t.id === req.params.id)
-    : await prisma.tenancy.findUnique({ where: { id: req.params.id }, include: { tenant: true } });
+    ? tenancyLandlordId(req.params.id) === landlordId
+      ? MOCK_TENANCIES.find((t) => t.id === req.params.id)
+      : undefined
+    : await prisma.tenancy.findFirst({ where: { id: req.params.id, property: { landlordId } }, include: { tenant: true } });
 
   if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
 
@@ -155,7 +177,13 @@ tenanciesRouter.post('/tenancies/:id/payment-plan', async (req, res) => {
   res.status(201).json({ plan, installments });
 });
 
-tenanciesRouter.get('/tenancies/:id/payment-plan', async (req, res) => {
+tenanciesRouter.get('/tenancies/:id/payment-plan', async (req: LandlordAuthedRequest, res) => {
+  const landlordId = req.landlord!.landlordId;
+  const owns = env.mockMode
+    ? tenancyLandlordId(req.params.id) === landlordId
+    : !!(await prisma.tenancy.findFirst({ where: { id: req.params.id, property: { landlordId } } }));
+  if (!owns) return res.status(404).json({ error: 'Tenancy not found' });
+
   if (env.mockMode) {
     const existing = mockPaymentPlans.get(req.params.id);
     return res.json(existing ?? { plan: 'FULL', installments: [] });
@@ -171,12 +199,19 @@ tenanciesRouter.get('/tenancies/:id/payment-plan', async (req, res) => {
 // Landlord-initiated tenancy agreement. The Tenant signs it from their own
 // portal (POST /api/tenant/agreement/sign) — the Landlord only sends it and
 // views its status here, never signs on the Tenant's behalf.
-tenanciesRouter.get('/tenancies/:id/agreement', async (req, res) => {
+tenanciesRouter.get('/tenancies/:id/agreement', async (req: LandlordAuthedRequest, res) => {
+  if (tenancyLandlordId(req.params.id) !== req.landlord!.landlordId) {
+    return res.status(404).json({ error: 'Tenancy not found' });
+  }
   const agreement = mockAgreements.get(req.params.id);
   res.json(agreement ?? null);
 });
 
-tenanciesRouter.post('/tenancies/:id/agreement', async (req, res) => {
+tenanciesRouter.post('/tenancies/:id/agreement', async (req: LandlordAuthedRequest, res) => {
+  if (tenancyLandlordId(req.params.id) !== req.landlord!.landlordId) {
+    return res.status(404).json({ error: 'Tenancy not found' });
+  }
+
   const existing = mockAgreements.get(req.params.id);
   if (existing?.status === 'SIGNED') {
     return res.status(409).json({ error: 'This tenancy already has a signed agreement.' });
@@ -195,4 +230,67 @@ tenanciesRouter.post('/tenancies/:id/agreement', async (req, res) => {
   );
 
   res.status(201).json(agreement);
+});
+
+const inviteSchema = z.object({
+  propertyId: z.string(),
+  tenantName: z.string().optional(),
+  tenantPhone: z.string().min(7),
+  rentAmount: z.number().int().positive().optional(),
+  leaseStart: z.string().optional(),
+  leaseEnd: z.string().optional(),
+});
+
+// The actual "invite a tenant" feature: a landlord picks one of their OWN
+// properties, supplies minimal tenant contact info, and gets back a
+// shareable link. The tenant fills in their own name/email/password at
+// signup (POST /tenant-auth/signup already handles a pre-existing tenancyId
+// with no email on file — this just creates that pending record for it to
+// attach to).
+tenanciesRouter.post('/tenancies/invite', async (req: LandlordAuthedRequest, res) => {
+  const parsed = inviteSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  const landlordId = req.landlord!.landlordId;
+  const { propertyId, tenantName, tenantPhone, rentAmount, leaseStart, leaseEnd } = parsed.data;
+
+  if (env.mockMode) {
+    const property = MOCK_PROPERTIES.find((p) => p.id === propertyId && p.landlordId === landlordId);
+    if (!property) return res.status(404).json({ error: 'Property not found' });
+
+    const id = `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const tenancy: MockTenancy = {
+      id,
+      propertyId,
+      propertyTitle: property.title,
+      tenantName: tenantName ?? '',
+      tenantPhone,
+      tenantEmail: '',
+      leaseEndDate: leaseEnd ?? '',
+      paymentStatus: 'PENDING',
+      rentAmount: rentAmount ?? property.rentAmount,
+      discoArrears: 0,
+      lgLevyStatus: 'CLEARED',
+      kycStatus: 'PENDING',
+    };
+    MOCK_TENANCIES.push(tenancy);
+    return res.status(201).json({ tenancyId: id, inviteUrl: `${env.tenantPortal.baseUrl}/?code=${id}` });
+  }
+
+  const property = await prisma.property.findFirst({ where: { id: propertyId, landlordId } });
+  if (!property) return res.status(404).json({ error: 'Property not found' });
+
+  const tenant = await prisma.tenant.create({ data: { name: tenantName ?? 'Pending tenant', phone: tenantPhone } });
+  const tenancy = await prisma.tenancy.create({
+    data: {
+      propertyId,
+      tenantId: tenant.id,
+      leaseStart: leaseStart ? new Date(leaseStart) : new Date(),
+      leaseEnd: leaseEnd ? new Date(leaseEnd) : new Date(Date.now() + 365 * 86400000),
+      rentAmount: rentAmount ?? property.rentAmount,
+      paymentStatus: 'PENDING',
+    },
+  });
+  res.status(201).json({ tenancyId: tenancy.id, inviteUrl: `${env.tenantPortal.baseUrl}/?code=${tenancy.id}` });
 });

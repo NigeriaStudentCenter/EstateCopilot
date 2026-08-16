@@ -19,6 +19,11 @@ import { landlordAuthRouter } from './routes/landlordAuth.js';
 import { publicRouter } from './routes/public.js';
 import { bookingsRouter } from './routes/bookings.js';
 import { whatsappRouter } from './routes/whatsapp.js';
+import { seedDemoLandlord } from './lib/mockLandlords.js';
+
+if (env.mockMode) {
+  seedDemoLandlord();
+}
 
 const app = express();
 

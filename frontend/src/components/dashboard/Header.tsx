@@ -25,9 +25,6 @@ const Header: React.FC<HeaderProps> = ({ landlordName, onLogout }) => {
           <button onClick={onLogout} className="text-sm text-gray-500 hover:text-gray-800">
             Log out
           </button>
-          <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">
-            Add Property
-          </button>
         </div>
       </div>
     </header>

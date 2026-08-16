@@ -2,8 +2,11 @@
 // (advertise toggle, listing description) and the public listings endpoint
 // both operate on the same records.
 
+import { DEMO_LANDLORD_ID } from './mockLandlords.js';
+
 export interface MockProperty {
   id: string;
+  landlordId: string;
   title: string;
   address: string;
   state: string;
@@ -22,6 +25,7 @@ const W = '?w=1200';
 export const MOCK_PROPERTIES: MockProperty[] = [
   {
     id: 'p1',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Luxury 3-Bedroom Apartment',
     address: 'Plot 12, Admiralty Way, Lekki Phase 1',
     state: 'Lagos',
@@ -41,6 +45,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p2',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Studio Apartment',
     address: '18 Gana St, Maitama',
     state: 'FCT Abuja',
@@ -60,6 +65,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p3',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Serviced Flat',
     address: 'Plot 4, Trans-Amadi Road',
     state: 'Rivers',
@@ -79,6 +85,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p4',
+    landlordId: DEMO_LANDLORD_ID,
     title: '2-Bedroom Flat, GRA Phase 2',
     address: '9 Aggrey Road, GRA Phase 2',
     state: 'Rivers',
@@ -98,6 +105,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p5',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Self-Contained Studio, D-Line',
     address: '22 Evo Road, D-Line',
     state: 'Rivers',
@@ -117,6 +125,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p6',
+    landlordId: DEMO_LANDLORD_ID,
     title: '3-Bedroom Duplex, Old GRA',
     address: '5 Forces Avenue, Old GRA',
     state: 'Rivers',
@@ -136,6 +145,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p7',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Mini Flat, Rumuola',
     address: '14 Ada George Road, Rumuola',
     state: 'Rivers',
@@ -155,6 +165,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p8',
+    landlordId: DEMO_LANDLORD_ID,
     title: '4-Bedroom Terrace, Woji',
     address: '3 Peter Odili Road, Woji',
     state: 'Rivers',
@@ -174,6 +185,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p9',
+    landlordId: DEMO_LANDLORD_ID,
     title: '1-Bedroom Apartment, Ada George',
     address: '31 Ada George Road',
     state: 'Rivers',
@@ -193,6 +205,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p10',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Executive Studio, Eliozu',
     address: '7 Airport Road, Eliozu',
     state: 'Rivers',
@@ -212,6 +225,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p11',
+    landlordId: DEMO_LANDLORD_ID,
     title: '2-Bedroom Bungalow, Rumuokwuta',
     address: '16 Elelenwo Street, Rumuokwuta',
     state: 'Rivers',
@@ -231,6 +245,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p12',
+    landlordId: DEMO_LANDLORD_ID,
     title: '3-Bedroom Flat, Peter Odili Road',
     address: '48 Peter Odili Road',
     state: 'Rivers',
@@ -250,6 +265,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p13',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Serviced Studio, Choba',
     address: '2 University Road, Choba',
     state: 'Rivers',
@@ -269,6 +285,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p14',
+    landlordId: DEMO_LANDLORD_ID,
     title: '2-Bedroom Apartment, Rumuomasi',
     address: '11 Elelenwo Road, Rumuomasi',
     state: 'Rivers',
@@ -288,6 +305,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p15',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Luxury Duplex, New GRA',
     address: '6 Woji Road, New GRA',
     state: 'Rivers',
@@ -307,6 +325,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p16',
+    landlordId: DEMO_LANDLORD_ID,
     title: 'Mini Flat, Elelenwo',
     address: '19 Elelenwo Housing Estate',
     state: 'Rivers',
@@ -326,6 +345,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p17',
+    landlordId: DEMO_LANDLORD_ID,
     title: '3-Bedroom Flat, Ogbunabali',
     address: '27 Ogbunabali Road',
     state: 'Rivers',
@@ -345,6 +365,7 @@ export const MOCK_PROPERTIES: MockProperty[] = [
   },
   {
     id: 'p18',
+    landlordId: DEMO_LANDLORD_ID,
     title: '1-Bedroom Self-Contain, Rumuigbo',
     address: '8 Rumuigbo Road',
     state: 'Rivers',
