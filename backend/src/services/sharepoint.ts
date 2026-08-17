@@ -126,6 +126,7 @@ export async function pushSubscribedLandlord(data: {
   landlordName: string;
   email: string;
   phone?: string;
+  state: string; // Nigeria state the landlord registered under — lets state managers filter this list to their own state
   subscriptionStatus: string;
   monthlyAmountNaira: number;
   bankAccountName?: string;
@@ -136,6 +137,7 @@ export async function pushSubscribedLandlord(data: {
     LandlordName: data.landlordName,
     Email: data.email,
     Phone: data.phone ?? '',
+    State: data.state,
     SubscriptionStatus: data.subscriptionStatus,
     MonthlyAmount: data.monthlyAmountNaira,
     BankAccountName: data.bankAccountName ?? '',
