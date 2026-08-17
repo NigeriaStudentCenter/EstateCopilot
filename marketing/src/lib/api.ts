@@ -13,13 +13,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  getProperties: () => request<any[]>('/api/public/properties'),
+  getStates: () => request<{ name: string; slug: string; propertyCount: number; jobCount: number }[]>('/api/public/states'),
+
+  getProperties: (state?: string) => request<any[]>(`/api/public/properties${state ? `?state=${state}` : ''}`),
   bookPropertyViewing: (
     propertyId: string,
     data: { name: string; phone: string; email?: string; scheduledFor: string; notes?: string },
   ) => request(`/api/public/properties/${propertyId}/book-viewing`, { method: 'POST', body: JSON.stringify(data) }),
 
-  getRepairJobs: () => request<any[]>('/api/public/repair-jobs'),
+  getRepairJobs: (state?: string) => request<any[]>(`/api/public/repair-jobs${state ? `?state=${state}` : ''}`),
   submitQuote: (
     jobId: string,
     data: { handymanName: string; handymanPhone: string; handymanEmail?: string; amount: number; message?: string },
@@ -35,7 +37,7 @@ export const api = {
     data: { lawyerName: string; lawyerPhone: string; lawyerEmail?: string; lawFirm?: string; amount: number; message?: string },
   ) => request(`/api/public/legal-requests/${requestId}/quote`, { method: 'POST', body: JSON.stringify(data) }),
 
-  landlordSignup: (data: { name: string; email: string; phone: string; password: string }) =>
+  landlordSignup: (data: { name: string; email: string; phone: string; password: string; state: string }) =>
     request<{ landlordId: string; reference: string; authorizationUrl: string | null; monthlyAmountKobo: number }>(
       '/api/landlord-auth/signup',
       { method: 'POST', body: JSON.stringify(data) },

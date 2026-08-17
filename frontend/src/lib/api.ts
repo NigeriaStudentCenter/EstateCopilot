@@ -43,6 +43,7 @@ export const api = {
       id: string;
       name: string;
       email: string;
+      state?: string;
       subscriptionStatus: string;
       currentPeriodEnd?: string;
       monthlyAmountKobo: number;
@@ -50,6 +51,7 @@ export const api = {
       bankAccountName?: string;
       paystackConnected: boolean;
     }>('/api/landlord/me'),
+  getStates: () => request<{ name: string; slug: string; propertyCount: number; jobCount: number }[]>('/api/public/states'),
   saveBankDetails: (data: { bankAccountNumber: string; bankCode: string; bankName: string }) =>
     request<{ bankAccountNumber: string; bankAccountName: string; paystackConnected: boolean }>('/api/landlord/bank-details', {
       method: 'POST',

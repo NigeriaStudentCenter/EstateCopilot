@@ -8,6 +8,7 @@ export interface MockLandlord {
   name: string;
   email: string;
   phone: string;
+  state: string; // Nigeria state name selected at signup — ties the landlord's page/listings to that state
   passwordHash: string;
   subscriptionStatus: 'PENDING_PAYMENT' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
   pendingReference?: string;
@@ -54,6 +55,7 @@ export function seedDemoLandlord(): void {
     name: 'Demo Landlord',
     email,
     phone: '2348000000000',
+    state: 'Rivers', // matches the majority of the pre-seeded demo properties
     passwordHash: hashPassword(process.env.DEMO_LANDLORD_PASSWORD ?? 'ChangeMe123!'),
     subscriptionStatus: 'ACTIVE',
     createdAt: new Date().toISOString(),

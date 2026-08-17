@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
+import StateSelect from '../components/StateSelect';
 
 interface RepairJob {
   id: string;
@@ -112,27 +114,52 @@ const JobActionForm: React.FC<{ job: RepairJob; mode: Mode; onClose: () => void 
 };
 
 const Handymen: React.FC = () => {
+  const { stateSlug } = useParams<{ stateSlug?: string }>();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<RepairJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState<{ job: RepairJob; mode: Mode } | null>(null);
+  const [stateName, setStateName] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getRepairJobs()
+    setLoading(true);
+    api.getRepairJobs(stateSlug)
       .then((data) => setJobs(data as RepairJob[]))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load jobs'))
       .finally(() => setLoading(false));
-  }, []);
+    if (stateSlug) {
+      api.getStates().then((states) => setStateName(states.find((s) => s.slug === stateSlug)?.name ?? null));
+    } else {
+      setStateName(null);
+    }
+  }, [stateSlug]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
       <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">For artisans</p>
-      <h1 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 mb-3">Real repair jobs, no middleman markup</h1>
-      <p className="text-gray-600 max-w-2xl mb-10">
+      <h1 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+        {stateName ? `Real repair jobs in ${stateName}` : 'Real repair jobs, no middleman markup'}
+      </h1>
+      <p className="text-gray-600 max-w-2xl mb-6">
         Every job here is a verified landlord's real repair. Quote directly if you're confident from the
         description, or book a site visit first if you need to see it to get the price right — either way, the
         landlord's team is notified the moment you respond.
       </p>
+
+      <div className="flex flex-wrap items-center gap-3 mb-10">
+        <span className="text-xs font-medium text-gray-500 uppercase">Filter by state</span>
+        <StateSelect
+          value={stateSlug ?? ''}
+          onChange={(slug) => navigate(slug ? `/handymen/${slug}` : '/handymen')}
+          countKey="jobCount"
+        />
+        {stateSlug && (
+          <Link to={`/properties/${stateSlug}`} className="text-sm text-emerald-700 hover:underline">
+            View properties in {stateName ?? 'this state'} →
+          </Link>
+        )}
+      </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3 mb-6">{error}</div>}
 

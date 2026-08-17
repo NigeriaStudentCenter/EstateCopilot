@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import PropertyGallery from '../components/PropertyGallery';
+import StateSelect from '../components/StateSelect';
 
 interface Property {
   id: string;
@@ -82,26 +84,51 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
 };
 
 const Properties: React.FC = () => {
+  const { stateSlug } = useParams<{ stateSlug?: string }>();
+  const navigate = useNavigate();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Property | null>(null);
+  const [stateName, setStateName] = useState<string | null>(null);
 
   useEffect(() => {
-    api.getProperties()
+    setLoading(true);
+    api.getProperties(stateSlug)
       .then((data) => setProperties(data as Property[]))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load listings'))
       .finally(() => setLoading(false));
-  }, []);
+    if (stateSlug) {
+      api.getStates().then((states) => setStateName(states.find((s) => s.slug === stateSlug)?.name ?? null));
+    } else {
+      setStateName(null);
+    }
+  }, [stateSlug]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
       <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">Vacant properties</p>
-      <h1 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 mb-3">Available now, listed by verified landlords</h1>
-      <p className="text-gray-600 max-w-2xl mb-10">
+      <h1 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+        {stateName ? `Available now in ${stateName}` : 'Available now, listed by verified landlords'}
+      </h1>
+      <p className="text-gray-600 max-w-2xl mb-6">
         Pick a time that works and request a viewing — the landlord's team gets notified instantly and will confirm
         directly with you.
       </p>
+
+      <div className="flex flex-wrap items-center gap-3 mb-10">
+        <span className="text-xs font-medium text-gray-500 uppercase">Filter by state</span>
+        <StateSelect
+          value={stateSlug ?? ''}
+          onChange={(slug) => navigate(slug ? `/properties/${slug}` : '/properties')}
+          countKey="propertyCount"
+        />
+        {stateSlug && (
+          <Link to={`/handymen/${stateSlug}`} className="text-sm text-emerald-700 hover:underline">
+            View artisans in {stateName ?? 'this state'} →
+          </Link>
+        )}
+      </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3 mb-6">{error}</div>}
 

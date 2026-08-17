@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { mockLandlords, mockLandlordsByEmail, createMockLandlord, findMockLandlordByReference } from '../lib/mockLandlords.js';
+import { stateBySlug } from '../lib/nigeriaStates.js';
 import { hashPassword, verifyPassword, signLandlordToken, verifyLandlordToken, type LandlordTokenPayload } from '../services/landlordAuth.js';
 import { initializeSubscription, verifySubscriptionTransaction } from '../services/paystackSubscription.js';
 import { resolveBankAccount, createLandlordSubaccount } from '../services/paystackSubaccount.js';
@@ -15,6 +16,16 @@ const signupSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(7),
   password: z.string().min(8),
+  // Client sends a state slug (same convention as every other state-filtered
+  // endpoint) — resolved here to the canonical display name that gets stored.
+  state: z.string().transform((slug, ctx) => {
+    const resolved = stateBySlug(slug);
+    if (!resolved) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Select a valid Nigeria state' });
+      return z.NEVER;
+    }
+    return resolved.name;
+  }),
 });
 
 // Step 1: create the account (unpaid) and start a ₦10,000/month Paystack
@@ -25,7 +36,7 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
-  const { name, email, phone, password } = parsed.data;
+  const { name, email, phone, password, state } = parsed.data;
 
   const existing = env.mockMode
     ? mockLandlordsByEmail.has(email)
@@ -35,14 +46,14 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
   }
 
   if (env.mockMode) {
-    const landlord = createMockLandlord({ name, email, phone, passwordHash: hashPassword(password) });
+    const landlord = createMockLandlord({ name, email, phone, state, passwordHash: hashPassword(password) });
     const { reference, authorizationUrl } = await initializeSubscription({ email, name });
     landlord.pendingReference = reference;
     return res.status(201).json({ landlordId: landlord.id, reference, authorizationUrl, monthlyAmountKobo: env.subscription.monthlyAmountKobo });
   }
 
   const landlord = await prisma.landlord.create({
-    data: { name, email, phone, passwordHash: hashPassword(password) },
+    data: { name, email, phone, state, passwordHash: hashPassword(password) },
   });
   // landlordId is embedded in the callback URL (not just the Paystack
   // reference) so /signup/callback can confirm without a lookup table.
@@ -184,6 +195,7 @@ landlordAuthRouter.get('/landlord/me', requireLandlordAuth, async (req: Landlord
       name: landlord!.name,
       email: landlord!.email,
       phone: landlord!.phone,
+      state: landlord!.state,
       subscriptionStatus: landlord!.subscriptionStatus,
       currentPeriodEnd: landlord!.currentPeriodEnd,
       monthlyAmountKobo: env.subscription.monthlyAmountKobo,

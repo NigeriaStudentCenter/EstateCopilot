@@ -118,6 +118,7 @@ model Landlord {
   name         String
   phone        String     @unique
   email        String     @unique
+  state        String     @default("Lagos") // Nigeria state selected at signup — ties the landlord's listings to that state's page
   passwordHash String?
   properties   Property[]
   createdAt    DateTime   @default(now())

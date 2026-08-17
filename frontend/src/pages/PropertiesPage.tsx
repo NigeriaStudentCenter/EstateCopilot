@@ -26,6 +26,14 @@ const PropertiesPage: React.FC = () => {
   const [showAddProperty, setShowAddProperty] = useState(false);
   const [newProperty, setNewProperty] = useState(emptyNewProperty);
   const [creating, setCreating] = useState(false);
+  const [states, setStates] = useState<{ name: string; slug: string }[]>([]);
+
+  useEffect(() => {
+    api.getStates().then(setStates).catch(() => setStates([]));
+    api.getMe().then((me) => {
+      if (me.state) setNewProperty((p) => ({ ...p, state: me.state! }));
+    }).catch(() => {});
+  }, []);
 
   const [inviteOpenFor, setInviteOpenFor] = useState<string | null>(null);
   const [inviteForm, setInviteForm] = useState({ tenantName: '', tenantPhone: '' });
@@ -116,7 +124,7 @@ const PropertiesPage: React.FC = () => {
         cautionDepositAmount: Number(newProperty.cautionDepositAmount || 0),
         municipalId: newProperty.municipalId.trim() || undefined,
       });
-      setNewProperty(emptyNewProperty);
+      setNewProperty({ ...emptyNewProperty, state: newProperty.state });
       setShowAddProperty(false);
       refresh();
     } catch (err) {
@@ -184,13 +192,17 @@ const PropertiesPage: React.FC = () => {
               required
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm md:col-span-2"
             />
-            <input
+            <select
               value={newProperty.state}
               onChange={(e) => setNewProperty((p) => ({ ...p, state: e.target.value }))}
-              placeholder="State"
               required
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+            >
+              <option value="" disabled>State</option>
+              {states.map((s) => (
+                <option key={s.slug} value={s.name}>{s.name}</option>
+              ))}
+            </select>
             <input
               value={newProperty.lga}
               onChange={(e) => setNewProperty((p) => ({ ...p, lga: e.target.value }))}

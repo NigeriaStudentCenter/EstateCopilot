@@ -1,6 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import VideoEmbed from '../components/VideoEmbed';
+import StateSelect from '../components/StateSelect';
 import { TENANT_PORTAL_URL } from '../lib/links';
 import dashboardScreenshot from '../assets/landlord-dashboard-screenshot.jpg';
 
@@ -57,6 +58,9 @@ const features = [
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
+  const [browseState, setBrowseState] = useState('');
+
   return (
     <>
       {/* Hero */}
@@ -93,6 +97,31 @@ const Home: React.FC = () => {
               for you, get things fixed when they break, and save every message so nothing gets forgotten. You pay
               one small amount every month. That's it.
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Browse by state */}
+      <section className="border-y border-gray-100 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row md:items-center gap-5">
+          <div className="shrink-0">
+            <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-1">Nationwide, state by state</p>
+            <p className="text-gray-900 font-medium">Every state has its own listings and its own artisans.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 md:ml-auto">
+            <StateSelect value={browseState} onChange={setBrowseState} countKey="propertyCount" />
+            <button
+              onClick={() => navigate(browseState ? `/properties/${browseState}` : '/properties')}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700"
+            >
+              Browse properties
+            </button>
+            <button
+              onClick={() => navigate(browseState ? `/handymen/${browseState}` : '/handymen')}
+              className="bg-white border border-gray-300 text-gray-800 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-50"
+            >
+              Browse artisans
+            </button>
           </div>
         </div>
       </section>

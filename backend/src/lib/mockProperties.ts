@@ -3,6 +3,7 @@
 // both operate on the same records.
 
 import { DEMO_LANDLORD_ID } from './mockLandlords.js';
+import { NIGERIA_STATES, type NigeriaState, type StateTier } from './nigeriaStates.js';
 
 export interface MockProperty {
   id: string;
@@ -22,7 +23,7 @@ export interface MockProperty {
 
 const W = '?w=1200';
 
-export const MOCK_PROPERTIES: MockProperty[] = [
+const CURATED_PROPERTIES: MockProperty[] = [
   {
     id: 'p1',
     landlordId: DEMO_LANDLORD_ID,
@@ -384,3 +385,105 @@ export const MOCK_PROPERTIES: MockProperty[] = [
     ],
   },
 ];
+
+// --- Generated coverage: every state (and the FCT) needs at least
+// MIN_PER_STATE properties so its /properties/:state page isn't empty, but
+// hand-authoring ~360 more listings isn't reasonable — these are built
+// deterministically from a small set of templates instead. Lagos/FCT
+// Abuja/Rivers already have curated listings above; this only tops each
+// state up to the minimum, never removes or duplicates a curated one.
+
+const STREET_NAMES = [
+  'Awolowo', 'Ahmadu Bello', 'Adeola Odeku', 'Ibrahim Taiwo', 'Muritala Mohammed',
+  'Zik Avenue', 'Yakubu Gowon', 'Constitution', 'Ademola', 'Broad',
+];
+
+const IMAGE_POOL = [
+  '1560448204-e02f11c3d0e2', '1493809842364-78817add7ffb', '1522708323590-d24dbb6b0267',
+  '1512917774080-9991f1c4c750', '1600585154340-be6161a56a0c', '1567767292278-a4f21aa2d36e',
+  '1502672260266-1c1ef2d93688', '1571055107559-3e67626fa8be', '1583608205776-bfd35f0d9f83',
+  '1484101403633-562f891dc89a', '1554995207-c18c203602cb', '1523217582562-09d0def993a6',
+  '1484154218962-a197022b5858', '1560184897-ae75f418493e', '1502672023488-70e25813eb80',
+  '1598928506311-c55ded91a20c', '1494526585095-c41746248156', '1615873968403-89e068629265',
+  '1600607687939-ce8a6c25118c', '1592595896616-c37162298647',
+];
+
+interface PropertyTemplate {
+  label: string;
+  type: 'LONG_TERM' | 'SHORT_LET';
+  baseRent: number;
+  baseDeposit: number;
+}
+
+const PROPERTY_TEMPLATES: PropertyTemplate[] = [
+  { label: 'Studio Apartment', type: 'SHORT_LET', baseRent: 35000, baseDeposit: 70000 },
+  { label: 'Mini Flat', type: 'SHORT_LET', baseRent: 45000, baseDeposit: 90000 },
+  { label: 'Self-Contained Studio', type: 'SHORT_LET', baseRent: 40000, baseDeposit: 80000 },
+  { label: 'Executive Studio', type: 'SHORT_LET', baseRent: 55000, baseDeposit: 110000 },
+  { label: 'Serviced Apartment', type: 'SHORT_LET', baseRent: 60000, baseDeposit: 120000 },
+  { label: '1-Bedroom Apartment', type: 'LONG_TERM', baseRent: 900000, baseDeposit: 150000 },
+  { label: '2-Bedroom Flat', type: 'LONG_TERM', baseRent: 1800000, baseDeposit: 250000 },
+  { label: '2-Bedroom Bungalow', type: 'LONG_TERM', baseRent: 2000000, baseDeposit: 280000 },
+  { label: '3-Bedroom Flat', type: 'LONG_TERM', baseRent: 3000000, baseDeposit: 350000 },
+  { label: '3-Bedroom Duplex', type: 'LONG_TERM', baseRent: 3800000, baseDeposit: 400000 },
+  { label: '4-Bedroom Terrace', type: 'LONG_TERM', baseRent: 4800000, baseDeposit: 500000 },
+  { label: 'Luxury Duplex', type: 'LONG_TERM', baseRent: 6500000, baseDeposit: 650000 },
+];
+
+const TIER_MULTIPLIER: Record<StateTier, number> = { premium: 2.2, upper: 1.3, standard: 1 };
+
+function round(n: number): number {
+  return Math.round(n / 1000) * 1000;
+}
+
+function imagesFor(seed: number): string[] {
+  return [0, 1, 2, 3].map((i) => `https://images.unsplash.com/photo-${IMAGE_POOL[(seed + i) % IMAGE_POOL.length]}${W}`);
+}
+
+function generatePropertiesForState(state: NigeriaState, startIndex: number, count: number): MockProperty[] {
+  const out: MockProperty[] = [];
+  for (let i = 0; i < count; i++) {
+    const n = startIndex + i;
+    const template = PROPERTY_TEMPLATES[(n - 1) % PROPERTY_TEMPLATES.length];
+    const lga = state.lgas[(n - 1) % state.lgas.length];
+    const street = STREET_NAMES[(n * 3 + state.slug.length) % STREET_NAMES.length];
+    const houseNo = 3 + ((n * 7) % 47);
+    const multiplier = TIER_MULTIPLIER[state.tier];
+    const rentAmount = round(template.baseRent * multiplier);
+    const cautionDepositAmount = round(template.baseDeposit * multiplier);
+    out.push({
+      id: `p_${state.slug}_${String(n).padStart(2, '0')}`,
+      landlordId: DEMO_LANDLORD_ID,
+      title: `${template.label}, ${lga}`,
+      address: `${houseNo} ${street} Street`, // LGA is a separate field, and the UI appends it to the address itself
+      state: state.name,
+      lga,
+      propertyType: template.type,
+      rentAmount,
+      cautionDepositAmount,
+      municipalId: `${state.slug.slice(0, 3).toUpperCase()}/2024/${String(1000 + n).slice(-4)}`,
+      isAdvertised: true,
+      listingDescription: `${template.label} in ${lga}, ${state.name} — well-kept and ready to view.`,
+      imageUrls: imagesFor(n + state.slug.length),
+    });
+  }
+  return out;
+}
+
+const MIN_PER_STATE = 10;
+
+function buildTopUpProperties(): MockProperty[] {
+  const countByState = new Map<string, number>();
+  for (const p of CURATED_PROPERTIES) {
+    countByState.set(p.state, (countByState.get(p.state) ?? 0) + 1);
+  }
+  const generated: MockProperty[] = [];
+  for (const state of NIGERIA_STATES) {
+    const existing = countByState.get(state.name) ?? 0;
+    if (existing >= MIN_PER_STATE) continue;
+    generated.push(...generatePropertiesForState(state, existing + 1, MIN_PER_STATE - existing));
+  }
+  return generated;
+}
+
+export const MOCK_PROPERTIES: MockProperty[] = [...CURATED_PROPERTIES, ...buildTopUpProperties()];

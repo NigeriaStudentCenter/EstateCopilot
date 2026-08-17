@@ -6,6 +6,7 @@ import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
 import { mockTickets } from '../lib/mockMaintenance.js';
 import { createMockBooking, createMockQuote } from '../lib/mockBookings.js';
 import { mockLegalRequests, createMockLegalQuote } from '../lib/mockLegal.js';
+import { NIGERIA_STATES, stateBySlug } from '../lib/nigeriaStates.js';
 import { notifyOps } from '../lib/notifyOps.js';
 import { pushQuotation, pushHandymanVisitBooking, pushPropertyViewingBooking } from '../services/sharepoint.js';
 
@@ -15,11 +16,57 @@ export const publicRouter = Router();
 
 // ---- Property listings --------------------------------------------------
 
-publicRouter.get('/public/properties', async (_req, res) => {
+// ---- Nigeria states -------------------------------------------------------
+
+// Drives the state filter/dropdown on the marketing site (properties,
+// artisans, landlord signup) — counts let the UI show "Lagos (24)" etc.
+publicRouter.get('/public/states', async (_req, res) => {
   if (env.mockMode) {
-    return res.json(MOCK_PROPERTIES.filter((p) => p.isAdvertised));
+    const jobs = mockTickets.filter((t) => t.openToMarketplace && t.status !== 'RESOLVED');
+    const states = NIGERIA_STATES.map((s) => ({
+      name: s.name,
+      slug: s.slug,
+      propertyCount: MOCK_PROPERTIES.filter((p) => p.isAdvertised && p.state === s.name).length,
+      jobCount: jobs.filter((j) => j.state === s.name).length,
+    }));
+    return res.json(states);
   }
-  const properties = await prisma.property.findMany({ where: { isAdvertised: true } });
+  const [propertyCounts, jobCounts] = await Promise.all([
+    prisma.property.groupBy({ by: ['state'], where: { isAdvertised: true }, _count: { _all: true } }),
+    prisma.maintenanceTicket.groupBy({
+      by: ['propertyId'],
+      where: { openToMarketplace: true, status: { not: 'RESOLVED' } },
+      _count: { _all: true },
+    }),
+  ]);
+  const propertyCountByState = new Map(propertyCounts.map((c) => [c.state, c._count._all]));
+  // Job counts are per-property in real mode (no direct state column on the
+  // ticket) — resolve through each property's state to build the same shape.
+  const jobPropertyIds = jobCounts.map((c) => c.propertyId);
+  const jobProperties = jobPropertyIds.length
+    ? await prisma.property.findMany({ where: { id: { in: jobPropertyIds } }, select: { id: true, state: true } })
+    : [];
+  const stateByPropertyId = new Map(jobProperties.map((p) => [p.id, p.state]));
+  const jobCountByState = new Map<string, number>();
+  for (const c of jobCounts) {
+    const state = stateByPropertyId.get(c.propertyId);
+    if (state) jobCountByState.set(state, (jobCountByState.get(state) ?? 0) + c._count._all);
+  }
+  const states = NIGERIA_STATES.map((s) => ({
+    name: s.name,
+    slug: s.slug,
+    propertyCount: propertyCountByState.get(s.name) ?? 0,
+    jobCount: jobCountByState.get(s.name) ?? 0,
+  }));
+  res.json(states);
+});
+
+publicRouter.get('/public/properties', async (req, res) => {
+  const state = stateBySlug(req.query.state as string | undefined);
+  if (env.mockMode) {
+    return res.json(MOCK_PROPERTIES.filter((p) => p.isAdvertised && (!state || p.state === state.name)));
+  }
+  const properties = await prisma.property.findMany({ where: { isAdvertised: true, ...(state ? { state: state.name } : {}) } });
   res.json(properties);
 });
 
@@ -110,13 +157,14 @@ function toPublicJob(t: any) {
   };
 }
 
-publicRouter.get('/public/repair-jobs', async (_req, res) => {
+publicRouter.get('/public/repair-jobs', async (req, res) => {
+  const state = stateBySlug(req.query.state as string | undefined);
   if (env.mockMode) {
-    const jobs = mockTickets.filter((t) => t.openToMarketplace && t.status !== 'RESOLVED');
+    const jobs = mockTickets.filter((t) => t.openToMarketplace && t.status !== 'RESOLVED' && (!state || t.state === state.name));
     return res.json(jobs.map(toPublicJob));
   }
   const jobs = await prisma.maintenanceTicket.findMany({
-    where: { openToMarketplace: true, status: { not: 'RESOLVED' } },
+    where: { openToMarketplace: true, status: { not: 'RESOLVED' }, ...(state ? { property: { state: state.name } } : {}) },
     include: { property: true },
     orderBy: { createdAt: 'desc' },
   });
