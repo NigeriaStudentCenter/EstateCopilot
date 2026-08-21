@@ -4,6 +4,7 @@ import Header from './components/dashboard/Header';
 import DashboardHome from './pages/DashboardHome';
 import MaintenancePage from './pages/MaintenancePage';
 import LegalPage from './pages/LegalPage';
+import TenantVettingPage from './pages/TenantVettingPage';
 import TenanciesPage from './pages/TenanciesPage';
 import AiInboxPage from './pages/AiInboxPage';
 import PropertiesPage from './pages/PropertiesPage';
@@ -32,7 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ landlord, onLogout }) => {
           {view === 'AI Inbox' && <AiInboxPage />}
           {view === 'Properties' && <PropertiesPage />}
           {view === 'Bookings' && <BookingsPage />}
-          {view === 'Tenant Vetting' && <PlaceholderPage title="Tenant Vetting" />}
+          {view === 'Tenant Vetting' && <TenantVettingPage />}
           {view === 'Finance & Levies' && <PlaceholderPage title="Finance & Levies" />}
           {view === 'Settings' && <SettingsPage />}
         </main>

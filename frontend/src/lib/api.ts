@@ -92,6 +92,11 @@ export const api = {
     }),
   getRemindersDue: () => request<any[]>('/api/tenancies/reminders/due'),
   runReminders: () => request<{ remindersSent: number; results: any[] }>('/api/tenancies/reminders/run', { method: 'POST' }),
+  verifyTenantBvn: (tenancyId: string, bvn: string) =>
+    request<{ kycStatus: 'VERIFIED' | 'PENDING' | 'FAILED'; matched: boolean; resolvedName: string }>(
+      `/api/tenancies/${tenancyId}/verify-bvn`,
+      { method: 'POST', body: JSON.stringify({ bvn }) },
+    ),
 
   getAgreement: (tenancyId: string) => request<any | null>(`/api/tenancies/${tenancyId}/agreement`),
   sendAgreement: (tenancyId: string) => request<any>(`/api/tenancies/${tenancyId}/agreement`, { method: 'POST' }),

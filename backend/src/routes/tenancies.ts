@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { buildInstallmentSchedule, createPaymentRequest } from '../services/paystackPaymentRequest.js';
+import { verifyBvn } from '../services/bvnVerification.js';
 import { logMockCorrespondence } from '../lib/correspondenceStore.js';
 import { MOCK_TENANCIES, mockPaymentPlans, type MockTenancy } from '../lib/mockTenancies.js';
 import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
@@ -40,6 +41,54 @@ tenanciesRouter.get('/tenancies', async (req: LandlordAuthedRequest, res) => {
     include: { tenant: true, property: true },
   });
   res.json(tenancies);
+});
+
+const verifyBvnSchema = z.object({
+  bvn: z.string().regex(/^\d{11}$/, 'BVN must be exactly 11 digits'),
+});
+
+// Resolves the BVN via Paystack, compares the returned name against the
+// tenant's name on file, and sets kycStatus accordingly. The BVN itself is
+// never stored — see services/bvnVerification.ts for why.
+tenanciesRouter.post('/tenancies/:id/verify-bvn', async (req: LandlordAuthedRequest, res) => {
+  const parsed = verifyBvnSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  const landlordId = req.landlord!.landlordId;
+
+  if (env.mockMode) {
+    const tenancy =
+      tenancyLandlordId(req.params.id) === landlordId ? MOCK_TENANCIES.find((t) => t.id === req.params.id) : undefined;
+    if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
+
+    let result;
+    try {
+      result = await verifyBvn(parsed.data.bvn, tenancy.tenantName);
+    } catch (err) {
+      return res.status(502).json({ error: err instanceof Error ? err.message : 'BVN verification failed' });
+    }
+    tenancy.kycStatus = result.matched ? 'VERIFIED' : 'FAILED';
+    return res.json({ kycStatus: tenancy.kycStatus, matched: result.matched, resolvedName: result.resolvedName });
+  }
+
+  const tenancy = await prisma.tenancy.findFirst({
+    where: { id: req.params.id, property: { landlordId } },
+    include: { tenant: true },
+  });
+  if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
+
+  let result;
+  try {
+    result = await verifyBvn(parsed.data.bvn, tenancy.tenant.name);
+  } catch (err) {
+    return res.status(502).json({ error: err instanceof Error ? err.message : 'BVN verification failed' });
+  }
+  // kycStatus lives on Tenant, not Tenancy (see schema.prisma) — and
+  // Tenant.bvn is deliberately left untouched; only the outcome is stored.
+  const kycStatus = result.matched ? 'VERIFIED' : 'FAILED';
+  await prisma.tenant.update({ where: { id: tenancy.tenantId }, data: { kycStatus } });
+  res.json({ kycStatus, matched: result.matched, resolvedName: result.resolvedName });
 });
 
 const REMINDER_WINDOWS = [90, 60, 30];
