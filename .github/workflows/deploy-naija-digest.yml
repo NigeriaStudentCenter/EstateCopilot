@@ -18,11 +18,17 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  # A stuck run (see 2026-08-26: build-feed hung 10+ min on a stalled RSS
+  # response) used to block every subsequent push/schedule behind it with
+  # no way to cancel remotely. The real fix is the hard per-source timeout
+  # in build-feed.ts, but this is the safety net: a stuck run should never
+  # be able to block progress indefinitely.
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: naija-digest
@@ -42,6 +48,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

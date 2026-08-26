@@ -51,8 +51,29 @@ function hashId(link: string): string {
   return Math.abs(hash).toString(36);
 }
 
+// rss-parser's own `timeout` option is supposed to bound each request, but
+// a run on 2026-08-26 hung for 10+ minutes on this step in CI regardless —
+// almost certainly a source whose response headers arrive fine but whose
+// body then stalls mid-stream, which a connect/response timeout doesn't
+// always catch. This wraps the ENTIRE fetch in a hard wall-clock deadline
+// so no single source can ever hang the whole build again, regardless of
+// what the underlying HTTP client actually does.
+const HARD_TIMEOUT_MS = 20_000;
+
+function withHardTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`hard timeout after ${ms}ms`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  }).catch((err) => {
+    throw new Error(`${label}: ${err.message}`);
+  });
+}
+
 async function fetchSource(source: (typeof SOURCES)[number]): Promise<FeedItem[]> {
-  const feed = await parser.parseURL(source.feedUrl);
+  const feed = await withHardTimeout(parser.parseURL(source.feedUrl), HARD_TIMEOUT_MS, source.name);
   const items: FeedItem[] = [];
   for (const entry of feed.items ?? []) {
     if (!entry.link || !entry.title) continue;
