@@ -1,5 +1,7 @@
 import './style.css';
 import feedData from './feed.json';
+import { AD_CONFIG, ensureAdScriptLoaded, renderAdSlotHtml, pushAdSlots } from './ads';
+import { PARTNER_SLOTS } from './partners';
 
 interface FeedItem {
   id: string;
@@ -91,6 +93,7 @@ async function main() {
         Naija Digest is an automated headline feed — summaries link to the
         outlet that reported each story. Built for
         <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a>.
+        · <a href="./digest.txt">Today's 5-story digest (text)</a>
       </footer>
     </div>
   `;
@@ -142,6 +145,27 @@ async function main() {
     return items;
   }
 
+  function cardHtml(item: FeedItem): string {
+    return `
+      <article class="card">
+        <a class="headline" href="${item.link}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
+        <p class="summary">${escapeHtml(item.summary)}</p>
+        <div class="meta">
+          <span class="who">${escapeHtml(item.source)} · ${relativeTime(item.publishedAt)}</span>
+          <button class="save-btn" data-id="${item.id}" aria-pressed="${saved.has(item.id)}" aria-label="Save story">${saved.has(item.id) ? '★' : '☆'}</button>
+        </div>
+      </article>`;
+  }
+
+  function partnerCardHtml(slot: (typeof PARTNER_SLOTS)[number]): string {
+    return `
+      <article class="card partner-card">
+        <span class="partner-tag">Partner · ${escapeHtml(slot.advertiser)}</span>
+        <a class="headline" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">${escapeHtml(slot.title)}</a>
+        <p class="summary">${escapeHtml(slot.body)}</p>
+      </article>`;
+  }
+
   function renderCards() {
     const items = currentItems();
     if (!items.length) {
@@ -154,19 +178,21 @@ async function main() {
       cardsEl.innerHTML = `<p class="empty">${message}</p>`;
       return;
     }
-    cardsEl.innerHTML = items
-      .map(
-        (item) => `
-      <article class="card">
-        <a class="headline" href="${item.link}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title)}</a>
-        <p class="summary">${escapeHtml(item.summary)}</p>
-        <div class="meta">
-          <span class="who">${escapeHtml(item.source)} · ${relativeTime(item.publishedAt)}</span>
-          <button class="save-btn" data-id="${item.id}" aria-pressed="${saved.has(item.id)}" aria-label="Save story">${saved.has(item.id) ? '★' : '☆'}</button>
-        </div>
-      </article>`,
-      )
-      .join('');
+
+    // A partner slot for this desk shows once, in a fixed early position —
+    // never mixed anonymously into the ranked list, always labeled.
+    const partner = PARTNER_SLOTS.find((p) => p.desk === activeDesk);
+    let adCount = 0;
+    const html: string[] = [];
+    items.forEach((item, i) => {
+      if (i === 2 && partner) html.push(partnerCardHtml(partner));
+      html.push(cardHtml(item));
+      if (AD_CONFIG.enabled && (i + 1) % AD_CONFIG.everyNCards === 0) {
+        adCount++;
+        html.push(renderAdSlotHtml(`ad-slot-${activeDesk}-${i}`));
+      }
+    });
+    cardsEl.innerHTML = html.join('');
 
     cardsEl.querySelectorAll<HTMLButtonElement>('.save-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -177,6 +203,11 @@ async function main() {
         renderCards();
       });
     });
+
+    if (AD_CONFIG.enabled && adCount > 0) {
+      ensureAdScriptLoaded();
+      pushAdSlots(adCount);
+    }
   }
 
   searchEl.addEventListener('input', () => {

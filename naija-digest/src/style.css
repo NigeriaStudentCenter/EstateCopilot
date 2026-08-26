@@ -162,6 +162,33 @@ p.updated { font-size: 0.72rem; color: var(--ink-faint); margin: -10px 0 18px; }
 }
 .save-btn[aria-pressed="true"] { color: #c9962c; }
 
+.partner-card { background: var(--brand-tint); border-color: var(--brand); border-style: dashed; }
+.partner-tag {
+  display: inline-block;
+  font-size: 0.64rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand-strong);
+  margin-bottom: 6px;
+}
+
+.ad-slot {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 10px;
+  text-align: center;
+}
+.ad-slot-label {
+  display: block;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+
 .empty {
   text-align: center;
   color: var(--ink-faint);

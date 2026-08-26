@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build-feed": "tsx scripts/build-feed.ts"
+    "build-feed": "tsx scripts/build-feed.ts",
+    "build-digest": "tsx scripts/build-digest.ts"
   },
   "dependencies": {
     "rss-parser": "^3.13.0"

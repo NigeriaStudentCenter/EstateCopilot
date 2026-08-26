@@ -33,6 +33,7 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build-feed
+      - run: npm run build-digest
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
