@@ -4,6 +4,7 @@ import { AD_CONFIG, ensureAdScriptLoaded, renderAdSlotHtml, pushAdSlots } from '
 import { PARTNER_SLOTS, MAX_PARTNERS_PER_DESK, PARTNER_SPACING } from './partners';
 import { RAIL_ADS, RAIL_AD_SLOTS } from './railAds';
 import { mountChat } from './chat';
+import { mountLiveRoom } from './liveRoom';
 
 interface FeedItem {
   id: string;
@@ -188,6 +189,7 @@ async function main() {
         </footer>
       </div>
       <aside class="rail rail-right" aria-label="Community">
+        <div id="live-room-mount"></div>
         <div id="chat-mount"></div>
         ${communityRailHtml}
       </aside>
@@ -201,20 +203,23 @@ async function main() {
   const savedCountEl = document.getElementById('saved-count')!;
   const leftRailEl = document.querySelector<HTMLElement>('.rail-left')!;
   const chatMountEl = document.getElementById('chat-mount')!;
+  const liveRoomMountEl = document.getElementById('live-room-mount')!;
 
   wireRailAdVideoButtons(leftRailEl);
-  // Chat is desktop-only (the rail itself is hidden below 1180px via CSS)
-  // — no point opening a socket a mobile visitor will never see. Reactive,
-  // not a one-time check at load: a static check would miss anyone who
-  // resizes across the breakpoint after the page has already loaded
-  // (maximizing a window, rotating a tablet), leaving the rail visible via
-  // CSS but the chat panel never mounted.
+  // Chat and the live room are both desktop-only (the rail itself is
+  // hidden below 1180px via CSS) — no point opening a socket, or a
+  // LiveKit connection, for a mobile visitor who will never see either.
+  // Reactive, not a one-time check at load: a static check would miss
+  // anyone who resizes across the breakpoint after the page has already
+  // loaded (maximizing a window, rotating a tablet), leaving the rail
+  // visible via CSS but neither panel ever mounted.
   const desktopQuery = window.matchMedia('(min-width: 1180px)');
   let chatMounted = false;
   function syncChatToViewport() {
     if (desktopQuery.matches && !chatMounted) {
       chatMounted = true;
       mountChat(chatMountEl);
+      mountLiveRoom(liveRoomMountEl);
     }
   }
   syncChatToViewport();

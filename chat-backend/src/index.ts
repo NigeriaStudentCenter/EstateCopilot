@@ -4,6 +4,16 @@ import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { generateGuestName } from './guestNames.js';
 import { isMessageAllowed, RateLimiter } from './moderation.js';
+import { liveRouter } from './live.js';
+
+// A missing try/catch around one LiveKit call (approving a participant who
+// had already disconnected) once took down this whole process — including
+// the unrelated text chat — with an unhandled rejection. Every route now
+// has its own try/catch, but this is the safety net for whatever the next
+// one is: log it, don't let one bad request take the whole server down.
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection (recovered):', err);
+});
 
 const PORT = Number(process.env.PORT) || 4001;
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5176')
@@ -23,6 +33,7 @@ const history: ChatMessage[] = [];
 
 const app = express();
 app.use(cors({ origin: ALLOWED_ORIGINS }));
+app.use(express.json());
 
 const server = createServer(app);
 const io = new Server(server, {
@@ -30,6 +41,7 @@ const io = new Server(server, {
 });
 
 app.get('/health', (_req, res) => res.json({ status: 'ok', connected: io.engine.clientsCount }));
+app.use(liveRouter);
 
 function broadcastPresence() {
   io.emit('presence', { count: io.engine.clientsCount });
