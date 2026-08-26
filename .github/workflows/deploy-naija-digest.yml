@@ -1,0 +1,49 @@
+name: Deploy Naija Digest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'naija-digest/**'
+      - '.github/workflows/deploy-naija-digest.yml'
+  schedule:
+    # Every 30 minutes — refreshes the feed even with no code changes.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: naija-digest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build-feed
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: naija-digest/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
