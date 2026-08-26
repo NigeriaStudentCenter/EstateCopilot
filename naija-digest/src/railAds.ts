@@ -11,7 +11,15 @@ export interface RailAd {
   body: string;
   url: string;
   imageUrl?: string;
+  // A sponsor's own hosted file — for advertisers without YouTube.
+  // Click-to-play, never autoplay (this site's data-saver rule applies to
+  // ads too, not just editorial content).
   videoUrl?: string;
+  // A YouTube video or live stream id (the part after "v=" or after
+  // youtu.be/) — covers sponsors who do have YouTube content. Rendered as
+  // a click-to-play "lite embed": only the free thumbnail loads until the
+  // visitor actually clicks play.
+  youtubeId?: string;
 }
 
 export const RAIL_AD_SLOTS = 3;

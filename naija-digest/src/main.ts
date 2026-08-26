@@ -3,6 +3,7 @@ import feedData from './feed.json';
 import { AD_CONFIG, ensureAdScriptLoaded, renderAdSlotHtml, pushAdSlots } from './ads';
 import { PARTNER_SLOTS, MAX_PARTNERS_PER_DESK, PARTNER_SPACING } from './partners';
 import { RAIL_ADS, RAIL_AD_SLOTS } from './railAds';
+import { mountChat } from './chat';
 
 interface FeedItem {
   id: string;
@@ -75,20 +76,48 @@ function escapeHtml(text: string): string {
 
 const searchIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
 
+const playIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+
+// Click-to-play for any video ad, YouTube or self-hosted — nothing but a
+// thumbnail loads until the visitor actually clicks. Page-load autoplay
+// would break the same data-saver rule this site holds for editorial
+// content; a click is an explicit, low-cost opt-in.
+function railAdVideoWrapHtml(slot: (typeof RAIL_ADS)[number]): string {
+  if (slot.youtubeId) {
+    return `
+      <button class="rail-ad-video-wrap" data-kind="youtube" data-src="${slot.youtubeId}" aria-label="Play video">
+        <img class="rail-ad-media" src="https://i.ytimg.com/vi/${slot.youtubeId}/hqdefault.jpg" alt="" loading="lazy" />
+        <span class="rail-ad-play-btn">${playIcon}</span>
+      </button>`;
+  }
+  if (slot.videoUrl) {
+    return `
+      <button class="rail-ad-video-wrap" data-kind="file" data-src="${slot.videoUrl}" aria-label="Play video">
+        <span class="rail-ad-play-btn">${playIcon}</span>
+      </button>`;
+  }
+  return '';
+}
+
 function railAdHtml(slot: (typeof RAIL_ADS)[number] | undefined): string {
   if (slot) {
-    const media = slot.videoUrl
-      ? `<video class="rail-ad-media" src="${slot.videoUrl}" autoplay muted loop playsinline></video>`
+    const hasVideo = Boolean(slot.youtubeId || slot.videoUrl);
+    const media = hasVideo
+      ? railAdVideoWrapHtml(slot)
       : slot.imageUrl
         ? `<img class="rail-ad-media" src="${slot.imageUrl}" alt="${escapeHtml(slot.advertiser)}" loading="lazy" />`
         : '';
-    return `
-      <a class="rail-card rail-ad" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">
+    // A video ad can't be one big <a> (the play button needs its own
+    // click), so only the title links out; a plain image ad stays a
+    // single clickable card like before.
+    const body = `
         <span class="rail-ad-label">Advertisement</span>
         ${media}
         <p class="rail-ad-title">${escapeHtml(slot.headline)}</p>
-        <p class="rail-ad-sub">${escapeHtml(slot.body)}</p>
-      </a>`;
+        <p class="rail-ad-sub">${escapeHtml(slot.body)}</p>`;
+    return hasVideo
+      ? `<div class="rail-card rail-ad">${body}<a class="rail-ad-cta" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">Learn more →</a></div>`
+      : `<a class="rail-card rail-ad" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">${body}</a>`;
   }
   return `
     <a class="rail-card rail-ad rail-ad-house" href="https://nigeriastudentambassador.com" target="_blank" rel="noopener noreferrer">
@@ -99,12 +128,26 @@ function railAdHtml(slot: (typeof RAIL_ADS)[number] | undefined): string {
     </a>`;
 }
 
+function wireRailAdVideoButtons(root: ParentNode) {
+  root.querySelectorAll<HTMLButtonElement>('.rail-ad-video-wrap').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.kind;
+      const src = btn.dataset.src!;
+      if (kind === 'youtube') {
+        btn.outerHTML = `<div class="rail-ad-video-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${src}?autoplay=1" title="Sponsor video" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
+      } else {
+        btn.outerHTML = `<div class="rail-ad-video-wrap"><video src="${src}" controls autoplay playsinline></video></div>`;
+      }
+    });
+  });
+}
+
 const communityRailHtml = `
-  <div class="rail-card community-card">
+  <div class="rail-card community-card community-card-compact">
     <p class="community-eyebrow">Nigeria Student Ambassador</p>
-    <h3 class="community-title">Join the journey</h3>
-    <p class="community-sub">Follow the overland expedition from London to Lagos, 8 countries and counting.</p>
-    <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
+    <div class="community-compact-row">
+      <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
+    </div>
     <div class="community-links">
       <a href="https://www.youtube.com/@NigeriaStudentAmbassador" target="_blank" rel="noopener noreferrer">YouTube</a>
       <a href="https://www.instagram.com/nsambassador" target="_blank" rel="noopener noreferrer">Instagram</a>
@@ -112,10 +155,8 @@ const communityRailHtml = `
       <a href="https://x.com/nsambassador" target="_blank" rel="noopener noreferrer">X</a>
     </div>
   </div>
-  <div class="rail-card saved-card">
-    <p class="saved-title">Your saved stories</p>
-    <p class="saved-count" id="saved-count">0 saved</p>
-    <p class="saved-hint">Tap the star on any story to keep it here — stored on this device only, never shared.</p>
+  <div class="rail-card saved-card saved-card-compact">
+    <p class="saved-title">Your saved stories: <span class="saved-count" id="saved-count">0</span></p>
   </div>`;
 
 async function main() {
@@ -146,7 +187,10 @@ async function main() {
           · <a href="./digest.txt">Today's 5-story digest (text)</a>
         </footer>
       </div>
-      <aside class="rail rail-right" aria-label="Community">${communityRailHtml}</aside>
+      <aside class="rail rail-right" aria-label="Community">
+        <div id="chat-mount"></div>
+        ${communityRailHtml}
+      </aside>
     </div>
   `;
 
@@ -155,6 +199,15 @@ async function main() {
   const searchEl = document.getElementById('search') as HTMLInputElement;
   const updatedEl = document.getElementById('updated')!;
   const savedCountEl = document.getElementById('saved-count')!;
+  const leftRailEl = document.querySelector<HTMLElement>('.rail-left')!;
+  const chatMountEl = document.getElementById('chat-mount')!;
+
+  wireRailAdVideoButtons(leftRailEl);
+  // Chat is desktop-only (the rail itself is hidden below 1180px via CSS)
+  // — no point opening a socket a mobile visitor will never see.
+  if (window.matchMedia('(min-width: 1180px)').matches) {
+    mountChat(chatMountEl);
+  }
 
   // Baked in at build time by build-feed.ts, rebuilt every 30 minutes by
   // the Actions workflow — no runtime fetch, one less request on a
@@ -272,7 +325,7 @@ async function main() {
   }
 
   function renderSavedCount() {
-    savedCountEl.textContent = saved.size === 1 ? '1 saved' : `${saved.size} saved`;
+    savedCountEl.textContent = String(saved.size);
   }
 
   searchEl.addEventListener('input', () => {
