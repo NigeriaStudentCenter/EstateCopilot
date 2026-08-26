@@ -24,17 +24,37 @@ export interface RailAd {
 
 export const RAIL_AD_SLOTS = 3;
 
-// One live, working example so the ad format is visible on the real site —
-// clearly labeled "Example" rather than a real brand, so no visitor could
-// mistake it for an actual paid sponsor. Remove this the moment a real
-// sponsor is sold; the other two slots stay empty (house cards) until then.
+// Three real videos from the real, verified Nigeria Student Ambassador
+// YouTube channel (confirmed via YouTube's own oEmbed metadata before
+// wiring these in — author_name/author_url both matched the channel
+// already linked from the community rail). Not a placeholder and not a
+// third-party sponsor: this is the org promoting its own content in the
+// slots that would otherwise sit empty, the same legitimate use of unsold
+// ad inventory as the "your brand here" house card, just with something
+// real to show instead.
 export const RAIL_ADS: RailAd[] = [
   {
-    id: 'example-video-ad',
-    advertiser: 'Example',
-    headline: 'This is what a video ad looks like',
-    body: 'Click to play. This slot is available — a real sponsor replaces this example.',
-    url: 'https://nigeriastudentambassador.com',
-    youtubeId: 'dQw4w9WgXcQ',
+    id: 'nsa-video-1',
+    advertiser: 'Nigeria Student Ambassador',
+    headline: 'The Future is Moving — How Ready Are You?',
+    body: 'From the Nigeria Student Ambassador channel.',
+    url: 'https://youtu.be/5mmqTT3aTuI',
+    youtubeId: '5mmqTT3aTuI',
+  },
+  {
+    id: 'nsa-video-2',
+    advertiser: 'Nigeria Student Ambassador',
+    headline: 'HR Students & AI Adoption',
+    body: 'From the Nigeria Student Ambassador channel.',
+    url: 'https://youtu.be/dn1pwfas-Wc',
+    youtubeId: 'dn1pwfas-Wc',
+  },
+  {
+    id: 'nsa-video-3',
+    advertiser: 'Nigeria Student Ambassador',
+    headline: 'How Money Thinks',
+    body: 'From the Nigeria Student Ambassador channel.',
+    url: 'https://youtu.be/Z116owQjGkI',
+    youtubeId: 'Z116owQjGkI',
   },
 ];
