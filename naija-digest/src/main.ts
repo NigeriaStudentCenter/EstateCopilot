@@ -1,7 +1,7 @@
 import './style.css';
 import feedData from './feed.json';
 import { AD_CONFIG, ensureAdScriptLoaded, renderAdSlotHtml, pushAdSlots } from './ads';
-import { PARTNER_SLOTS } from './partners';
+import { PARTNER_SLOTS, MAX_PARTNERS_PER_DESK, PARTNER_SPACING } from './partners';
 
 interface FeedItem {
   id: string;
@@ -179,13 +179,20 @@ async function main() {
       return;
     }
 
-    // A partner slot for this desk shows once, in a fixed early position —
-    // never mixed anonymously into the ranked list, always labeled.
-    const partner = PARTNER_SLOTS.find((p) => p.desk === activeDesk);
+    // Up to MAX_PARTNERS_PER_DESK sponsor cards for this desk, spaced every
+    // PARTNER_SPACING stories — never mixed anonymously into the ranked
+    // list, always labeled "Partner". Configuring more than the cap in
+    // partners.ts just means the extras don't show, rather than the page
+    // silently turning into an ad wall.
+    const deskPartners = PARTNER_SLOTS.filter((p) => p.desk === activeDesk).slice(0, MAX_PARTNERS_PER_DESK);
     let adCount = 0;
+    let partnerIndex = 0;
     const html: string[] = [];
     items.forEach((item, i) => {
-      if (i === 2 && partner) html.push(partnerCardHtml(partner));
+      if (i > 0 && i % PARTNER_SPACING === 0 && partnerIndex < deskPartners.length) {
+        html.push(partnerCardHtml(deskPartners[partnerIndex]));
+        partnerIndex++;
+      }
       html.push(cardHtml(item));
       if (AD_CONFIG.enabled && (i + 1) % AD_CONFIG.everyNCards === 0) {
         adCount++;

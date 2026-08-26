@@ -14,3 +14,12 @@ export interface PartnerSlot {
 }
 
 export const PARTNER_SLOTS: PartnerSlot[] = [];
+
+// How many sponsor cards a single desk view will show at once, and how many
+// story cards apart they're spaced. This is a deliberate ceiling, not a
+// technical one — the page could render as many as you configure, but the
+// entire pitch of Naija Digest is "not another ad-cluttered news site."
+// Selling desk sponsorship as a defined, scarce product (one or two slots
+// per desk) is also just an easier thing to sell than "unlimited inventory."
+export const MAX_PARTNERS_PER_DESK = 2;
+export const PARTNER_SPACING = 5; // story cards between sponsor cards
