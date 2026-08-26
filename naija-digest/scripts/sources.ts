@@ -42,6 +42,8 @@ export const SOURCES: Source[] = [
   { name: 'BusinessDay', feedUrl: 'https://businessday.ng/feed/', desk: 'business' },
   { name: 'Complete Sports', feedUrl: 'https://www.completesports.com/feed/', desk: 'sports' },
   { name: 'BellaNaija', feedUrl: 'https://www.bellanaija.com/feed/', desk: 'entertainment' },
+  { name: 'Legit.ng Entertainment', feedUrl: 'https://www.legit.ng/rss/entertainment.rss', desk: 'entertainment' },
+  { name: 'The Net (Nigerian Entertainment Today)', feedUrl: 'https://thenet.ng/feed/', desk: 'entertainment' },
   { name: 'Jobzilla Nigeria', feedUrl: 'https://www.jobzilla.ng/feed', desk: 'jobs', crossTag: false },
   { name: 'Nigeria Real Estate Blog', feedUrl: 'https://nigeriarealestateblog.com/feed/', desk: 'properties' },
   { name: 'Octo5', feedUrl: 'https://octo5.co/feed/', desk: 'properties' },

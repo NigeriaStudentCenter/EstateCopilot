@@ -2,6 +2,7 @@ import './style.css';
 import feedData from './feed.json';
 import { AD_CONFIG, ensureAdScriptLoaded, renderAdSlotHtml, pushAdSlots } from './ads';
 import { PARTNER_SLOTS, MAX_PARTNERS_PER_DESK, PARTNER_SPACING } from './partners';
+import { RAIL_ADS, RAIL_AD_SLOTS } from './railAds';
 
 interface FeedItem {
   id: string;
@@ -74,29 +75,78 @@ function escapeHtml(text: string): string {
 
 const searchIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
 
+function railAdHtml(slot: (typeof RAIL_ADS)[number] | undefined): string {
+  if (slot) {
+    const media = slot.videoUrl
+      ? `<video class="rail-ad-media" src="${slot.videoUrl}" autoplay muted loop playsinline></video>`
+      : slot.imageUrl
+        ? `<img class="rail-ad-media" src="${slot.imageUrl}" alt="${escapeHtml(slot.advertiser)}" loading="lazy" />`
+        : '';
+    return `
+      <a class="rail-card rail-ad" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">
+        <span class="rail-ad-label">Advertisement</span>
+        ${media}
+        <p class="rail-ad-title">${escapeHtml(slot.headline)}</p>
+        <p class="rail-ad-sub">${escapeHtml(slot.body)}</p>
+      </a>`;
+  }
+  return `
+    <a class="rail-card rail-ad rail-ad-house" href="https://nigeriastudentambassador.com" target="_blank" rel="noopener noreferrer">
+      <span class="rail-ad-label">Advertisement</span>
+      <p class="rail-ad-title">Your brand here</p>
+      <p class="rail-ad-sub">Reach readers at home and across the diaspora — daily.</p>
+      <span class="rail-ad-cta">Advertise with us →</span>
+    </a>`;
+}
+
+const communityRailHtml = `
+  <div class="rail-card community-card">
+    <p class="community-eyebrow">Nigeria Student Ambassador</p>
+    <h3 class="community-title">Join the journey</h3>
+    <p class="community-sub">Follow the overland expedition from London to Lagos, 8 countries and counting.</p>
+    <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
+    <div class="community-links">
+      <a href="https://www.youtube.com/@NigeriaStudentAmbassador" target="_blank" rel="noopener noreferrer">YouTube</a>
+      <a href="https://www.instagram.com/nsambassador" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a href="https://www.tiktok.com/@nsambassador" target="_blank" rel="noopener noreferrer">TikTok</a>
+      <a href="https://x.com/nsambassador" target="_blank" rel="noopener noreferrer">X</a>
+    </div>
+  </div>
+  <div class="rail-card saved-card">
+    <p class="saved-title">Your saved stories</p>
+    <p class="saved-count" id="saved-count">0 saved</p>
+    <p class="saved-hint">Tap the star on any story to keep it here — stored on this device only, never shared.</p>
+  </div>`;
+
 async function main() {
   const app = document.getElementById('app')!;
+  const leftRailHtml = Array.from({ length: RAIL_AD_SLOTS }, (_, i) => railAdHtml(RAIL_ADS[i])).join('');
+
   app.innerHTML = `
-    <div class="page">
-      <div class="topbar">
-        <div class="logo">Nigeria<span class="accent">Student</span>Ambassador</div>
-        <div class="badge">Naija Digest</div>
+    <div class="layout">
+      <aside class="rail rail-left" aria-label="Sponsored">${leftRailHtml}</aside>
+      <div class="page">
+        <div class="topbar">
+          <div class="logo">Nigeria<span class="accent">Student</span>Ambassador</div>
+          <div class="badge">Naija Digest</div>
+        </div>
+        <h1 class="title">Home news, wherever you are</h1>
+        <p class="sub">Every major Nigerian paper, plus the diaspora &amp; return stories that matter to this community. Headlines link straight to the outlet that reported them.</p>
+        <p class="updated" id="updated"></p>
+        <div class="search">
+          ${searchIcon}
+          <input id="search" type="search" placeholder="Search today's stories…" aria-label="Search stories" />
+        </div>
+        <div class="desks" id="desks" role="tablist" aria-label="News desks"></div>
+        <div class="cards" id="cards"></div>
+        <footer class="colophon">
+          Naija Digest is an automated headline feed — summaries link to the
+          outlet that reported each story. Built for
+          <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a>.
+          · <a href="./digest.txt">Today's 5-story digest (text)</a>
+        </footer>
       </div>
-      <h1 class="title">Home news, wherever you are</h1>
-      <p class="sub">Every major Nigerian paper, plus the diaspora &amp; return stories that matter to this community. Headlines link straight to the outlet that reported them.</p>
-      <p class="updated" id="updated"></p>
-      <div class="search">
-        ${searchIcon}
-        <input id="search" type="search" placeholder="Search today's stories…" aria-label="Search stories" />
-      </div>
-      <div class="desks" id="desks" role="tablist" aria-label="News desks"></div>
-      <div class="cards" id="cards"></div>
-      <footer class="colophon">
-        Naija Digest is an automated headline feed — summaries link to the
-        outlet that reported each story. Built for
-        <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a>.
-        · <a href="./digest.txt">Today's 5-story digest (text)</a>
-      </footer>
+      <aside class="rail rail-right" aria-label="Community">${communityRailHtml}</aside>
     </div>
   `;
 
@@ -104,6 +154,7 @@ async function main() {
   const cardsEl = document.getElementById('cards')!;
   const searchEl = document.getElementById('search') as HTMLInputElement;
   const updatedEl = document.getElementById('updated')!;
+  const savedCountEl = document.getElementById('saved-count')!;
 
   // Baked in at build time by build-feed.ts, rebuilt every 30 minutes by
   // the Actions workflow — no runtime fetch, one less request on a
@@ -209,6 +260,7 @@ async function main() {
         if (saved.has(id)) saved.delete(id);
         else saved.add(id);
         persistSaved(saved);
+        renderSavedCount();
         renderCards();
       });
     });
@@ -219,6 +271,10 @@ async function main() {
     }
   }
 
+  function renderSavedCount() {
+    savedCountEl.textContent = saved.size === 1 ? '1 saved' : `${saved.size} saved`;
+  }
+
   searchEl.addEventListener('input', () => {
     query = searchEl.value;
     renderCards();
@@ -226,6 +282,7 @@ async function main() {
 
   renderDesks();
   renderCards();
+  renderSavedCount();
 }
 
 main();
