@@ -168,7 +168,7 @@ async function main() {
       <aside class="rail rail-left" aria-label="Sponsored">${leftRailHtml}</aside>
       <div class="page">
         <div class="topbar">
-          <div class="logo">Nigeria<span class="accent">Student</span>Ambassador</div>
+          <div class="logo">Global Nigeria<span class="accent">Student</span>Ambassador</div>
           <div class="badge">Naija Digest</div>
         </div>
         <h1 class="title">Home news, wherever you are</h1>
