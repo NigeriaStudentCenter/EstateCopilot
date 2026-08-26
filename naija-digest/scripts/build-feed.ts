@@ -58,7 +58,7 @@ async function fetchSource(source: (typeof SOURCES)[number]): Promise<FeedItem[]
     if (!entry.link || !entry.title) continue;
     const haystack = `${entry.title} ${entry.contentSnippet ?? ''}`.toLowerCase();
     const desks = new Set<string>([source.desk]);
-    for (const rule of KEYWORD_DESKS) {
+    for (const rule of source.crossTag === false ? [] : KEYWORD_DESKS) {
       if (rule.keywords.some((keyword) => haystack.includes(keyword))) {
         desks.add(rule.desk);
       }

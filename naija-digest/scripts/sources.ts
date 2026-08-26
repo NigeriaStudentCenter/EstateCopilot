@@ -8,6 +8,12 @@ export interface Source {
   name: string;
   feedUrl: string;
   desk: string; // this outlet's home desk
+  // Listing/classified boards (jobs, later maybe properties) are a
+  // different content type from news — a job's "About the company"
+  // boilerplate can mention "real estate" for a totally unrelated role
+  // (a gardener at a property-management firm), so cross-tagging by
+  // keyword only makes sense for actual news sources. Defaults to true.
+  crossTag?: boolean;
 }
 
 export const DESKS = [
@@ -36,7 +42,10 @@ export const SOURCES: Source[] = [
   { name: 'BusinessDay', feedUrl: 'https://businessday.ng/feed/', desk: 'business' },
   { name: 'Complete Sports', feedUrl: 'https://www.completesports.com/feed/', desk: 'sports' },
   { name: 'BellaNaija', feedUrl: 'https://www.bellanaija.com/feed/', desk: 'entertainment' },
-  { name: 'Jobzilla Nigeria', feedUrl: 'https://www.jobzilla.ng/feed', desk: 'jobs' },
+  { name: 'Jobzilla Nigeria', feedUrl: 'https://www.jobzilla.ng/feed', desk: 'jobs', crossTag: false },
+  { name: 'Nigeria Real Estate Blog', feedUrl: 'https://nigeriarealestateblog.com/feed/', desk: 'properties' },
+  { name: 'Octo5', feedUrl: 'https://octo5.co/feed/', desk: 'properties' },
+  { name: 'Vanguard Homes & Property', feedUrl: 'https://www.vanguardngr.com/category/homes-property/feed/', desk: 'properties' },
 ];
 
 // A story can land in more than one desk — its home desk, plus any keyword
