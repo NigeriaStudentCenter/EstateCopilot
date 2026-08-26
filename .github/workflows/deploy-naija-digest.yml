@@ -28,7 +28,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Normal successful runs already take ~5-5.5 minutes for legitimate
+    # work (npm ci alone is a big chunk of that) — 5 minutes here left
+    # zero margin and killed a real, successful build on 2026-08-26 for no
+    # reason. build-feed itself can't run away past ~20-30s regardless
+    # (see the hard per-source timeout in build-feed.ts); this cap exists
+    # only to catch something else hanging for real, so it can afford to
+    # be generous.
+    timeout-minutes: 12
     defaults:
       run:
         working-directory: naija-digest
