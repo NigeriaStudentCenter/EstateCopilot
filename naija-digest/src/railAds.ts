@@ -23,4 +23,18 @@ export interface RailAd {
 }
 
 export const RAIL_AD_SLOTS = 3;
-export const RAIL_ADS: RailAd[] = [];
+
+// One live, working example so the ad format is visible on the real site —
+// clearly labeled "Example" rather than a real brand, so no visitor could
+// mistake it for an actual paid sponsor. Remove this the moment a real
+// sponsor is sold; the other two slots stay empty (house cards) until then.
+export const RAIL_ADS: RailAd[] = [
+  {
+    id: 'example-video-ad',
+    advertiser: 'Example',
+    headline: 'This is what a video ad looks like',
+    body: 'Click to play. This slot is available — a real sponsor replaces this example.',
+    url: 'https://nigeriastudentambassador.com',
+    youtubeId: 'dQw4w9WgXcQ',
+  },
+];

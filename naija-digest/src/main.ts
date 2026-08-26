@@ -111,7 +111,7 @@ function railAdHtml(slot: (typeof RAIL_ADS)[number] | undefined): string {
     // click), so only the title links out; a plain image ad stays a
     // single clickable card like before.
     const body = `
-        <span class="rail-ad-label">Advertisement</span>
+        <span class="rail-ad-label">Advertisement · ${escapeHtml(slot.advertiser)}</span>
         ${media}
         <p class="rail-ad-title">${escapeHtml(slot.headline)}</p>
         <p class="rail-ad-sub">${escapeHtml(slot.body)}</p>`;
