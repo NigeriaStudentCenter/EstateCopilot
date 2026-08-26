@@ -7,11 +7,14 @@ import Parser from 'rss-parser';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SOURCES, KEYWORD_DESKS } from './sources.js';
+import { SOURCES, KEYWORD_DESKS, DESKS } from './sources.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = path.join(dirname, '../src/feed.json');
-const MAX_ITEMS = 500;
+// Capped per desk, not globally — a high-volume single source (Jobzilla
+// posts roughly 80+ jobs/hour) would otherwise fill the entire feed within
+// a couple of hours and crowd out every other desk under one shared cap.
+const MAX_ITEMS_PER_DESK = 60;
 
 interface FeedItem {
   id: string;
@@ -88,7 +91,22 @@ async function buildFeed() {
   });
 
   items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-  const trimmed = items.slice(0, MAX_ITEMS);
+
+  // Take the top MAX_ITEMS_PER_DESK per desk, then union by id (already
+  // recency-sorted) — an item tagged into two desks only ever appears once
+  // in the output, but no single desk can starve another of space.
+  const selected = new Map<string, FeedItem>();
+  for (const desk of DESKS) {
+    let count = 0;
+    for (const item of items) {
+      if (count >= MAX_ITEMS_PER_DESK) break;
+      if (item.desks.includes(desk.id)) {
+        selected.set(item.id, item);
+        count++;
+      }
+    }
+  }
+  const trimmed = items.filter((item) => selected.has(item.id));
 
   const feed = {
     generatedAt: new Date().toISOString(),

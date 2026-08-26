@@ -18,6 +18,8 @@ export const DESKS = [
   { id: 'entertainment', label: 'Entertainment' },
   { id: 'metro', label: 'Metro' },
   { id: 'diaspora', label: 'Diaspora & Return' },
+  { id: 'jobs', label: 'Jobs' },
+  { id: 'properties', label: 'Properties' },
 ] as const;
 
 export const SOURCES: Source[] = [
@@ -34,6 +36,7 @@ export const SOURCES: Source[] = [
   { name: 'BusinessDay', feedUrl: 'https://businessday.ng/feed/', desk: 'business' },
   { name: 'Complete Sports', feedUrl: 'https://www.completesports.com/feed/', desk: 'sports' },
   { name: 'BellaNaija', feedUrl: 'https://www.bellanaija.com/feed/', desk: 'entertainment' },
+  { name: 'Jobzilla Nigeria', feedUrl: 'https://www.jobzilla.ng/feed', desk: 'jobs' },
 ];
 
 // A story can land in more than one desk — its home desk, plus any keyword
@@ -74,6 +77,25 @@ export const KEYWORD_DESKS: { desk: string; keywords: string[] }[] = [
     keywords: [
       'naira', 'cbn', 'inflation', 'stock exchange', 'forex', 'interest rate',
       'gdp', 'nnpc', 'fuel price', 'subsidy',
+    ],
+  },
+  {
+    desk: 'jobs',
+    keywords: [
+      'recruitment', 'job vacancy', 'vacancies', 'hiring', 'job openings',
+      'job opening', 'apply now', 'internship', 'nysc', 'npower',
+      'job alert', 'employment scheme', 'graduate trainee', 'job opportunity',
+      'urgently needed', 'career opportunity', 'is recruiting',
+    ],
+  },
+  {
+    desk: 'properties',
+    keywords: [
+      'real estate', 'house for sale', 'land for sale', 'property for sale',
+      'apartment for sale', 'apartment for rent', 'flat for rent',
+      'house for rent', 'to let', 'duplex', 'shortlet', 'plot of land',
+      'housing estate', 'mortgage', 'estate agent', 'property market',
+      'housing deficit',
     ],
   },
 ];

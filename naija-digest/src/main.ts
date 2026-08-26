@@ -26,6 +26,8 @@ const DESKS = [
   { id: 'entertainment', label: 'Entertainment' },
   { id: 'metro', label: 'Metro' },
   { id: 'diaspora', label: 'Diaspora & Return' },
+  { id: 'jobs', label: 'Jobs' },
+  { id: 'properties', label: 'Properties' },
   { id: 'saved', label: 'Saved' },
 ] as const;
 
