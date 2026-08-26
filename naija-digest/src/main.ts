@@ -204,10 +204,21 @@ async function main() {
 
   wireRailAdVideoButtons(leftRailEl);
   // Chat is desktop-only (the rail itself is hidden below 1180px via CSS)
-  // — no point opening a socket a mobile visitor will never see.
-  if (window.matchMedia('(min-width: 1180px)').matches) {
-    mountChat(chatMountEl);
+  // — no point opening a socket a mobile visitor will never see. Reactive,
+  // not a one-time check at load: a static check would miss anyone who
+  // resizes across the breakpoint after the page has already loaded
+  // (maximizing a window, rotating a tablet), leaving the rail visible via
+  // CSS but the chat panel never mounted.
+  const desktopQuery = window.matchMedia('(min-width: 1180px)');
+  let chatMounted = false;
+  function syncChatToViewport() {
+    if (desktopQuery.matches && !chatMounted) {
+      chatMounted = true;
+      mountChat(chatMountEl);
+    }
   }
+  syncChatToViewport();
+  desktopQuery.addEventListener('change', syncChatToViewport);
 
   // Baked in at build time by build-feed.ts, rebuilt every 30 minutes by
   // the Actions workflow — no runtime fetch, one less request on a

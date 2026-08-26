@@ -14,23 +14,13 @@
   --shadow: 0 1px 2px rgba(10, 30, 20, 0.05), 0 6px 20px rgba(10, 30, 20, 0.06);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1512;
-    --ink: #eaf3ee;
-    --ink-soft: #9fb2a7;
-    --ink-faint: #6c7d73;
-    --card-bg: #16211c;
-    --card-border: #24352c;
-    --pill-bg: #1a2620;
-    --pill-ink: #cfe0d6;
-    --brand: #35a06a;
-    --brand-strong: #4cc084;
-    --brand-tint: #142a1f;
-    --focus: #6ea8ff;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
-  }
-}
+/* Deliberately no @media (prefers-color-scheme: dark) override for these
+   tokens — this page is a light, near-white reading surface by design
+   (matching the source newspapers' own conventions), not a themed app.
+   Respecting system dark mode here made the whole page (already sitting
+   next to the intentionally-dark sponsor/chat rails) read as uniformly
+   dark green, which looked like a bug rather than a choice. The rails
+   keep their own fixed dark palette below regardless of this. */
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
