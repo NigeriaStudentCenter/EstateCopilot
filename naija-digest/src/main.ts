@@ -112,6 +112,7 @@ async function main() {
         </div>
         <h1 class="title">Home news, wherever you are</h1>
         <p class="sub">Every major Nigerian paper, plus the diaspora &amp; return stories that matter to this community. Headlines link straight to the outlet that reported them.</p>
+        <p class="mobile-hint">📱 On a phone the headlines come first — scroll down for the live room, chat and videos.</p>
         <p class="updated" id="updated"></p>
         <div class="search">
           ${searchIcon}
@@ -119,18 +120,18 @@ async function main() {
         </div>
         <div class="desks" id="desks" role="tablist" aria-label="News desks"></div>
         <div class="cards" id="cards"></div>
-        <footer class="colophon">
-          Naija Digest is an automated headline feed — summaries link to the
-          outlet that reported each story. Built for
-          <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a>.
-          · <a href="./digest.txt">Today's 5-story digest (text)</a>
-        </footer>
       </div>
       <aside class="rail rail-right" aria-label="Community">
         <div id="live-room-mount"></div>
         <div id="chat-mount"></div>
         ${communityRailHtml}
       </aside>
+      <footer class="colophon">
+        Naija Digest is an automated headline feed — summaries link to the
+        outlet that reported each story. Built for
+        <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a>.
+        · <a href="./digest.txt">Today's 5-story digest (text)</a>
+      </footer>
     </div>
   `;
 
@@ -144,24 +145,11 @@ async function main() {
   const liveRoomMountEl = document.getElementById('live-room-mount')!;
 
   wireRailAdVideoButtons(leftRailEl);
-  // Chat and the live room are both desktop-only (the rail itself is
-  // hidden below 1180px via CSS) — no point opening a socket, or a
-  // LiveKit connection, for a mobile visitor who will never see either.
-  // Reactive, not a one-time check at load: a static check would miss
-  // anyone who resizes across the breakpoint after the page has already
-  // loaded (maximizing a window, rotating a tablet), leaving the rail
-  // visible via CSS but neither panel ever mounted.
-  const desktopQuery = window.matchMedia('(min-width: 1180px)');
-  let chatMounted = false;
-  function syncChatToViewport() {
-    if (desktopQuery.matches && !chatMounted) {
-      chatMounted = true;
-      mountChat(chatMountEl);
-      mountLiveRoom(liveRoomMountEl, { room: 'news' });
-    }
-  }
-  syncChatToViewport();
-  desktopQuery.addEventListener('change', syncChatToViewport);
+  // The rails now stack under the feed on mobile rather than being hidden,
+  // so the live room and chat mount on every viewport (they were gated to
+  // >=1180px back when the rail was display:none below that).
+  mountChat(chatMountEl);
+  mountLiveRoom(liveRoomMountEl, { room: 'news' });
 
   // Baked in at build time by build-feed.ts, rebuilt every 30 minutes by
   // the Actions workflow — no runtime fetch, one less request on a

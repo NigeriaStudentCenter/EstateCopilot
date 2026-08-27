@@ -48,11 +48,20 @@ button { font: inherit; }
   padding: 20px 16px 60px;
 }
 
-/* ---------- Side rails (desktop only) ---------- */
-.rail { display: none; }
+/* ---------- Side rails ----------
+   Desktop: two sticky columns either side of the reading column.
+   Below 1180px: the rails don't disappear, they stack under the page —
+   page first, then the live room + chat + community, then the promo
+   videos as a horizontal swipe strip, then the footer. Both the news
+   page and the Student Tools page share this; each renders
+   <div class="layout"> with .rail-left, .page, .rail-right and a
+   .colophon footer as direct children (footer last in the DOM). */
+.rail { display: flex; flex-direction: column; }
+
 @media (min-width: 1180px) {
   .layout {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
     gap: 28px;
@@ -62,13 +71,86 @@ button { font: inherit; }
   }
   .page { flex: 0 1 640px; margin: 0; }
   .rail {
-    display: flex;
-    flex-direction: column;
     gap: 16px;
     flex: 0 0 260px;
     position: sticky;
     top: 20px;
     padding-top: 20px;
+  }
+  /* Footer wraps to its own full-width row beneath the three columns. */
+  .layout > .colophon {
+    flex-basis: 100%;
+    max-width: 640px;
+    margin: 24px auto 0;
+  }
+}
+
+@media (max-width: 1179px) {
+  .layout {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Flex items default to min-width:auto, which lets .page keep its 640px
+     intrinsic width and overflow a narrow phone. Pin each section to the
+     column width; .page's own max-width:640 still centres it on tablets. */
+  .layout > .page,
+  .layout > .rail,
+  .layout > .colophon {
+    width: 100%;
+    min-width: 0;
+  }
+  .layout > .page { order: 1; }
+  .layout > .rail-right { order: 2; margin-top: 24px; }
+  .layout > .rail-left { order: 3; margin-top: 18px; }
+  .layout > .colophon { order: 4; }
+
+  .layout > .rail {
+    gap: 14px;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 16px;
+    position: static;
+  }
+
+  /* Three tall video cards stacked would own the scroll on a phone —
+     make them a compact horizontal swipe strip instead. */
+  .layout > .rail-left {
+    flex-direction: row;
+    gap: 12px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .layout > .rail-left::-webkit-scrollbar { display: none; }
+  .layout > .rail-left > .rail-card {
+    flex: 0 0 80%;
+    scroll-snap-align: start;
+  }
+
+  .layout > .colophon {
+    max-width: 640px;
+    margin: 28px auto 0;
+    padding: 16px 16px 0;
+  }
+}
+
+/* "How to use on a phone" hint — shown under the page title on narrow
+   screens only, where the rails are stacked out of immediate view. */
+.mobile-hint { display: none; }
+@media (max-width: 1179px) {
+  .mobile-hint {
+    display: block;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    background: var(--brand-tint);
+    border: 1px solid #cfe6d6;
+    border-radius: 10px;
+    padding: 9px 12px;
+    margin: 0 0 16px;
   }
 }
 

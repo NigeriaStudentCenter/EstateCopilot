@@ -200,7 +200,7 @@ function main() {
   const app = document.getElementById('app')!;
 
   app.innerHTML = `
-    <div class="layout students-layout">
+    <div class="layout">
       <aside class="rail rail-left" aria-label="Sponsored">${leftRailAdsHtml()}</aside>
       <div class="page">
         <div class="topbar">
@@ -213,6 +213,7 @@ function main() {
 
         <h1 class="intro-title">Free AI helpers for students</h1>
         <p class="intro-sub">Five assistants for the things students actually spend time on — studying well, finding scholarships, work, housing and events. Answers are AI-generated: always check sources, deadlines and prices on the official site.</p>
+        <p class="mobile-hint">📱 On a phone the tools come first — scroll down for the live room, chat and videos.</p>
 
         <div class="keybar">
           <span class="keydot on"></span>
@@ -228,7 +229,7 @@ function main() {
         <div id="chat-mount"></div>
         ${communityRailHtml}
       </aside>
-      <footer class="colophon students-colophon">
+      <footer class="colophon">
         A free tool for the <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a> community.
         <span class="sep">·</span><a href="./">Back to Naija Digest</a>
       </footer>
