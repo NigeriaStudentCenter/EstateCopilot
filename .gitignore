@@ -33,3 +33,6 @@ npm-debug.log*
 # Vite
 .vite/
 *.tsbuildinfo
+
+# Azure zip-deploy artifacts
+deploy.zip

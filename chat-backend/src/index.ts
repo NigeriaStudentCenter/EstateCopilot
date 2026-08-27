@@ -29,7 +29,20 @@ interface ChatMessage {
   at: string;
 }
 
-const history: ChatMessage[] = [];
+// Separate rooms so the news-page chat and the Student Tools chat are
+// distinct conversations. The client picks one via socket.handshake.auth
+// .channel; anything not on this list (including the news page, which
+// sends nothing) falls back to 'news'. Each room keeps its own rolling
+// history.
+const CHANNELS = ['news', 'students'] as const;
+type Channel = (typeof CHANNELS)[number];
+const DEFAULT_CHANNEL: Channel = 'news';
+
+function resolveChannel(raw: unknown): Channel {
+  return CHANNELS.includes(raw as Channel) ? (raw as Channel) : DEFAULT_CHANNEL;
+}
+
+const historyByChannel = new Map<Channel, ChatMessage[]>(CHANNELS.map((c) => [c, []]));
 
 const app = express();
 app.use(cors({ origin: ALLOWED_ORIGINS }));
@@ -43,16 +56,20 @@ const io = new Server(server, {
 app.get('/health', (_req, res) => res.json({ status: 'ok', connected: io.engine.clientsCount }));
 app.use(liveRouter);
 
-function broadcastPresence() {
-  io.emit('presence', { count: io.engine.clientsCount });
+function broadcastPresence(channel: Channel) {
+  const count = io.of('/').adapter.rooms.get(channel)?.size ?? 0;
+  io.to(channel).emit('presence', { count });
 }
 
 io.on('connection', (socket) => {
   const name = generateGuestName();
   const limiter = new RateLimiter();
+  const channel = resolveChannel(socket.handshake.auth?.channel);
+  socket.join(channel);
 
+  const history = historyByChannel.get(channel)!;
   socket.emit('welcome', { name, history });
-  broadcastPresence();
+  broadcastPresence(channel);
 
   socket.on('message', (raw: unknown) => {
     const text = typeof raw === 'string' ? raw : '';
@@ -77,11 +94,11 @@ io.on('connection', (socket) => {
     history.push(message);
     if (history.length > MAX_HISTORY) history.shift();
 
-    io.emit('message', message);
+    io.to(channel).emit('message', message);
   });
 
   socket.on('disconnect', () => {
-    broadcastPresence();
+    broadcastPresence(channel);
   });
 });
 

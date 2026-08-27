@@ -23,12 +23,22 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function mountChat(root: HTMLElement) {
+interface MountChatOptions {
+  // Which chat room to join. The news digest omits this (defaults to
+  // 'news' on the server); the Student Tools page passes 'students' so the
+  // two conversations stay separate.
+  channel?: string;
+  // Heading shown in the chat card. Defaults to "Live Chat".
+  title?: string;
+}
+
+export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
+  const { channel, title = 'Live Chat' } = options;
   root.innerHTML = `
     <div class="rail-card chat-card">
       <div class="chat-header">
         <span class="chat-live-dot"></span>
-        <span class="chat-title">Live Chat</span>
+        <span class="chat-title">${escapeHtml(title)}</span>
         <span class="chat-presence" id="chat-presence">connecting…</span>
       </div>
       <div class="chat-messages" id="chat-messages" role="log" aria-live="polite"></div>
@@ -59,7 +69,13 @@ export function mountChat(root: HTMLElement) {
     if (text) setTimeout(() => { if (statusEl.textContent === text) statusEl.textContent = ''; }, 3000);
   }
 
-  const socket = io(CHAT_WS_URL, { transports: ['websocket'], reconnectionDelay: 1000 });
+  const socket = io(CHAT_WS_URL, {
+    transports: ['websocket'],
+    reconnectionDelay: 1000,
+    // Read server-side from socket.handshake.auth.channel. Omitted by the
+    // news page → server falls back to its default room.
+    auth: channel ? { channel } : {},
+  });
 
   socket.on('connect', () => {
     presenceEl.textContent = '';

@@ -2,7 +2,7 @@ import './style.css';
 import feedData from './feed.json';
 import { AD_CONFIG, ensureAdScriptLoaded, renderAdSlotHtml, pushAdSlots } from './ads';
 import { PARTNER_SLOTS, MAX_PARTNERS_PER_DESK, PARTNER_SPACING } from './partners';
-import { RAIL_ADS, RAIL_AD_SLOTS } from './railAds';
+import { leftRailAdsHtml, wireRailAdVideoButtons } from './railRender';
 import { mountChat } from './chat';
 import { mountLiveRoom } from './liveRoom';
 
@@ -77,78 +77,13 @@ function escapeHtml(text: string): string {
 
 const searchIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
 
-const playIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-
-// Click-to-play for any video ad, YouTube or self-hosted — nothing but a
-// thumbnail loads until the visitor actually clicks. Page-load autoplay
-// would break the same data-saver rule this site holds for editorial
-// content; a click is an explicit, low-cost opt-in.
-function railAdVideoWrapHtml(slot: (typeof RAIL_ADS)[number]): string {
-  if (slot.youtubeId) {
-    return `
-      <button class="rail-ad-video-wrap" data-kind="youtube" data-src="${slot.youtubeId}" aria-label="Play video">
-        <img class="rail-ad-media" src="https://i.ytimg.com/vi/${slot.youtubeId}/hqdefault.jpg" alt="" loading="lazy" />
-        <span class="rail-ad-play-btn">${playIcon}</span>
-      </button>`;
-  }
-  if (slot.videoUrl) {
-    return `
-      <button class="rail-ad-video-wrap" data-kind="file" data-src="${slot.videoUrl}" aria-label="Play video">
-        <span class="rail-ad-play-btn">${playIcon}</span>
-      </button>`;
-  }
-  return '';
-}
-
-function railAdHtml(slot: (typeof RAIL_ADS)[number] | undefined): string {
-  if (slot) {
-    const hasVideo = Boolean(slot.youtubeId || slot.videoUrl);
-    const media = hasVideo
-      ? railAdVideoWrapHtml(slot)
-      : slot.imageUrl
-        ? `<img class="rail-ad-media" src="${slot.imageUrl}" alt="${escapeHtml(slot.advertiser)}" loading="lazy" />`
-        : '';
-    // A video ad can't be one big <a> (the play button needs its own
-    // click), so only the title links out; a plain image ad stays a
-    // single clickable card like before.
-    const body = `
-        <span class="rail-ad-label">Advertisement · ${escapeHtml(slot.advertiser)}</span>
-        ${media}
-        <p class="rail-ad-title">${escapeHtml(slot.headline)}</p>
-        <p class="rail-ad-sub">${escapeHtml(slot.body)}</p>`;
-    return hasVideo
-      ? `<div class="rail-card rail-ad">${body}<a class="rail-ad-cta" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">Learn more →</a></div>`
-      : `<a class="rail-card rail-ad" href="${slot.url}" target="_blank" rel="noopener noreferrer sponsored">${body}</a>`;
-  }
-  return `
-    <a class="rail-card rail-ad rail-ad-house" href="https://nigeriastudentambassador.com" target="_blank" rel="noopener noreferrer">
-      <span class="rail-ad-label">Advertisement</span>
-      <p class="rail-ad-title">Your brand here</p>
-      <p class="rail-ad-sub">Reach readers at home and across the diaspora — daily.</p>
-      <span class="rail-ad-cta">Advertise with us →</span>
-    </a>`;
-}
-
-function wireRailAdVideoButtons(root: ParentNode) {
-  root.querySelectorAll<HTMLButtonElement>('.rail-ad-video-wrap').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const kind = btn.dataset.kind;
-      const src = btn.dataset.src!;
-      if (kind === 'youtube') {
-        btn.outerHTML = `<div class="rail-ad-video-wrap"><iframe src="https://www.youtube-nocookie.com/embed/${src}?autoplay=1" title="Sponsor video" frameborder="0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
-      } else {
-        btn.outerHTML = `<div class="rail-ad-video-wrap"><video src="${src}" controls autoplay playsinline></video></div>`;
-      }
-    });
-  });
-}
-
 const communityRailHtml = `
   <div class="rail-card community-card community-card-compact">
     <p class="community-eyebrow">Nigeria Student Ambassador</p>
     <div class="community-compact-row">
       <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
     </div>
+    <a class="community-student-tools" href="./students.html">🎓 Free student tools — study, scholarships, jobs, housing</a>
     <div class="community-links">
       <a href="https://www.youtube.com/@NigeriaStudentAmbassador" target="_blank" rel="noopener noreferrer">YouTube</a>
       <a href="https://www.instagram.com/nsambassador" target="_blank" rel="noopener noreferrer">Instagram</a>
@@ -162,7 +97,7 @@ const communityRailHtml = `
 
 async function main() {
   const app = document.getElementById('app')!;
-  const leftRailHtml = Array.from({ length: RAIL_AD_SLOTS }, (_, i) => railAdHtml(RAIL_ADS[i])).join('');
+  const leftRailHtml = leftRailAdsHtml();
 
   app.innerHTML = `
     <div class="layout">
@@ -170,7 +105,10 @@ async function main() {
       <div class="page">
         <div class="topbar">
           <div class="logo">Global Nigeria<span class="accent">Student</span>Ambassador</div>
-          <div class="badge">Naija Digest</div>
+          <div class="topbar-right">
+            <a class="student-tools-link" href="./students.html">🎓 Student Tools</a>
+            <div class="badge">Naija Digest</div>
+          </div>
         </div>
         <h1 class="title">Home news, wherever you are</h1>
         <p class="sub">Every major Nigerian paper, plus the diaspora &amp; return stories that matter to this community. Headlines link straight to the outlet that reported them.</p>
