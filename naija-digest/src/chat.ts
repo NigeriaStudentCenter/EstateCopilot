@@ -120,26 +120,35 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
   socket.on('rejected', (data: { reason: string }) => showStatus(data.reason));
 
   // --- Moderator controls (only rendered under ?mod=1) ---
+  // modSecret is only set once the SERVER has confirmed it (mod:auth), so
+  // "unlock" that shows the topic form means the key is genuinely right —
+  // no more "unlocked but Set says wrong key".
   let modSecret: string | null = null;
-  function renderModControls(errMsg?: string) {
+  let pendingSecret: string | null = null;
+
+  function renderKeyForm(errMsg?: string) {
     if (!modEl) return;
-    if (!modSecret) {
-      modEl.innerHTML = `
-        <input type="password" class="chat-mod-key" placeholder="Moderator key" autocomplete="off" />
-        <button type="button" class="chat-mod-unlock">Unlock</button>
-        ${errMsg ? `<span class="chat-mod-hint">${escapeHtml(errMsg)}</span>` : ''}`;
-      const keyInput = modEl.querySelector<HTMLInputElement>('.chat-mod-key')!;
-      modEl.querySelector<HTMLButtonElement>('.chat-mod-unlock')!.addEventListener('click', () => {
-        const v = keyInput.value.trim();
-        if (!v) return;
-        modSecret = v;
-        renderModControls();
-      });
-      keyInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') modEl.querySelector<HTMLButtonElement>('.chat-mod-unlock')!.click();
-      });
-      return;
-    }
+    modEl.innerHTML = `
+      <input type="password" class="chat-mod-key" placeholder="Moderator key" autocomplete="off" />
+      <button type="button" class="chat-mod-unlock">Unlock</button>
+      <span class="chat-mod-hint">${errMsg ? escapeHtml(errMsg) : ''}</span>`;
+    const keyInput = modEl.querySelector<HTMLInputElement>('.chat-mod-key')!;
+    const unlockBtn = modEl.querySelector<HTMLButtonElement>('.chat-mod-unlock')!;
+    const hint = modEl.querySelector<HTMLSpanElement>('.chat-mod-hint')!;
+    const submit = () => {
+      const v = keyInput.value.trim();
+      if (!v) return;
+      pendingSecret = v;
+      unlockBtn.disabled = true;
+      hint.textContent = 'Checking…';
+      socket.emit('mod:auth', { secret: v });
+    };
+    unlockBtn.addEventListener('click', submit);
+    keyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  }
+
+  function renderTopicForm() {
+    if (!modEl) return;
     modEl.innerHTML = `
       <input type="text" class="chat-mod-topic" maxlength="200" placeholder="Pin a topic for the room…" />
       <button type="button" class="chat-mod-set">Set</button>
@@ -147,7 +156,8 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
       <span class="chat-mod-hint" id="chat-mod-hint"></span>`;
     const topicInput = modEl.querySelector<HTMLInputElement>('.chat-mod-topic')!;
     topicInput.value = currentTopic;
-    modEl.querySelector<HTMLButtonElement>('.chat-mod-set')!.addEventListener('click', () => {
+    const setBtn = modEl.querySelector<HTMLButtonElement>('.chat-mod-set')!;
+    setBtn.addEventListener('click', () => {
       const t = topicInput.value.trim();
       if (!t) return;
       socket.emit('mod:set-topic', { secret: modSecret, text: t });
@@ -155,25 +165,36 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
     modEl.querySelector<HTMLButtonElement>('.chat-mod-clear')!.addEventListener('click', () => {
       socket.emit('mod:clear-topic', { secret: modSecret });
     });
-    topicInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') modEl.querySelector<HTMLButtonElement>('.chat-mod-set')!.click();
-    });
+    topicInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') setBtn.click(); });
   }
 
-  socket.on('mod:result', (data: { ok?: boolean; reason?: string }) => {
-    if (!data || data.ok !== true) {
-      modSecret = null;
-      renderModControls(data?.reason || 'That did not work.');
+  socket.on('mod:result', (data: { ok?: boolean; kind?: string; reason?: string }) => {
+    if (!modEl) return;
+    if (data?.kind === 'auth') {
+      if (data.ok) {
+        modSecret = pendingSecret;
+        pendingSecret = null;
+        renderTopicForm();
+      } else {
+        pendingSecret = null;
+        renderKeyForm(data.reason || 'wrong moderator key');
+      }
       return;
     }
-    const hint = modEl?.querySelector<HTMLSpanElement>('#chat-mod-hint');
+    // set / clear result
+    if (data?.ok !== true) {
+      modSecret = null;
+      renderKeyForm(data?.reason || 'That did not work — re-enter the key.');
+      return;
+    }
+    const hint = modEl.querySelector<HTMLSpanElement>('#chat-mod-hint');
     if (hint) {
       hint.textContent = 'Saved ✓';
       setTimeout(() => { if (hint.textContent === 'Saved ✓') hint.textContent = ''; }, 2500);
     }
   });
 
-  if (modEl) renderModControls();
+  if (modEl) renderKeyForm();
 
   socket.on('connect_error', () => {
     presenceEl.textContent = 'offline';

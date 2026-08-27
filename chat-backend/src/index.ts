@@ -23,7 +23,10 @@ const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5176')
 // Separate from the live audio room's HOST_SECRET on purpose: chat
 // moderation (the pinned topic) can be handed to someone without also
 // giving them live-room host control. Unset => the topic feature is inert.
-const CHAT_MOD_SECRET = process.env.CHAT_MOD_SECRET ?? '';
+// Trimmed because a value pasted into the App Service portal often picks
+// up a trailing newline/space, which would never match what a moderator
+// types.
+const CHAT_MOD_SECRET = (process.env.CHAT_MOD_SECRET ?? '').trim();
 
 const MAX_HISTORY = 50;
 const MAX_TOPIC_LEN = 200;
@@ -87,27 +90,37 @@ io.on('connection', (socket) => {
   broadcastPresence(channel);
 
   // --- Moderator: pinned topic (secret-gated, this socket's channel only) ---
+  socket.on('mod:auth', (payload: unknown) => {
+    const { secret } = (payload ?? {}) as { secret?: unknown };
+    if (CHAT_MOD_SECRET.length === 0) {
+      socket.emit('mod:result', { ok: false, kind: 'auth', reason: 'chat moderation is not set up on the server yet' });
+      return;
+    }
+    const ok = isModSecretValid(secret);
+    socket.emit('mod:result', { ok, kind: 'auth', reason: ok ? undefined : 'wrong moderator key' });
+  });
+
   socket.on('mod:set-topic', (payload: unknown) => {
     const { secret, text } = (payload ?? {}) as { secret?: unknown; text?: unknown };
     if (!isModSecretValid(secret)) {
-      socket.emit('mod:result', { ok: false, reason: 'wrong moderator key' });
+      socket.emit('mod:result', { ok: false, kind: 'topic', reason: 'wrong moderator key' });
       return;
     }
     const clean = (typeof text === 'string' ? text : '').trim().slice(0, MAX_TOPIC_LEN);
     topicByChannel.set(channel, clean);
     io.to(channel).emit('topic', { text: clean });
-    socket.emit('mod:result', { ok: true });
+    socket.emit('mod:result', { ok: true, kind: 'topic' });
   });
 
   socket.on('mod:clear-topic', (payload: unknown) => {
     const { secret } = (payload ?? {}) as { secret?: unknown };
     if (!isModSecretValid(secret)) {
-      socket.emit('mod:result', { ok: false, reason: 'wrong moderator key' });
+      socket.emit('mod:result', { ok: false, kind: 'topic', reason: 'wrong moderator key' });
       return;
     }
     topicByChannel.set(channel, '');
     io.to(channel).emit('topic', { text: '' });
-    socket.emit('mod:result', { ok: true });
+    socket.emit('mod:result', { ok: true, kind: 'topic' });
   });
 
   socket.on('message', (raw: unknown) => {
