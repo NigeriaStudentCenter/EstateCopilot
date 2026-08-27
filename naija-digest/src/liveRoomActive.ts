@@ -35,6 +35,11 @@ export function activateLiveRoom(
   let hostSecret: string | null = null;
   const pending = new Map<string, PendingRequest>();
   const audioEls = new Map<string, HTMLAudioElement>();
+  // Identities the host has muted. A muted person has canPublish:false, so
+  // on the tiles they'd otherwise be indistinguishable from a listener —
+  // this set is what lets the host tile show "Unmute" instead. Lost if the
+  // host reloads mid-session; a muted person can re-raise their hand.
+  const mutedByHost = new Set<string>();
 
   function renderShell() {
     const isHost = hostSecret !== null;
@@ -59,15 +64,25 @@ export function activateLiveRoom(
 
   function tileHtml(identity: string, canPublish: boolean, speaking: boolean): string {
     const isHostTile = identity === 'host';
-    const hostControls =
-      hostSecret && !isHostTile
-        ? `<button class="live-tile-mute" data-identity="${identity}" title="Remove from speaking">✕</button>`
-        : '';
+    const isHost = hostSecret !== null;
+    const muted = mutedByHost.has(identity);
+    const isSpeaker = canPublish && !muted;
+    const label = isHostTile ? 'Host' : muted ? 'Muted' : canPublish ? 'Speaker' : 'Listening';
+
+    let controls = '';
+    if (isHost && !isHostTile) {
+      if (isSpeaker) {
+        controls += `<button class="live-tile-act" data-act="mute" data-identity="${identity}">Mute</button>`;
+      } else if (muted) {
+        controls += `<button class="live-tile-act" data-act="unmute" data-identity="${identity}">Unmute</button>`;
+      }
+      controls += `<button class="live-tile-mute" data-act="remove" data-identity="${identity}" title="Remove from the room">✕</button>`;
+    }
     return `
-      <div class="live-tile ${speaking ? 'live-tile-speaking' : ''}">
+      <div class="live-tile ${speaking && isSpeaker ? 'live-tile-speaking' : ''} ${muted ? 'live-tile-muted' : ''}">
         <div class="live-tile-avatar">${initials(identity)}</div>
-        <span class="live-tile-label">${isHostTile ? 'Host' : canPublish ? 'Speaker' : 'Listening'}</span>
-        ${hostControls}
+        <span class="live-tile-label">${label}</span>
+        ${controls}
       </div>`;
   }
 
@@ -78,8 +93,13 @@ export function activateLiveRoom(
     tilesEl.innerHTML = participants
       .map((p) => tileHtml(p.identity, p.permissions?.canPublish ?? p.identity === 'host', p.isSpeaking))
       .join('');
-    tilesEl.querySelectorAll<HTMLButtonElement>('.live-tile-mute').forEach((btn) => {
-      btn.addEventListener('click', () => removeParticipant(btn.dataset.identity!));
+    tilesEl.querySelectorAll<HTMLButtonElement>('.live-tile-act, .live-tile-mute').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.identity!;
+        if (btn.dataset.act === 'remove') removeParticipant(id);
+        else if (btn.dataset.act === 'mute') setMuted(id, true);
+        else if (btn.dataset.act === 'unmute') setMuted(id, false);
+      });
     });
   }
 
@@ -145,6 +165,22 @@ export function activateLiveRoom(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secret: hostSecret, identity, room: siteRoom }),
     }).catch(() => {});
+    mutedByHost.delete(identity);
+  }
+
+  async function setMuted(identity: string, muted: boolean) {
+    if (!hostSecret) return;
+    // Optimistic: flip the local state and re-render now, so the tile
+    // label/button change immediately; the permission change echoes back
+    // via ParticipantPermissionsChanged a moment later.
+    if (muted) mutedByHost.add(identity);
+    else mutedByHost.delete(identity);
+    renderTiles();
+    await fetch(`${apiBase}/live/mute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: hostSecret, identity, muted, room: siteRoom }),
+    }).catch(() => {});
   }
 
   async function endHosting() {
@@ -159,20 +195,29 @@ export function activateLiveRoom(
   }
 
   room.on(RoomEvent.ParticipantConnected, renderTiles);
-  room.on(RoomEvent.ParticipantDisconnected, renderTiles);
+  room.on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
+    mutedByHost.delete(p.identity);
+    renderTiles();
+  });
   room.on(RoomEvent.ActiveSpeakersChanged, renderTiles);
   room.on(RoomEvent.ParticipantPermissionsChanged, (prevPermissions) => {
     renderTiles();
-    // The host approving a raised hand only changes permissions
-    // server-side — nothing turns the newly-approved listener's own mic on
-    // unless their client reacts to it. This is that reaction.
-    const justApproved = room.localParticipant.permissions?.canPublish && !prevPermissions?.canPublish;
-    if (justApproved) {
+    const nowCanPublish = room.localParticipant.permissions?.canPublish ?? false;
+    const wasCanPublish = prevPermissions?.canPublish ?? false;
+    const noteEl = root.querySelector<HTMLParagraphElement>('#live-note');
+
+    // Approved: the server grant alone doesn't turn the mic on — the
+    // client has to react. This is that reaction.
+    if (nowCanPublish && !wasCanPublish) {
       room.localParticipant.setMicrophoneEnabled(true).catch((err) => {
         console.error('microphone unavailable:', err);
-        const noteEl = root.querySelector<HTMLParagraphElement>('#live-note');
         if (noteEl) noteEl.textContent = "You're approved, but your microphone is unavailable.";
       });
+    }
+    // Muted by the host: release the mic locally so it matches, and say so.
+    if (!nowCanPublish && wasCanPublish) {
+      room.localParticipant.setMicrophoneEnabled(false).catch(() => {});
+      if (noteEl) noteEl.textContent = 'The host muted you — you can still listen. Raise your hand to speak again.';
     }
   });
 

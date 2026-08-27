@@ -162,19 +162,28 @@ liveRouter.post('/live/approve', async (req, res) => {
   }
 });
 
+// Mute / unmute a speaker by toggling their publish permission, not by
+// muting a track: revoking canPublish makes LiveKit unpublish their mic
+// server-side and stops them re-enabling it, so it's an enforced mute
+// rather than a "please stop" they can undo. They keep canSubscribe, so
+// they still hear everything. Unmute (muted:false) is the same grant as
+// /live/approve. Default (muted omitted) mutes — only an explicit false
+// unmutes, so a malformed request can't hand someone the mic.
 liveRouter.post('/live/mute', async (req, res) => {
   if (!requireHostSecret(req, res)) return;
-  const { identity, trackSid, muted } = req.body ?? {};
+  const { identity, muted } = req.body ?? {};
   const room = resolveRoom(req.body?.room);
-  if (typeof identity !== 'string' || typeof trackSid !== 'string') {
-    return res.status(400).json({ error: 'identity and trackSid required' });
+  if (typeof identity !== 'string') {
+    return res.status(400).json({ error: 'identity required' });
   }
   try {
-    await roomService.mutePublishedTrack(LIVEKIT_ROOM[room], identity, trackSid, muted !== false);
+    await roomService.updateParticipant(LIVEKIT_ROOM[room], identity, {
+      permission: { canPublish: muted === false, canSubscribe: true, canPublishData: true },
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error('mute failed:', err);
-    res.status(404).json({ error: 'participant or track not found' });
+    res.status(404).json({ error: 'participant not found — may have already left' });
   }
 });
 
