@@ -27,6 +27,9 @@ export function activateLiveRoom(
   apiBase: string,
   isHostEntry: boolean,
   isLive: boolean,
+  // Which site's room this is ('news' | 'students'). Sent on every call so
+  // the backend acts on the right LiveKit room. Defaults to 'news'.
+  siteRoom = 'news',
 ) {
   const room = new Room();
   let hostSecret: string | null = null;
@@ -107,7 +110,11 @@ export function activateLiveRoom(
       const res = await fetch(`${apiBase}/live/raise-hand`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identity: room.localParticipant.identity, name: room.localParticipant.identity }),
+        body: JSON.stringify({
+          identity: room.localParticipant.identity,
+          name: room.localParticipant.identity,
+          room: siteRoom,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -125,7 +132,7 @@ export function activateLiveRoom(
     await fetch(`${apiBase}/live/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: hostSecret, identity }),
+      body: JSON.stringify({ secret: hostSecret, identity, room: siteRoom }),
     }).catch(() => {});
     pending.delete(identity);
     renderRequests();
@@ -136,7 +143,7 @@ export function activateLiveRoom(
     await fetch(`${apiBase}/live/remove`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: hostSecret, identity }),
+      body: JSON.stringify({ secret: hostSecret, identity, room: siteRoom }),
     }).catch(() => {});
   }
 
@@ -145,7 +152,7 @@ export function activateLiveRoom(
     await fetch(`${apiBase}/live/host/end`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: hostSecret }),
+      body: JSON.stringify({ secret: hostSecret, room: siteRoom }),
     }).catch(() => {});
     await room.disconnect();
     card.innerHTML = `<p class="live-room-status">Session ended.</p>`;
@@ -194,7 +201,11 @@ export function activateLiveRoom(
   });
 
   async function connectAsListener() {
-    const res = await fetch(`${apiBase}/live/join`, { method: 'POST' });
+    const res = await fetch(`${apiBase}/live/join`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ room: siteRoom }),
+    });
     if (!res.ok) {
       card.innerHTML = `<p class="live-room-status">Live room unavailable right now.</p>`;
       return;
@@ -208,7 +219,7 @@ export function activateLiveRoom(
     const res = await fetch(`${apiBase}/live/host/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret }),
+      body: JSON.stringify({ secret, room: siteRoom }),
     });
     if (!res.ok) return false;
     const { token, url } = await res.json();

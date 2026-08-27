@@ -2,6 +2,7 @@ import '../style.css';
 import './students.css';
 import { leftRailAdsHtml, wireRailAdVideoButtons } from '../railRender';
 import { mountChat } from '../chat';
+import { mountLiveRoom } from '../liveRoom';
 
 // The proxy that holds the API key (see /student-agents-api). Same pattern
 // as chat.ts: a hard-coded prod URL with a localhost fallback for dev, and
@@ -228,6 +229,7 @@ function main() {
         </footer>
       </div>
       <aside class="rail rail-right" aria-label="Community">
+        <div id="live-room-mount"></div>
         <div id="chat-mount"></div>
         ${communityRailHtml}
       </aside>
@@ -236,21 +238,25 @@ function main() {
   const leftRailEl = document.querySelector<HTMLElement>('.rail-left')!;
   wireRailAdVideoButtons(leftRailEl);
 
-  // Chat is desktop-only — the rail is hidden below 1180px via the shared
-  // CSS, so there's no point opening a socket for a viewport that will
-  // never show it. Reactive so a resize across the breakpoint still mounts
-  // it. Mirrors src/main.ts.
+  // Chat and the live audio room are desktop-only — the rail is hidden
+  // below 1180px via the shared CSS, so there's no point opening a socket
+  // or a LiveKit status poll for a viewport that will never show them.
+  // Reactive so a resize across the breakpoint still mounts them. Mirrors
+  // src/main.ts. The live room here is the "students" room — a separate
+  // LiveKit room from the news page's, with its own host/live state.
   const chatMountEl = document.getElementById('chat-mount')!;
+  const liveRoomMountEl = document.getElementById('live-room-mount')!;
   const desktopQuery = window.matchMedia('(min-width: 1180px)');
-  let chatMounted = false;
-  function syncChatToViewport() {
-    if (desktopQuery.matches && !chatMounted) {
-      chatMounted = true;
+  let railMounted = false;
+  function syncRailToViewport() {
+    if (desktopQuery.matches && !railMounted) {
+      railMounted = true;
+      mountLiveRoom(liveRoomMountEl, { room: 'students' });
       mountChat(chatMountEl, { channel: 'students', title: 'Student Chat' });
     }
   }
-  syncChatToViewport();
-  desktopQuery.addEventListener('change', syncChatToViewport);
+  syncRailToViewport();
+  desktopQuery.addEventListener('change', syncRailToViewport);
 
   const tabsEl = document.getElementById('tabs')!;
   WORKERS.forEach((w) => {

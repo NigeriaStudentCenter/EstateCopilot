@@ -11,13 +11,21 @@ const API_BASE = 'https://naija-digest-chat-api.azurewebsites.net';
 // "become host" UI.
 const IS_HOST_ENTRY = new URLSearchParams(location.search).get('host') === '1';
 
-export async function mountLiveRoom(root: HTMLElement) {
+interface MountLiveRoomOptions {
+  // Which site's audio room to mount: 'news' (Naija Digest) or 'students'
+  // (Student Tools). They are entirely separate LiveKit rooms. Defaults to
+  // 'news' on the server too, so omitting it is safe.
+  room?: string;
+}
+
+export async function mountLiveRoom(root: HTMLElement, options: MountLiveRoomOptions = {}) {
+  const room = options.room ?? 'news';
   root.innerHTML = `<div class="rail-card live-room-card" id="live-room-card"><p class="live-room-status">Checking…</p></div>`;
   const card = root.querySelector<HTMLDivElement>('#live-room-card')!;
 
   let status: { live: boolean };
   try {
-    status = await fetch(`${API_BASE}/live/status`).then((r) => r.json());
+    status = await fetch(`${API_BASE}/live/status?room=${encodeURIComponent(room)}`).then((r) => r.json());
   } catch {
     card.innerHTML = `<p class="live-room-status">Live room unavailable right now.</p>`;
     return;
@@ -31,5 +39,5 @@ export async function mountLiveRoom(root: HTMLElement) {
   }
 
   const { activateLiveRoom } = await import('./liveRoomActive');
-  activateLiveRoom(root, card, API_BASE, IS_HOST_ENTRY, status.live);
+  activateLiveRoom(root, card, API_BASE, IS_HOST_ENTRY, status.live, room);
 }

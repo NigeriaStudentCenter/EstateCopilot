@@ -157,7 +157,7 @@ async function main() {
     if (desktopQuery.matches && !chatMounted) {
       chatMounted = true;
       mountChat(chatMountEl);
-      mountLiveRoom(liveRoomMountEl);
+      mountLiveRoom(liveRoomMountEl, { room: 'news' });
     }
   }
   syncChatToViewport();
