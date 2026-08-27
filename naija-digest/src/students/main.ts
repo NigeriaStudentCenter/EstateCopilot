@@ -176,11 +176,22 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Turn URLs in the model's answer into real clickable links. Handles both
+// markdown "[label](url)" and bare "https://…" (the model uses both), and
+// trims trailing punctuation that isn't part of the address.
 function linkify(text: string): string {
-  return escapeHtml(text).replace(
-    /(https?:\/\/[^\s<)\]]+)/g,
-    (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`,
-  );
+  const A = (url: string, label: string) => {
+    let clean = url;
+    if (clean.endsWith('&gt;')) clean = clean.slice(0, -4);
+    const punct = clean.match(/[.,;:!?)\]}]+$/);
+    if (punct) clean = clean.slice(0, -punct[0].length);
+    const trail = url.slice(clean.length);
+    const text = label && label !== url ? label : clean;
+    return `<a href="${clean}" target="_blank" rel="noopener noreferrer">${text}</a>${trail}`;
+  };
+  return escapeHtml(text)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, label, url) => A(url, label))
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)\]]+)/g, (_m, pre, url) => pre + A(url, ''));
 }
 
 /* ---------- Render ---------- */
@@ -325,7 +336,14 @@ function main() {
     run.disabled = true;
 
     try {
-      let content: string | unknown[] = current.prompt(f);
+      let promptText = current.prompt(f);
+      if (current.web) {
+        // The results panel turns URLs into clickable links — so make the
+        // model always surface the real address, not "see the link below".
+        promptText +=
+          '\n\nLINKS: give every source, scholarship, listing or event a real, working URL written out in full (https://…), either on its own or as [short label](https://…). Never refer to a link without including its address.';
+      }
+      let content: string | unknown[] = promptText;
       const fileField = current.fields.find((x) => x.type === 'file');
       if (fileField) {
         const el = $(`#f_${fileField.id}`) as HTMLInputElement | null;
