@@ -32,6 +32,11 @@ interface MountChatOptions {
   title?: string;
 }
 
+// A moderator opens the page with ?mod=1 to reveal the pinned-topic
+// controls in the chat card — no public "moderate" button. They still need
+// the CHAT_MOD_SECRET; the server rejects anything else.
+const IS_MOD_ENTRY = new URLSearchParams(location.search).get('mod') === '1';
+
 export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
   const { channel, title = 'Live Chat' } = options;
   root.innerHTML = `
@@ -41,6 +46,8 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
         <span class="chat-title">${escapeHtml(title)}</span>
         <span class="chat-presence" id="chat-presence">connecting…</span>
       </div>
+      <div class="chat-topic" id="chat-topic" hidden></div>
+      ${IS_MOD_ENTRY ? '<div class="chat-mod" id="chat-mod"></div>' : ''}
       <div class="chat-messages" id="chat-messages" role="log" aria-live="polite"></div>
       <div class="chat-status" id="chat-status"></div>
       <form class="chat-form" id="chat-form">
@@ -54,6 +61,20 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
   const statusEl = root.querySelector<HTMLDivElement>('#chat-status')!;
   const formEl = root.querySelector<HTMLFormElement>('#chat-form')!;
   const inputEl = root.querySelector<HTMLInputElement>('#chat-input')!;
+  const topicEl = root.querySelector<HTMLDivElement>('#chat-topic')!;
+  const modEl = root.querySelector<HTMLDivElement>('#chat-mod');
+
+  let currentTopic = '';
+  function renderTopic(text: string) {
+    currentTopic = text || '';
+    if (currentTopic) {
+      topicEl.innerHTML = `<strong>📌 Topic:</strong> ${escapeHtml(currentTopic)}`;
+      topicEl.hidden = false;
+    } else {
+      topicEl.textContent = '';
+      topicEl.hidden = true;
+    }
+  }
 
   function appendMessage(msg: ChatMessage) {
     const atBottom = messagesEl.scrollTop + messagesEl.clientHeight >= messagesEl.scrollHeight - 20;
@@ -81,11 +102,14 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
     presenceEl.textContent = '';
   });
 
-  socket.on('welcome', (data: { name: string; history: ChatMessage[] }) => {
+  socket.on('welcome', (data: { name: string; history: ChatMessage[]; topic?: string }) => {
     messagesEl.innerHTML = '';
     data.history.forEach(appendMessage);
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    renderTopic(data.topic ?? '');
   });
+
+  socket.on('topic', (data: { text?: string }) => renderTopic(data?.text ?? ''));
 
   socket.on('presence', (data: { count: number }) => {
     presenceEl.textContent = data.count === 1 ? '1 online' : `${data.count} online`;
@@ -94,6 +118,62 @@ export function mountChat(root: HTMLElement, options: MountChatOptions = {}) {
   socket.on('message', (msg: ChatMessage) => appendMessage(msg));
 
   socket.on('rejected', (data: { reason: string }) => showStatus(data.reason));
+
+  // --- Moderator controls (only rendered under ?mod=1) ---
+  let modSecret: string | null = null;
+  function renderModControls(errMsg?: string) {
+    if (!modEl) return;
+    if (!modSecret) {
+      modEl.innerHTML = `
+        <input type="password" class="chat-mod-key" placeholder="Moderator key" autocomplete="off" />
+        <button type="button" class="chat-mod-unlock">Unlock</button>
+        ${errMsg ? `<span class="chat-mod-hint">${escapeHtml(errMsg)}</span>` : ''}`;
+      const keyInput = modEl.querySelector<HTMLInputElement>('.chat-mod-key')!;
+      modEl.querySelector<HTMLButtonElement>('.chat-mod-unlock')!.addEventListener('click', () => {
+        const v = keyInput.value.trim();
+        if (!v) return;
+        modSecret = v;
+        renderModControls();
+      });
+      keyInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') modEl.querySelector<HTMLButtonElement>('.chat-mod-unlock')!.click();
+      });
+      return;
+    }
+    modEl.innerHTML = `
+      <input type="text" class="chat-mod-topic" maxlength="200" placeholder="Pin a topic for the room…" />
+      <button type="button" class="chat-mod-set">Set</button>
+      <button type="button" class="chat-mod-clear">Clear</button>
+      <span class="chat-mod-hint" id="chat-mod-hint"></span>`;
+    const topicInput = modEl.querySelector<HTMLInputElement>('.chat-mod-topic')!;
+    topicInput.value = currentTopic;
+    modEl.querySelector<HTMLButtonElement>('.chat-mod-set')!.addEventListener('click', () => {
+      const t = topicInput.value.trim();
+      if (!t) return;
+      socket.emit('mod:set-topic', { secret: modSecret, text: t });
+    });
+    modEl.querySelector<HTMLButtonElement>('.chat-mod-clear')!.addEventListener('click', () => {
+      socket.emit('mod:clear-topic', { secret: modSecret });
+    });
+    topicInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') modEl.querySelector<HTMLButtonElement>('.chat-mod-set')!.click();
+    });
+  }
+
+  socket.on('mod:result', (data: { ok?: boolean; reason?: string }) => {
+    if (!data || data.ok !== true) {
+      modSecret = null;
+      renderModControls(data?.reason || 'That did not work.');
+      return;
+    }
+    const hint = modEl?.querySelector<HTMLSpanElement>('#chat-mod-hint');
+    if (hint) {
+      hint.textContent = 'Saved ✓';
+      setTimeout(() => { if (hint.textContent === 'Saved ✓') hint.textContent = ''; }, 2500);
+    }
+  });
+
+  if (modEl) renderModControls();
 
   socket.on('connect_error', () => {
     presenceEl.textContent = 'offline';

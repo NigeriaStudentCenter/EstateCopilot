@@ -339,6 +339,55 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) { .chat-live-dot { animation: none; } }
 .chat-title { font-weight: 700; font-size: 0.86rem; }
 .chat-presence { margin-left: auto; font-size: 0.72rem; color: var(--rail-text-soft); }
+
+/* Pinned "topic of the moment" — set by a moderator, shown to everyone. */
+.chat-topic {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--rail-border);
+  background: var(--rail-gold-soft);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--rail-text);
+}
+.chat-topic[hidden] { display: none; }
+.chat-topic strong { color: var(--rail-gold); font-weight: 700; }
+
+/* Moderator controls — only present under ?mod=1. */
+.chat-mod {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rail-border);
+}
+.chat-mod input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(238, 245, 239, 0.08);
+  border: 1px solid var(--rail-border);
+  border-radius: 8px;
+  padding: 6px 9px;
+  color: var(--rail-text);
+  font-size: 0.78rem;
+}
+.chat-mod input::placeholder { color: var(--rail-text-soft); }
+.chat-mod button {
+  background: var(--rail-gold);
+  color: #0e2a1a;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 11px;
+  font-weight: 700;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+.chat-mod .chat-mod-clear {
+  background: transparent;
+  color: var(--rail-text-soft);
+  border: 1px solid var(--rail-border);
+}
+.chat-mod-hint { width: 100%; font-size: 0.68rem; color: var(--rail-text-soft); }
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
