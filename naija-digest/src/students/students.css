@@ -150,3 +150,91 @@ button.run:disabled { opacity: 0.6; cursor: default; }
 .note { font-size: 0.75rem; color: var(--ink-soft); margin-top: 10px; line-height: 1.5; }
 
 footer.colophon .sep { margin: 0 4px; }
+
+/* ---------------------------------------------------------------------------
+   Responsive rails.
+
+   The news page hides its rails below 1180px. The Student Tools page keeps
+   them on every viewport — the live room, the chat and the promo videos are
+   part of the experience here, not decoration — so below 1180px they stack
+   under the tools instead of disappearing:
+
+     tools  ▸  live room + chat + community  ▸  video promos (swipe strip)  ▸  footer
+
+   The footer is a direct child of .students-layout (not .page) so it can be
+   ordered last in both layouts.
+--------------------------------------------------------------------------- */
+
+/* Mobile / tablet: one column, tools first. */
+@media (max-width: 1179px) {
+  .students-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Pin every section to the column width. Without this the flex item keeps
+     .page's 640px intrinsic size and overflows a narrow phone; max-width:640
+     from the shared rule still applies, so wide tablets stay capped. */
+  .students-layout > .page,
+  .students-layout > .rail,
+  .students-layout > .students-colophon {
+    width: 100%;
+    min-width: 0;
+    align-self: stretch;
+  }
+  .students-layout > .page { order: 1; }
+  .students-layout > .rail-right { order: 2; }
+  .students-layout > .rail-left { order: 3; }
+  .students-layout > .students-colophon { order: 4; }
+
+  .students-layout > .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px;
+    position: static;
+    top: auto;
+  }
+  .students-layout > .rail-right { margin-top: 24px; }
+
+  /* Three tall video cards stacked would own the scroll on a phone —
+     make them a compact horizontal swipe strip instead. */
+  .students-layout > .rail-left {
+    flex-direction: row;
+    gap: 12px;
+    margin-top: 18px;
+    padding-bottom: 6px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .students-layout > .rail-left::-webkit-scrollbar { display: none; }
+  .students-layout > .rail-left > .rail-card {
+    flex: 0 0 80%;
+    scroll-snap-align: start;
+  }
+
+  .students-colophon {
+    max-width: 640px;
+    margin: 28px auto 0;
+    padding: 16px 16px 0;
+  }
+}
+
+/* Desktop: shared rules lay out the three sticky columns; the footer just
+   needs to wrap to a full-width row beneath them. */
+@media (min-width: 1180px) {
+  .students-layout { flex-wrap: wrap; }
+  .students-layout > .rail-left { order: 1; }
+  .students-layout > .page { order: 2; }
+  .students-layout > .rail-right { order: 3; }
+  .students-layout > .students-colophon {
+    order: 4;
+    flex-basis: 100%;
+    max-width: 640px;
+    margin: 24px auto 0;
+  }
+}

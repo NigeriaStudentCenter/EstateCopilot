@@ -200,7 +200,7 @@ function main() {
   const app = document.getElementById('app')!;
 
   app.innerHTML = `
-    <div class="layout">
+    <div class="layout students-layout">
       <aside class="rail rail-left" aria-label="Sponsored">${leftRailAdsHtml()}</aside>
       <div class="page">
         <div class="topbar">
@@ -222,41 +222,28 @@ function main() {
         <div class="tabs" id="tabs" role="tablist" aria-label="Student tools"></div>
         <div class="panelhead"><h2 id="wt"></h2><p id="wd"></p></div>
         <div id="dyn"></div>
-
-        <footer class="colophon">
-          A free tool for the <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a> community.
-          <span class="sep">·</span><a href="./">Back to Naija Digest</a>
-        </footer>
       </div>
       <aside class="rail rail-right" aria-label="Community">
         <div id="live-room-mount"></div>
         <div id="chat-mount"></div>
         ${communityRailHtml}
       </aside>
+      <footer class="colophon students-colophon">
+        A free tool for the <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a> community.
+        <span class="sep">·</span><a href="./">Back to Naija Digest</a>
+      </footer>
     </div>`;
 
   const leftRailEl = document.querySelector<HTMLElement>('.rail-left')!;
   wireRailAdVideoButtons(leftRailEl);
 
-  // Chat and the live audio room are desktop-only — the rail is hidden
-  // below 1180px via the shared CSS, so there's no point opening a socket
-  // or a LiveKit status poll for a viewport that will never show them.
-  // Reactive so a resize across the breakpoint still mounts them. Mirrors
-  // src/main.ts. The live room here is the "students" room — a separate
-  // LiveKit room from the news page's, with its own host/live state.
-  const chatMountEl = document.getElementById('chat-mount')!;
-  const liveRoomMountEl = document.getElementById('live-room-mount')!;
-  const desktopQuery = window.matchMedia('(min-width: 1180px)');
-  let railMounted = false;
-  function syncRailToViewport() {
-    if (desktopQuery.matches && !railMounted) {
-      railMounted = true;
-      mountLiveRoom(liveRoomMountEl, { room: 'students' });
-      mountChat(chatMountEl, { channel: 'students', title: 'Student Chat' });
-    }
-  }
-  syncRailToViewport();
-  desktopQuery.addEventListener('change', syncRailToViewport);
+  // Unlike the news page, the Student Tools rails show on every viewport —
+  // stacked below the tools on mobile (see students.css) — so the live
+  // room and chat mount once on load rather than being gated to desktop.
+  // The live room here is the "students" room: a separate LiveKit room
+  // from the news page's, with its own host/live state.
+  mountLiveRoom(document.getElementById('live-room-mount')!, { room: 'students' });
+  mountChat(document.getElementById('chat-mount')!, { channel: 'students', title: 'Student Chat' });
 
   const tabsEl = document.getElementById('tabs')!;
   WORKERS.forEach((w) => {
