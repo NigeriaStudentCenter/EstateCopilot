@@ -45,8 +45,19 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      # build-feed / build-digest fetch live RSS and have repeatedly stalled
+      # past the job timeout on a slow upstream source, blocking every
+      # deploy behind them (see 2026-08-26/27). src/feed.json and
+      # public/digest.txt are committed, so a stalled fetch should ship the
+      # last good feed rather than block the release entirely. A 5-minute
+      # per-step cap turns a hang into a fast, non-fatal skip; the next
+      # scheduled run refreshes the feed once the source recovers.
       - run: npm run build-feed
+        timeout-minutes: 5
+        continue-on-error: true
       - run: npm run build-digest
+        timeout-minutes: 3
+        continue-on-error: true
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
