@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Skills Diagnostic — AI Tutor Academy</title>
+<meta name="description" content="A short, teaching diagnostic: 15 questions on how AI really works, how to prompt it, verify it, build with it, and use it honestly. Get instant feedback and a personal skills breakdown.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,540;0,9..144,600;0,9..144,660;1,9..144,400&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --paper:#f6f7f3; --paper-2:#edf0e9; --card:#ffffff;
+  --ink:#15201c; --ink-2:#42504a; --ink-3:#6b7a72;
+  --line:#dde3da; --line-2:#c7d1c4;
+  --accent:#1f7a5c; --accent-bright:#2fa07a; --accent-ink:#0f4a38;
+  --gold:#b28636; --gold-soft:#d9bd88;
+  --ok:#1f7a5c; --ok-bg:#e7f2ec;
+  --no:#a5392f; --no-bg:#f7e8e5;
+  --deep:#123c2f; --deep-2:#0e3227; --on-deep:#eaf1ec; --on-deep-2:#a9c4ba; --deep-line:#2c5647;
+  --ng:#bd6c26; --uk:#2b6f8c;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#101613; --paper-2:#161e1a; --card:#1a221e;
+    --ink:#e9efea; --ink-2:#aebbb3; --ink-3:#8a978f;
+    --line:#28322c; --line-2:#374238;
+    --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
+    --gold:#cfa85c; --gold-soft:#e6cf9f;
+    --ok:#4fbf97; --ok-bg:#16251f;
+    --no:#e79488; --no-bg:#2f211e;
+    --deep:#0d2c23; --deep-2:#0a231c; --on-deep:#e7efe9; --on-deep-2:#9db8ae; --deep-line:#26463a;
+    --ng:#db9a5f; --uk:#7bbcd7;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101613; --paper-2:#161e1a; --card:#1a221e;
+  --ink:#e9efea; --ink-2:#aebbb3; --ink-3:#8a978f;
+  --line:#28322c; --line-2:#374238;
+  --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
+  --gold:#cfa85c; --gold-soft:#e6cf9f;
+  --ok:#4fbf97; --ok-bg:#16251f;
+  --no:#e79488; --no-bg:#2f211e;
+  --deep:#0d2c23; --deep-2:#0a231c; --on-deep:#e7efe9; --on-deep-2:#9db8ae; --deep-line:#26463a;
+  --ng:#db9a5f; --uk:#7bbcd7;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+h1,h2,h3{font-family:"Fraunces","Fraunces Fallback",Georgia,serif;font-weight:600;line-height:1.14;margin:0;text-wrap:balance}
+h1{font-size:clamp(1.9rem,5vw,2.7rem);font-weight:640;letter-spacing:-.01em}
+h2{font-size:clamp(1.4rem,3.4vw,1.9rem)}
+p{margin:0}
+a{color:var(--accent-ink)}
+button{font:inherit;cursor:pointer}
+.mono{font-family:"IBM Plex Mono",monospace}
+.wrap{max-width:680px;margin:0 auto;padding:0 clamp(1.1rem,4vw,1.6rem)}
+
+/* top bar */
+.top{background:var(--deep);color:var(--on-deep)}
+.top .row{display:flex;align-items:center;gap:1rem;height:56px;font-size:.9rem}
+.top .brand{display:flex;align-items:center;gap:.5rem;font-family:"Fraunces",serif;font-weight:600;color:#fff;text-decoration:none}
+.top a.back{margin-left:auto;color:var(--on-deep-2);text-decoration:none}
+.top a.back:hover{color:#fff}
+
+main{padding:clamp(2rem,6vw,3.5rem) 0 4rem}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;font-weight:700;text-decoration:none;
+  border-radius:999px;padding:.85rem 1.5rem;border:1.5px solid transparent;transition:transform .12s, background .12s, filter .12s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-bright);transform:translateY(-1px)}
+.btn-gold{background:var(--gold);color:#1c1204}
+.btn-gold:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn-ghost{background:transparent;border-color:var(--line-2);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--accent);transform:translateY(-1px)}
+.btn-lg{padding:1rem 1.7rem;font-size:1.05rem}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* intro */
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:.8rem}
+.lede{font-size:1.08rem;color:var(--ink-2);margin-top:1rem}
+.facts{display:flex;flex-wrap:wrap;gap:.4rem .9rem;margin:1.4rem 0 0;font-family:"IBM Plex Mono",monospace;font-size:.76rem;color:var(--ink-3)}
+.facts span{display:inline-flex;align-items:center;gap:.4rem}
+.facts span::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.namefield{margin-top:1.6rem}
+.namefield label{display:block;font-size:.82rem;color:var(--ink-3);margin-bottom:.3rem}
+.namefield input{width:100%;max-width:280px;font:inherit;padding:.6rem .7rem;border:1.5px solid var(--line-2);border-radius:9px;background:var(--card);color:var(--ink)}
+.namefield input:focus,.opt:focus-within,.btn:focus-visible,a:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+.start-row{margin-top:1.8rem;display:flex;flex-wrap:wrap;gap:.7rem;align-items:center}
+
+/* progress */
+.pbar{height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin-bottom:.5rem}
+.pbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s ease}
+.pmeta{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-3);margin-bottom:1.6rem}
+
+/* question */
+.qcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(1.3rem,4vw,2rem)}
+.qtag{font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.qtext{font-family:"Fraunces",serif;font-weight:540;font-size:1.28rem;line-height:1.32}
+.opts{display:flex;flex-direction:column;gap:.6rem;margin-top:1.2rem}
+.opt{display:flex;gap:.7rem;align-items:flex-start;border:1.5px solid var(--line-2);border-radius:11px;padding:.8rem .9rem;
+  background:var(--paper);cursor:pointer;transition:border-color .12s, background .12s}
+.opt:hover{border-color:var(--accent)}
+.opt input{margin-top:.25rem;accent-color:var(--accent);flex:none}
+.opt .t{font-size:.98rem}
+.opt.is-correct{border-color:var(--ok);background:var(--ok-bg)}
+.opt.is-wrong{border-color:var(--no);background:var(--no-bg)}
+.opt.locked{cursor:default}
+.opt.locked:hover{border-color:var(--line-2)}
+.opt.locked.is-correct:hover{border-color:var(--ok)}
+.opt.locked.is-wrong:hover{border-color:var(--no)}
+
+.feedback{margin-top:1.2rem;border-radius:11px;padding:.9rem 1.1rem;font-size:.96rem}
+.feedback.ok{background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line))}
+.feedback.no{background:var(--no-bg);border:1px solid color-mix(in srgb,var(--no) 40%,var(--line))}
+.feedback b{display:block;font-family:"Fraunces",serif;font-weight:600;margin-bottom:.25rem}
+.feedback.ok b{color:var(--ok)} .feedback.no b{color:var(--no)}
+
+.qnav{margin-top:1.4rem;display:flex;gap:.7rem;align-items:center}
+.qnav .hint{font-size:.8rem;color:var(--ink-3)}
+
+/* results */
+.score-wrap{display:flex;gap:1.4rem;align-items:center;flex-wrap:wrap;margin:1.6rem 0}
+.ring{--p:0;width:118px;height:118px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:conic-gradient(var(--accent) calc(var(--p)*1%), var(--paper-2) 0)}
+.ring b{width:92px;height:92px;border-radius:50%;background:var(--card);display:grid;place-items:center;
+  font-family:"Fraunces",serif;font-weight:640;font-size:1.5rem}
+.score-wrap .band{flex:1;min-width:220px}
+.score-wrap .band .k{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.score-wrap .band h2{margin:.2rem 0 .3rem}
+.score-wrap .band p{color:var(--ink-2);font-size:.98rem}
+
+.areas{display:flex;flex-direction:column;gap:.9rem;margin:2rem 0}
+.area{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:1rem 1.1rem}
+.area .h{display:flex;justify-content:space-between;align-items:baseline;gap:1rem}
+.area .h b{font-family:"Fraunces",serif;font-weight:600;font-size:1.05rem}
+.area .h .sc{font-family:"IBM Plex Mono",monospace;font-size:.82rem;color:var(--ink-3)}
+.area .track{height:5px;border-radius:999px;background:var(--paper-2);margin:.5rem 0 .55rem;overflow:hidden}
+.area .track i{display:block;height:100%;background:var(--accent)}
+.area p{font-size:.92rem;color:var(--ink-2)}
+
+.learned{background:var(--paper-2);border-radius:14px;padding:1.3rem 1.4rem;margin:2rem 0}
+.learned h3{font-size:1.15rem;margin-bottom:.6rem}
+.learned ul{margin:0;padding-left:1.1rem;color:var(--ink-2);font-size:.95rem}
+.learned li{margin:.4rem 0}
+
+.cta-block{background:linear-gradient(180deg,var(--deep),var(--deep-2));color:var(--on-deep);
+  border-radius:16px;padding:clamp(1.5rem,5vw,2.4rem);margin-top:2rem;text-align:center}
+.cta-block h2{color:#fff}
+.cta-block p{color:var(--on-deep-2);margin:.8rem auto 0;max-width:46ch}
+.cta-block .row{display:flex;flex-wrap:wrap;gap:.7rem;justify-content:center;margin-top:1.5rem}
+.cta-block .note{margin-top:1rem;font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--on-deep-2)}
+.after{margin-top:1.4rem;text-align:center;font-size:.9rem;color:var(--ink-3)}
+.after a{margin:0 .5rem}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap row">
+    <a class="brand" href="https://news.nigeriastudentambassador.com/academy.html">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2 3 6.5v2l9 4.5 9-4.5v-2L12 2Z" fill="#2fa07a"/>
+        <path d="M6 11v4.2c0 1.9 2.7 3.3 6 3.3s6-1.4 6-3.3V11l-6 3-6-3Z" fill="#b98f43"/>
+      </svg>
+      AI Tutor Academy
+    </a>
+    <a class="back" href="https://news.nigeriastudentambassador.com/academy.html">&larr; Back to the Academy</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ================= INTRO ================= -->
+  <section id="intro">
+    <p class="eyebrow">Free &middot; no sign-up</p>
+    <h1>The AI Skills Diagnostic</h1>
+    <p class="lede">Fifteen quick questions on how AI actually works &mdash; how to prompt it,
+      check it, build with it, and use it honestly. You&rsquo;ll get an explanation after every
+      question, and a personal breakdown of where you&rsquo;re strong and where the gaps are.</p>
+    <p class="lede" style="font-size:1rem">Take it for your child, or let them take it themselves.
+      Either way, you&rsquo;ll finish knowing more about AI than you started &mdash; and exactly
+      where the Academy picks up.</p>
+    <div class="facts">
+      <span>15 questions</span>
+      <span>about 10 minutes</span>
+      <span>feedback as you go</span>
+      <span>answers stay on your device</span>
+    </div>
+    <div class="namefield">
+      <label for="name">First name (optional &mdash; just for your results)</label>
+      <input type="text" id="name" autocomplete="given-name" maxlength="24" placeholder="e.g. Amara">
+    </div>
+    <div class="start-row">
+      <button class="btn btn-primary btn-lg" id="startBtn">Start the diagnostic</button>
+      <span class="hint" style="font-size:.8rem;color:var(--ink-3)">No email. No account. Nothing saved anywhere.</span>
+    </div>
+  </section>
+
+  <!-- ================= QUIZ ================= -->
+  <section id="quiz" hidden>
+    <div class="pbar"><i id="pfill"></i></div>
+    <div class="pmeta"><span id="pcount">Question 1 of 15</span><span id="pscore">Score 0</span></div>
+
+    <div class="qcard">
+      <p class="qtag" id="qtag">AI Foundations</p>
+      <p class="qtext" id="qtext">&hellip;</p>
+      <div class="opts" id="opts" role="radiogroup" aria-labelledby="qtext"></div>
+      <div class="feedback" id="fb" hidden></div>
+      <div class="qnav">
+        <button class="btn btn-primary" id="checkBtn" disabled>Check answer</button>
+        <button class="btn btn-primary" id="nextBtn" hidden>Next question</button>
+        <span class="hint" id="qhint"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RESULTS ================= -->
+  <section id="results" hidden>
+    <p class="eyebrow" id="rGreeting">Your result</p>
+    <h1 id="rTitle">Here&rsquo;s where you stand.</h1>
+
+    <div class="score-wrap">
+      <div class="ring" id="ring"><b id="ringNum">0/15</b></div>
+      <div class="band">
+        <p class="k" id="bandK">Band</p>
+        <h2 id="bandTitle">&hellip;</h2>
+        <p id="bandMsg">&hellip;</p>
+      </div>
+    </div>
+
+    <h2 style="font-size:1.25rem">Your skills, area by area</h2>
+    <div class="areas" id="areas"></div>
+
+    <div class="learned">
+      <h3>Five things this diagnostic just taught you</h3>
+      <ul>
+        <li><b>AI predicts text</b> &mdash; it doesn&rsquo;t &ldquo;know&rdquo; facts, so it can be confidently wrong. Always ask for a source.</li>
+        <li><b>Good prompts have a shape</b> &mdash; Role, Task, Context, limits. Vague in, vague out.</li>
+        <li><b>Verify everything</b> &mdash; nothing from an AI goes in your work without a second source you found yourself.</li>
+        <li><b>You can build without code</b> &mdash; a clear spec plus no-code tools beats a big vague idea.</li>
+        <li><b>Use it honestly</b> &mdash; add at least 40% of your own thinking, and tell your teacher how AI helped.</li>
+      </ul>
+    </div>
+
+    <div class="cta-block">
+      <h2 id="ctaHead">Whatever your score, the Academy meets your child right here.</h2>
+      <p id="ctaSub">This diagnostic is the first ten minutes. The Academy is the next twelve weeks
+        &mdash; the four AI stages, the human skills school skips, and a private tutor that never
+        just hands over the answer.</p>
+      <div class="row">
+        <a class="btn btn-primary btn-lg" href="https://paystack.shop/pay/teensaiacademy" target="_blank" rel="noopener">Enrol &mdash; Nigeria (&#8358;)</a>
+        <a class="btn btn-gold btn-lg" href="https://buy.stripe.com/bJe5kFckscrfdtI9KLbbG02" target="_blank" rel="noopener">Enrol &mdash; UK (&pound;)</a>
+      </div>
+      <div class="row" style="margin-top:.6rem">
+        <a class="btn btn-ghost" style="border-color:rgba(255,255,255,.4);color:#fff" href="https://news.nigeriastudentambassador.com/academy.html#enrol">Continue to the Academy &rarr;</a>
+      </div>
+      <p class="note">Secure checkout &middot; Paystack for Nigeria, Stripe for the UK</p>
+    </div>
+
+    <p class="after">
+      <a href="https://news.nigeriastudentambassador.com/academy.html">Back to the landing page</a>
+      &middot;
+      <a href="https://news.nigeriastudentambassador.com/ai-tutor.html">Try the AI Tutor free</a>
+      &middot;
+      <a href="#" id="retake">Retake the diagnostic</a>
+    </p>
+  </section>
+
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* ---------- questions ---------- */
+const AREAS = ["Foundations","Prompting","Building","Creativity","Honesty"];
+const Q = [
+  { area:"Foundations", q:"When a chatbot like ChatGPT or Copilot answers a question, what is it actually doing?",
+    a:["Looking the answer up in a verified database","Predicting likely words from patterns in text it has read","Asking a human expert behind the scenes","Copying the top search result word-for-word"], correct:1,
+    fb:"A language model predicts text, one word at a time, from patterns. It has no built-in fact-check — which is exactly why it can sound completely confident and still be wrong." },
+  { area:"Foundations", q:"An AI states a “fact” with a specific date and names a source you can’t find anywhere. This is most likely…",
+    a:["A rare AI error that almost never happens","A “hallucination” — it invented something that sounds real","Proof the source is just very obscure","A sign it’s using a paid database"], correct:1,
+    fb:"Hallucination — confident, fluent and false — is common, not rare. The habit that protects you: “How do you know that? Give me a source I can check myself.”" },
+  { area:"Foundations", q:"Which of these should you NOT paste into a free public AI chatbot?",
+    a:["A general question about how photosynthesis works","A request for practice quiz questions","Your finished essay, or a classmate’s personal details","A request to explain a news topic"], correct:2,
+    fb:"Your own writing and other people’s data are private. For anything personal, use a school-account tool (like Copilot signed in) — that content stays inside the school’s system." },
+
+  { area:"Prompting", q:"Which prompt will get you a more useful answer?",
+    a:["“help me with my history essay”","“You’re a history examiner. Give me 3 ways to structure an essay on the causes of WWI. Don’t write it for me.”","“write my history essay”","“history essay please”"], correct:1,
+    fb:"A strong prompt gives a Role, a Task, Context and limits (the RTCE framework). Vague in, vague out — the more the AI has to guess, the worse the answer." },
+  { area:"Prompting", q:"You want the AI to make flashcards in one specific style. The most reliable way is to…",
+    a:["Describe the style in a long paragraph","Paste two examples done your way, then ask for more “in exactly this style”","Ask it to “be creative”","Keep trying until it guesses right"], correct:1,
+    fb:"Showing two or three worked examples (“few-shot”) beats describing. The AI copies the shape you demonstrate far more reliably than a description." },
+  { area:"Prompting", q:"You’re stuck on a maths problem. The instruction that keeps YOU learning is…",
+    a:["“Give me the full worked solution”","“Give me one hint at a time and ask what I’d do next — never tell me the final answer”","“Solve it and explain every step”","“Just tell me if my answer is right”"], correct:1,
+    fb:"Set the AI up as a Socratic tutor. If it hands over the answer you haven’t learned it — and you can’t reproduce it in the exam hall." },
+
+  { area:"Building", q:"A good first “build a tool with AI” project is…",
+    a:["A quiz bot that drills JSS3 Basic Science past questions on a phone","An app that helps every student in the country study better","A social network for teenagers","An AI that can answer literally any question"], correct:0,
+    fb:"Small, specific, real and finishable. A narrow first version you actually ship beats an ambitious idea that never gets built." },
+  { area:"Building", q:"Before building anything, the most important thing to write down is…",
+    a:["The programming language you’ll use","Who it’s for, what it does, and what it deliberately does NOT do","A name and a logo","The price"], correct:1,
+    fb:"That’s a “spec”. Naming what it will NOT do is what keeps version 1 small enough to finish." },
+  { area:"Building", q:"You want a tool where people submit a request and get an automatic reply. With no coding, the best route is…",
+    a:["A custom chatbot","A form → a list/spreadsheet → an automation that emails back (e.g. Microsoft Forms + Lists + Power Automate)","A poster","A short video"], correct:1,
+    fb:"No-code tools chain together. You don’t need to program — you need to connect the right blocks: capture, store, respond." },
+
+  { area:"Creativity", q:"To get a good image from an AI, the best prompt names…",
+    a:["Just the subject (“a poster”)","Subject + action + setting + style + framing, in layers","The colour only","Nothing — let the AI decide"], correct:1,
+    fb:"Layered prompts give control: “a club logo — a lightbulb with a leaf filament, flat vector, two colours, centred, square, space for text.”" },
+  { area:"Creativity", q:"Your AI image is almost right but one thing is off. You should…",
+    a:["Rewrite the whole prompt from scratch","Keep everything and ask for one specific change at a time","Accept it as-is","Switch to a different tool"], correct:1,
+    fb:"One change at a time keeps the parts that already worked. Rewriting from scratch each time sends you in circles." },
+  { area:"Creativity", q:"Making an AI image of a real classmate doing something embarrassing “as a joke” is…",
+    a:["Fine if you don’t post it publicly","Fine if it looks obviously fake","A deepfake, and not OK — it can humiliate, mislead or get someone in trouble","Fine if they never find out"], correct:2,
+    fb:"Never make an identifiable real person do or say something they didn’t. And always label AI-made images and audio as AI-made." },
+
+  { area:"Honesty", q:"An AI gives you a statistic for your project. Before you use it, you should…",
+    a:["Trust it — the AI is usually right","Find a second source YOU can check — a textbook, a named website, a teacher","Ask the same AI whether it’s sure","Reword it so it sounds like yours"], correct:1,
+    fb:"“Check before you trust.” Nothing from an AI enters your work without a second source you found yourself." },
+  { area:"Honesty", q:"The Academy’s “40% rule” means…",
+    a:["You may use AI for up to 40% of a task","You must change, cut or build on at least 40% of anything AI gives you — and be able to explain every sentence","40% of your class may use AI","AI must be right 40% of the time"], correct:1,
+    fb:"If you can’t explain a sentence in your finished work, it doesn’t belong there. The 40% is a floor, not a ceiling." },
+  { area:"Honesty", q:"When you hand in work that AI helped with, you should…",
+    a:["Say nothing — everyone uses it","Only mention it if a teacher asks","Tell your teacher exactly how it helped — “to plan”, “to check grammar”, “to make flashcards”","Delete the AI parts so no one knows"], correct:2,
+    fb:"Declaring how AI helped is honesty — and it’s the whole point. Teachers respect the student who is open about it." },
+];
+
+const AREA_FB = {
+  Foundations: [
+    "Start here. What AI is and isn’t — and how to spot a guess — is the ground everything else stands on. Track 1 (AI Foundations) builds it from scratch.",
+    "Solid instincts on the basics. Track 1 turns them into a habit you use every time you open a chatbot.",
+    "You get what AI really is. Track 1 sharpens the edge cases — privacy, bias, when it can and can’t help."],
+  Prompting: [
+    "Prompting is a learnable skill, not a knack. Track 2 teaches the RTCE framework and has you build your own study assistant.",
+    "You prompt better than most. Track 2 makes it systematic — RTCE, few-shot, the Socratic tutor prompt.",
+    "Strong prompting. Track 2 pushes it into building custom assistants and keeping long chats on track."],
+  Building: [
+    "Building with AI, no code, is closer than it looks. Track 3 walks a real local problem all the way to a working tool.",
+    "You think like a builder already. Track 3 is the capstone — spec it, build it, test it with real users, ship it.",
+    "Real builder instincts. Track 3’s capstone is where you turn that into something people actually use."],
+  Creativity: [
+    "Image, video and music with AI have real technique behind them. Track 4 covers layered prompting and the ethics of making things that look real.",
+    "Good creative instincts. Track 4 makes the prompting structured and takes on likeness, consent and labelling.",
+    "You already prompt images well. Track 4 goes further — iteration, motion, sound, and the ethics that matter."],
+  Honesty: [
+    "This is the part school worries about most. The Academy Code — verify, add your value, declare the help — is graded on every piece of work.",
+    "You’ve got the right instincts on using AI honestly. The Academy makes the Academy Code a habit, not a rule.",
+    "You clearly understand honest use. The Academy backs it with a graded code so it sticks under pressure."],
+};
+
+const BANDS = [
+  { min:0,  k:"Just getting started", t:"You’re right where most people are.",
+    m:"Almost nobody is taught this. You now know more about AI than you did ten minutes ago — and the Academy builds the rest from the ground up." },
+  { min:7,  k:"On your way", t:"You’ve got real instincts.",
+    m:"You already sense how AI should be used. The Academy turns those instincts into proper skills — prompting frameworks, verification habits, building with no code." },
+  { min:12, k:"Strong foundation", t:"That’s a strong foundation.",
+    m:"You understand AI better than most adults. The Academy takes it further — the capstone build, creative work, and the human skills school never teaches." },
+];
+
+/* ---------- state ---------- */
+let i = 0, score = 0, answered = false, picked = -1;
+const perArea = Object.fromEntries(AREAS.map(a => [a, {got:0, of:0}]));
+Q.forEach(x => perArea[x.area].of++);
+
+/* ---------- flow ---------- */
+$("#startBtn").onclick = () => {
+  $("#intro").hidden = true;
+  $("#quiz").hidden = false;
+  render();
+  window.scrollTo(0,0);
+};
+
+function render(){
+  const q = Q[i];
+  answered = false; picked = -1;
+  $("#qtag").textContent = q.area === "Honesty" ? "Verification & honesty"
+    : q.area === "Foundations" ? "AI Foundations"
+    : q.area === "Prompting" ? "Prompt engineering"
+    : q.area === "Building" ? "Building with AI"
+    : "AI for creativity";
+  $("#qtext").textContent = q.q;
+  $("#pcount").textContent = `Question ${i+1} of ${Q.length}`;
+  $("#pscore").textContent = `Score ${score}`;
+  $("#pfill").style.width = `${(i/Q.length)*100}%`;
+  $("#fb").hidden = true;
+  $("#checkBtn").hidden = false; $("#checkBtn").disabled = true;
+  $("#nextBtn").hidden = true;
+  $("#qhint").textContent = "";
+
+  const wrap = $("#opts"); wrap.innerHTML = "";
+  q.a.forEach((text, idx) => {
+    const id = "o" + idx;
+    const lab = document.createElement("label");
+    lab.className = "opt"; lab.setAttribute("for", id);
+    lab.innerHTML = `<input type="radio" name="opt" id="${id}" value="${idx}"><span class="t"></span>`;
+    lab.querySelector(".t").textContent = text;
+    lab.querySelector("input").onchange = () => { picked = idx; $("#checkBtn").disabled = false; };
+    wrap.appendChild(lab);
+  });
+}
+
+$("#checkBtn").onclick = () => {
+  if (picked < 0 || answered) return;
+  answered = true;
+  const q = Q[i];
+  const correct = picked === q.correct;
+  if (correct){ score++; perArea[q.area].got++; }
+  [...$("#opts").children].forEach((lab, idx) => {
+    lab.classList.add("locked");
+    lab.querySelector("input").disabled = true;
+    if (idx === q.correct) lab.classList.add("is-correct");
+    if (idx === picked && !correct) lab.classList.add("is-wrong");
+  });
+  const fb = $("#fb");
+  fb.className = "feedback " + (correct ? "ok" : "no");
+  fb.innerHTML = `<b>${correct ? "Correct" : "Not quite"}</b>${q.fb}`;
+  fb.hidden = false;
+  $("#pscore").textContent = `Score ${score}`;
+  $("#checkBtn").hidden = true;
+  $("#nextBtn").hidden = false;
+  $("#nextBtn").textContent = (i === Q.length - 1) ? "See my results" : "Next question";
+  $("#nextBtn").focus();
+};
+
+$("#nextBtn").onclick = () => {
+  if (i === Q.length - 1){ showResults(); return; }
+  i++; render(); window.scrollTo(0,0);
+};
+
+function showResults(){
+  $("#quiz").hidden = true;
+  $("#results").hidden = false;
+  window.scrollTo(0,0);
+
+  const name = ($("#name").value || "").trim();
+  $("#rGreeting").textContent = name ? `${name}, here's your result` : "Your result";
+
+  const pct = Math.round((score / Q.length) * 100);
+  $("#ringNum").textContent = `${score}/${Q.length}`;
+  $("#ring").style.setProperty("--p", pct);
+
+  const band = [...BANDS].reverse().find(b => score >= b.min);
+  $("#bandK").textContent = "Your band";
+  $("#bandTitle").textContent = band.t;
+  $("#bandMsg").textContent = band.m;
+  $("#rTitle").textContent = name ? `Here’s where you stand, ${name}.` : "Here’s where you stand.";
+
+  const areasEl = $("#areas"); areasEl.innerHTML = "";
+  const label = { Foundations:"AI Foundations", Prompting:"Prompt engineering", Building:"Building with AI", Creativity:"AI for creativity", Honesty:"Verification & honesty" };
+  AREAS.forEach(a => {
+    const {got, of} = perArea[a];
+    const tier = got <= 1 ? 0 : (got === 2 ? 1 : 2);
+    const el = document.createElement("div");
+    el.className = "area";
+    el.innerHTML =
+      `<div class="h"><b>${label[a]}</b><span class="sc">${got} / ${of}</span></div>
+       <div class="track"><i style="width:${(got/of)*100}%"></i></div>
+       <p>${AREA_FB[a][tier]}</p>`;
+    areasEl.appendChild(el);
+  });
+
+  // CTA copy nudges slightly by band, but always drives to the course
+  if (score <= 6){
+    $("#ctaHead").textContent = "You’ve made the first move. The Academy does the rest.";
+  } else if (score >= 12){
+    $("#ctaHead").textContent = "You’re ahead of the curve. The Academy keeps you there.";
+  } else {
+    $("#ctaHead").textContent = "Whatever your score, the Academy meets your child right here.";
+  }
+}
+
+$("#retake").onclick = e => {
+  e.preventDefault();
+  i = 0; score = 0; answered = false; picked = -1;
+  AREAS.forEach(a => perArea[a].got = 0);
+  $("#results").hidden = true;
+  $("#quiz").hidden = false;
+  render();
+  window.scrollTo(0,0);
+};
+</script>
+</body>
+</html>
