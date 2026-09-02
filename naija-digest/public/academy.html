@@ -20,7 +20,7 @@
   --accent:#1f7a5c; --accent-bright:#2fa07a; --accent-ink:#0f4a38;
   --gold:#b28636; --gold-soft:#d9bd88;
   --flag:#a5392f; --flag-bg:#f7e8e5;
-  --ng:#bd6c26; --uk:#2b6f8c;
+  --ng:#bd6c26; --uk:#2b6f8c; --stage-olive:#5a7a2e;
   --deep:#123c2f; --deep-2:#0e3227; --deep-line:#2c5647; --on-deep:#eaf1ec; --on-deep-2:#a9c4ba;
   --code-bg:#eef2ec;
 }
@@ -32,7 +32,7 @@
     --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
     --gold:#cfa85c; --gold-soft:#e6cf9f;
     --flag:#e79488; --flag-bg:#2f211e;
-    --ng:#db9a5f; --uk:#7bbcd7;
+    --ng:#db9a5f; --uk:#7bbcd7; --stage-olive:#9ec46a;
     --deep:#0d2c23; --deep-2:#0a231c; --deep-line:#26463a; --on-deep:#e7efe9; --on-deep-2:#9db8ae;
     --code-bg:#131b18;
   }
@@ -44,7 +44,7 @@
   --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
   --gold:#cfa85c; --gold-soft:#e6cf9f;
   --flag:#e79488; --flag-bg:#2f211e;
-  --ng:#db9a5f; --uk:#7bbcd7;
+  --ng:#db9a5f; --uk:#7bbcd7; --stage-olive:#9ec46a;
   --deep:#0d2c23; --deep-2:#0a231c; --deep-line:#26463a; --on-deep:#e7efe9; --on-deep-2:#9db8ae;
   --code-bg:#131b18;
 }
@@ -193,6 +193,19 @@ section{padding:clamp(3.5rem,8vw,6rem) 0}
 .path-card ul{margin:0;padding-left:1.1rem;color:var(--ink-2);font-size:.96rem}
 .path-card li{margin:.4rem 0}
 .path-card li b{color:var(--ink)}
+
+/* ---------- four stages ---------- */
+.stages{display:grid;grid-template-columns:repeat(4,1fr);gap:.9rem;margin-top:2.2rem}
+@media (max-width:900px){.stages{grid-template-columns:1fr 1fr}}
+@media (max-width:520px){.stages{grid-template-columns:1fr}}
+.stage{border:1px solid var(--line);border-top:4px solid var(--sc,var(--accent));border-radius:14px;
+  background:var(--card);padding:1.2rem 1.1rem;display:flex;flex-direction:column;gap:.35rem}
+.stage .n{font-family:"IBM Plex Mono",monospace;font-size:.8rem;letter-spacing:.06em;color:var(--sc,var(--accent))}
+.stage b{font-family:"Fraunces",serif;font-weight:560;font-size:1.12rem;line-height:1.2}
+.stage .d{font-size:.9rem;color:var(--ink-2);flex:1}
+.stage .badge{margin-top:.5rem;align-self:flex-start;font-family:"IBM Plex Mono",monospace;font-size:.62rem;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--sc,var(--accent));
+  border:1px solid color-mix(in srgb,var(--sc,var(--accent)) 40%,var(--line));border-radius:999px;padding:.2rem .6rem}
 
 /* ---------- SEL strip ---------- */
 .sel-grid{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:2.2rem}
@@ -446,10 +459,41 @@ footer a{color:var(--on-deep)}
       </div>
     </div>
 
-    <p class="try-alt reveal" style="margin-top:1.6rem">
-      Both pathways run on the <a href="https://claude.ai/code/artifact/12f870df-338f-4eee-8be2-c82db15cf715">full four-track curriculum</a>
-      &mdash; AI Foundations, Prompt Engineering, Build with AI, and AI for Creativity &mdash; with a badge for each and a capstone project.
-    </p>
+    <div class="sec-head reveal" style="margin-top:3.4rem">
+      <p class="eyebrow">The learning journey</p>
+      <h2>Four stages every student moves through.</h2>
+      <p class="lede">Each stage builds on the last. A badge for each, a real capstone project, and
+        a certificate at the end.</p>
+    </div>
+
+    <div class="stages">
+      <div class="stage reveal" style="--sc:var(--accent)">
+        <span class="n">01</span>
+        <b>AI Foundations</b>
+        <span class="d">What AI actually is, how to spot when it&rsquo;s guessing, and how to use it honestly and safely.</span>
+        <span class="badge">earns &middot; AI Ready</span>
+      </div>
+      <div class="stage reveal" style="--sc:var(--uk)">
+        <span class="n">02</span>
+        <b>Prompt Engineering &amp; Chatbots</b>
+        <span class="d">A professional framework for getting real answers (RTCE) &mdash; then building their own study assistant.</span>
+        <span class="badge">earns &middot; Prompt Builder</span>
+      </div>
+      <div class="stage reveal" style="--sc:var(--stage-olive)">
+        <span class="n">03</span>
+        <b>Build with AI &mdash; no code</b>
+        <span class="d">Turning a real problem into a working tool, with no coding. This is the capstone.</span>
+        <span class="badge">earns &middot; Builder</span>
+      </div>
+      <div class="stage reveal" style="--sc:var(--ng)">
+        <span class="n">04</span>
+        <b>AI for Creativity</b>
+        <span class="d">Image, video and music with AI &mdash; and the ethics of making things that look real.</span>
+        <span class="badge">earns &middot; Creator</span>
+      </div>
+    </div>
+
+    <p class="sel-note reveal">See the <a href="https://claude.ai/code/artifact/12f870df-338f-4eee-8be2-c82db15cf715">full curriculum</a> &mdash; every module, worked prompt and assessment.</p>
   </div>
 </section>
 
