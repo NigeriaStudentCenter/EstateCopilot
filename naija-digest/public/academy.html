@@ -194,6 +194,14 @@ section{padding:clamp(3.5rem,8vw,6rem) 0}
 .path-card li{margin:.4rem 0}
 .path-card li b{color:var(--ink)}
 
+/* ---------- SEL strip ---------- */
+.sel-grid{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:2.2rem}
+.sel-grid .item{flex:1 1 210px;border:1px solid var(--line);border-radius:13px;background:var(--card);padding:1rem 1.15rem}
+.sel-grid .item .n{font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.1em;color:var(--accent)}
+.sel-grid .item b{display:block;font-family:"Fraunces",serif;font-weight:540;font-size:1.05rem;margin:.18rem 0 .2rem}
+.sel-grid .item span{font-size:.88rem;color:var(--ink-2)}
+.sel-note{margin-top:1.6rem;font-size:.92rem;color:var(--ink-3)}
+
 /* ---------- guardrails / charter ---------- */
 .charter{border:1px solid var(--deep-line);border-radius:20px;padding:clamp(1.6rem,4vw,2.6rem);margin-top:2.4rem;
   background:linear-gradient(180deg, rgba(255,255,255,.03), transparent);position:relative}
@@ -250,6 +258,7 @@ footer a{color:var(--on-deep)}
       <a href="#problem">The problem</a>
       <a href="#tools">The tools</a>
       <a href="#pathways">Curriculum</a>
+      <a href="#sel">SEL</a>
       <a href="#guardrails">Guardrails</a>
       <a href="#try">Try it</a>
     </nav>
@@ -441,6 +450,34 @@ footer a{color:var(--on-deep)}
       Both pathways run on the <a href="https://claude.ai/code/artifact/12f870df-338f-4eee-8be2-c82db15cf715">full four-track curriculum</a>
       &mdash; AI Foundations, Prompt Engineering, Build with AI, and AI for Creativity &mdash; with a badge for each and a capstone project.
     </p>
+  </div>
+</section>
+
+<!-- ===================== S4b  A SECOND COURSE: SEL ===================== -->
+<section id="sel" class="tint">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Beyond AI &mdash; the other half of the education</p>
+      <h2>We also teach what school never gets round to: how to handle yourself, and other people.</h2>
+      <p class="lede">Your child will get years of maths and grammar and almost no direct teaching
+        on knowing their own feelings, reading other people, working in a team, managing stress,
+        or resolving a conflict without it turning ugly. Those skills quietly decide how the rest
+        of it goes.</p>
+    </div>
+
+    <div class="sel-grid">
+      <div class="item reveal"><span class="n">01</span><b>Self-Awareness</b><span>Their own strengths, feelings and blind spots</span></div>
+      <div class="item reveal"><span class="n">02</span><b>Self-Management</b><span>Steering emotions, habits and goals</span></div>
+      <div class="item reveal"><span class="n">03</span><b>Social Awareness</b><span>Seeing the world through other people&rsquo;s eyes</span></div>
+      <div class="item reveal"><span class="n">04</span><b>Relationship Skills</b><span>Building and keeping healthy relationships</span></div>
+      <div class="item reveal"><span class="n">05</span><b>Responsible Decision-Making</b><span>Good calls &mdash; for themselves and others</span></div>
+      <div class="item reveal"><span class="n">06</span><b>Stress Management</b><span>A personal toolkit for pressure</span></div>
+      <div class="item reveal"><span class="n">07</span><b>Conflict Resolution</b><span>Working through disagreements without harm</span></div>
+    </div>
+
+    <p class="sel-note reveal">Grounded in the <strong>CASEL framework</strong> used by schools
+      and researchers worldwide. Self-paced and portfolio-based, running alongside the AI tracks
+      &mdash; each module is real-life tasks, a short reflection, and evidence the student keeps.</p>
   </div>
 </section>
 
