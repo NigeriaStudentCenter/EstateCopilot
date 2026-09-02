@@ -84,11 +84,13 @@ const communityRailHtml = `
       <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
     </div>
     <a class="community-student-tools" href="./students.html">🎓 Free student tools — study, scholarships, jobs, housing</a>
+    <a class="community-ambassador" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXloJuLeFjWtAiMlqr2n6TRRUMDcyU1BPVVpGNzNCOFlPUjI5TEk1UFpaMC4u" target="_blank" rel="noopener noreferrer">📍 Get news from your home LGA<span>Register your Local Government Area — it's free</span></a>
+    <p class="community-links-label">Follow for news updates</p>
     <div class="community-links">
       <a href="https://www.youtube.com/@NigeriaStudentAmbassador" target="_blank" rel="noopener noreferrer">YouTube</a>
-      <a href="https://www.instagram.com/nsambassador" target="_blank" rel="noopener noreferrer">Instagram</a>
-      <a href="https://www.tiktok.com/@nsambassador" target="_blank" rel="noopener noreferrer">TikTok</a>
-      <a href="https://x.com/nsambassador" target="_blank" rel="noopener noreferrer">X</a>
+      <a href="https://www.facebook.com/JohnAikeremiokha" target="_blank" rel="noopener noreferrer">Facebook</a>
+      <a href="https://www.instagram.com/nigeriastudentambassador" target="_blank" rel="noopener noreferrer">Instagram</a>
+      <a href="https://www.tiktok.com/@nigeria.student.am" target="_blank" rel="noopener noreferrer">TikTok</a>
     </div>
   </div>
   <div class="rail-card saved-card saved-card-compact">

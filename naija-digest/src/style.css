@@ -249,6 +249,37 @@ button { font: inherit; }
 }
 .community-student-tools:hover { background: #e8b957; }
 
+.community-ambassador {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #eef5ef;
+  background: #1b6b3a;
+  border: 1px solid #2f8f52;
+  padding: 9px 11px;
+  border-radius: 8px;
+  text-decoration: none;
+  line-height: 1.35;
+  margin-bottom: 12px;
+}
+.community-ambassador span {
+  display: block;
+  font-weight: 500;
+  font-size: 0.72rem;
+  color: #bfe4cc;
+  margin-top: 2px;
+}
+.community-ambassador:hover { background: #1f7d44; border-color: #46a869; }
+
+.community-links-label {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--rail-text-soft);
+  margin: 0 0 6px;
+}
 .community-links {
   display: grid;
   grid-template-columns: 1fr 1fr;
