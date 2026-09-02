@@ -144,6 +144,36 @@ section{padding:clamp(3.5rem,8vw,6rem) 0}
   text-transform:uppercase;color:#6b7a72;text-align:center;opacity:.9}
 .demo-note{margin-top:.7rem;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.08em;color:var(--on-deep-2)}
 
+/* ---------- video / film ---------- */
+.film{padding:clamp(2.5rem,6vw,4rem) 0}
+.film-card{position:relative;width:100%;aspect-ratio:16/9;border-radius:20px;overflow:hidden;
+  border:1px solid var(--deep-line);background:#0b241c;cursor:pointer;
+  box-shadow:0 50px 100px -40px rgba(10,25,20,.55)}
+.film-card .bg{position:absolute;inset:0;
+  background:radial-gradient(900px 520px at 78% -10%, #1c5b47 0%, #123c2f 46%, #0b241c 100%)}
+.film-card .bg::after{content:"";position:absolute;inset:0;
+  background:radial-gradient(520px 260px at 10% 112%, rgba(178,134,54,.14), transparent 70%)}
+.film-card .fg{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;justify-content:flex-end;
+  padding:clamp(1.4rem,4.5vw,3rem)}
+.film-card .kick{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--gold-soft);display:flex;align-items:center;gap:.5rem}
+.film-card .kick::before{content:"";border-left:9px solid var(--gold-soft);border-top:6px solid transparent;border-bottom:6px solid transparent}
+.film-card h3{font-family:"Fraunces","Fraunces Fallback",Georgia,serif;font-weight:600;color:#fff;
+  font-size:clamp(1.5rem,4.2vw,2.7rem);line-height:1.1;max-width:18ch;margin:.7rem 0 0;text-wrap:balance}
+.film-card .sub{color:var(--on-deep-2);font-size:.95rem;margin-top:.6rem}
+.film-card .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;
+  width:clamp(64px,9vw,92px);height:clamp(64px,9vw,92px);border-radius:50%;
+  background:rgba(255,255,255,.14);border:1.5px solid rgba(255,255,255,.6);
+  display:grid;place-items:center;transition:background .15s, border-color .15s, transform .15s}
+.film-card .play::after{content:"";border-left:clamp(18px,2.4vw,24px) solid #fff;
+  border-top:clamp(11px,1.5vw,15px) solid transparent;border-bottom:clamp(11px,1.5vw,15px) solid transparent;margin-left:6px}
+.film-card:hover .play,.film-card:focus-visible .play{background:var(--gold);border-color:var(--gold);transform:translate(-50%,-50%) scale(1.06)}
+.film-card:hover .play::after,.film-card:focus-visible .play::after{border-left-color:#1c1204}
+.film-card.playing{cursor:default}
+.film-card.playing .fg,.film-card.playing .play,.film-card.playing .bg{display:none}
+.film-card video,.film-card iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.film-note{margin-top:.9rem;text-align:center;font-size:.82rem;color:var(--ink-3)}
+
 /* ---------- problem: two columns ---------- */
 .split{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:2.4rem}
 @media (max-width:760px){.split{grid-template-columns:1fr}}
@@ -325,6 +355,27 @@ footer a{color:var(--on-deep)}
       </div>
       <p class="demo-note">A real session. The tutor never just hands over the answer.</p>
     </div>
+  </div>
+</section>
+
+<!-- ===================== S1b  THE FILM ===================== -->
+<section class="film" id="film">
+  <div class="wrap">
+    <!-- Facade thumbnail; click swaps in the player.
+         Self-hosted: drop academy-video.mp4 into /public and a poster academy-thumb.png (screenshot academy-thumb.html at 1280x720).
+         YouTube instead: set data-embed on .film-card to the embed URL, e.g. data-embed="https://www.youtube.com/embed/XXXX?autoplay=1". -->
+    <div class="film-card reveal" id="filmCard" role="button" tabindex="0"
+         aria-label="Play the video: see what your child will learn"
+         data-src="/academy-video.mp4" data-poster="/academy-thumb.png" data-embed="">
+      <div class="bg"></div>
+      <div class="play" aria-hidden="true"></div>
+      <div class="fg">
+        <p class="kick">Watch &middot; under 2 minutes</p>
+        <h3>See exactly what your child will learn.</h3>
+        <p class="sub">One private academy. Two courses. A fraction of a tutor&rsquo;s price.</p>
+      </div>
+    </div>
+    <p class="film-note">A short look inside the AI Tutor Academy &mdash; the tutor, the four stages, and the guardrails.</p>
   </div>
 </section>
 
@@ -660,6 +711,33 @@ footer a{color:var(--on-deep)}
   }
   run();
   if (!reduce) setInterval(run, 11000);
+})();
+
+/* ---------- click-to-play film ---------- */
+(function(){
+  const card = document.getElementById('filmCard');
+  if (!card) return;
+  let played = false;
+  const play = () => {
+    if (played) return; played = true;
+    const embed = card.dataset.embed;
+    if (embed){
+      const f = document.createElement('iframe');
+      f.src = embed; f.allow = 'autoplay; fullscreen; picture-in-picture';
+      f.allowFullscreen = true; f.title = 'AI Tutor Academy film';
+      card.appendChild(f);
+    } else {
+      const v = document.createElement('video');
+      v.src = card.dataset.src; v.controls = true; v.autoplay = true;
+      v.playsInline = true; v.preload = 'metadata';
+      if (card.dataset.poster) v.poster = card.dataset.poster;
+      card.appendChild(v);
+      v.play().catch(() => {});
+    }
+    card.classList.add('playing');
+  };
+  card.addEventListener('click', play);
+  card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); play(); } });
 })();
 </script>
 </body>
