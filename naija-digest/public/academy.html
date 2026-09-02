@@ -247,6 +247,12 @@ section{padding:clamp(3.5rem,8vw,6rem) 0}
 .sel-grid .item b{display:block;font-family:"Fraunces",serif;font-weight:540;font-size:1.05rem;margin:.18rem 0 .2rem}
 .sel-grid .item span{font-size:.88rem;color:var(--ink-2)}
 .sel-note{margin-top:1.6rem;font-size:.92rem;color:var(--ink-3)}
+.rhythm{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:2.6rem}
+@media (max-width:760px){.rhythm{grid-template-columns:1fr}}
+.rhythm .r{border:1px solid var(--line);border-radius:14px;padding:1.3rem 1.4rem;background:var(--card)}
+.rhythm .r .k{font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem}
+.rhythm .r b{display:block;font-family:"Fraunces",serif;font-weight:560;font-size:1.12rem;margin-bottom:.35rem}
+.rhythm .r p{color:var(--ink-2);font-size:.95rem}
 
 /* ---------- guardrails / charter ---------- */
 .charter{border:1px solid var(--deep-line);border-radius:20px;padding:clamp(1.6rem,4vw,2.6rem);margin-top:2.4rem;
@@ -549,6 +555,21 @@ footer a{color:var(--on-deep)}
     </div>
 
     <p class="sel-note reveal">See the <a href="https://claude.ai/code/artifact/12f870df-338f-4eee-8be2-c82db15cf715">full curriculum</a> &mdash; every module, worked prompt and assessment.</p>
+
+    <div class="rhythm reveal">
+      <div class="r">
+        <p class="k">Every week</p>
+        <b>One scheduled lesson</b>
+        <p>Lessons are organised once a week &mdash; live, structured teaching with
+          projects and feedback that move your child through the four stages.</p>
+      </div>
+      <div class="r">
+        <p class="k">In between</p>
+        <b>The platform stays open</b>
+        <p>Learners can use the tools on the platform whenever and however they want,
+          with a parent or guardian supervising.</p>
+      </div>
+    </div>
   </div>
 </section>
 
