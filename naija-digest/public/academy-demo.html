@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>AI Tutor Academy — demo loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,540;0,9..144,640;1,9..144,400&family=Public+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1100px 700px at 75% -5%, #1c5b47 0%, #123c2f 45%, #0e3227 100%);
+    display:grid;place-items:center;padding:5vh 5vw;
+    font-family:"Public Sans",system-ui,sans-serif;color:#eaf1ec;
+  }
+  .stage{width:min(720px,92vw)}
+  .cap-top{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:#dcc088;text-align:center;margin-bottom:1rem}
+  .demo{background:#0c261e;border:1px solid #2c5647;border-radius:20px;padding:16px;
+    box-shadow:0 50px 100px -30px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.05)}
+  .bar{display:flex;gap:7px;padding:2px 4px 12px}
+  .bar i{width:10px;height:10px;border-radius:50%;background:#2c5647}
+  .screen{background:#f6f7f3;border-radius:13px;padding:20px 20px 22px;color:#15201c;min-height:400px;position:relative;overflow:hidden}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:#6b7a72}
+  .path{display:flex;flex-wrap:wrap;gap:7px;margin:11px 0 4px}
+  .chip{font-family:"IBM Plex Mono",monospace;font-size:.7rem;border:1px solid #c7d1c4;border-radius:999px;padding:4px 11px;color:#42504a;
+    opacity:0;transform:translateY(5px);transition:opacity .45s, transform .45s, border-color .45s, color .45s}
+  .chip.on{opacity:1;transform:none}
+  .chip.jur.on{border-color:#bd6c26;color:#bd6c26;font-weight:500}
+  .thread{margin-top:14px;display:flex;flex-direction:column;gap:9px}
+  .msg{max-width:86%;border-radius:13px;padding:9px 12px;font-size:.9rem;line-height:1.5;opacity:0;transform:translateY(7px);transition:opacity .5s, transform .5s}
+  .msg.show{opacity:1;transform:none}
+  .msg.tutor{align-self:flex-start;background:#e9f2ed;border:1px solid #d3e0d8}
+  .msg.you{align-self:flex-end;background:#e7edf3;border:1px solid #d4dee7}
+  .msg .who{font-family:"IBM Plex Mono",monospace;font-size:.52rem;letter-spacing:.14em;text-transform:uppercase;color:#6b7a72;margin-bottom:3px}
+  .caption{position:absolute;left:20px;right:20px;bottom:14px;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.08em;
+    text-transform:uppercase;color:#6b7a72;text-align:center}
+  .foot{text-align:center;margin-top:1.1rem;font-family:"Fraunces",serif;font-size:1.05rem;color:#cfe0d6}
+  @media (prefers-reduced-motion:reduce){.chip,.msg{opacity:1!important;transform:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+  <div class="stage">
+    <p class="cap-top">AI Tutor Command Center</p>
+    <div class="demo">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <div class="screen">
+        <div class="kicker">Live session</div>
+        <div class="path">
+          <span class="chip jur" data-s="1">Nigerian (NERDC)</span>
+          <span class="chip" data-s="2">Secondary &middot; SSS 2</span>
+          <span class="chip" data-s="3">Physics</span>
+          <span class="chip" data-s="4">Projectile motion</span>
+        </div>
+        <div class="thread" id="t">
+          <div class="msg tutor" data-m="1"><span class="who">Tutor</span>Welcome to Projectile Motion. Once the ball leaves your hand, what two things is it doing at the same time?</div>
+          <div class="msg you" data-m="2"><span class="who">You</span>Moving forward and also falling?</div>
+          <div class="msg tutor" data-m="3"><span class="who">Tutor</span>Good. Before I confirm &mdash; check your textbook or Copilot. Is there any horizontal force on the ball in flight, ignoring air resistance?</div>
+          <div class="msg you" data-m="4"><span class="who">You</span>No force &mdash; so the sideways speed stays the same.</div>
+          <div class="msg tutor" data-m="5"><span class="who">Tutor</span>Exactly. Now, in your own words &mdash; <em>why</em> does &ldquo;no force&rdquo; mean &ldquo;constant velocity&rdquo;?</div>
+        </div>
+        <div class="caption" id="cap">Set the learning path</div>
+      </div>
+    </div>
+    <p class="foot">A real session. The tutor never just hands over the answer.</p>
+  </div>
+
+<script>
+(function(){
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const chips = [...document.querySelectorAll('.chip')];
+  const msgs  = [...document.querySelectorAll('.msg')];
+  const cap   = document.getElementById('cap');
+  const C = { path:'Set the learning path', teach:'The tutor teaches — one question at a time',
+              verify:'Every claim gets checked against a real source', explain:'Get it right? Now explain why.' };
+  function reset(){ chips.forEach(c=>c.classList.remove('on')); msgs.forEach(m=>m.classList.remove('show')); cap.textContent=C.path; }
+  function run(){
+    reset();
+    if (reduce){ chips.forEach(c=>c.classList.add('on')); msgs.forEach(m=>m.classList.add('show')); cap.textContent=C.explain; return; }
+    [[500,()=>chips[0].classList.add('on')],
+     [900,()=>chips[1].classList.add('on')],
+     [1300,()=>chips[2].classList.add('on')],
+     [1700,()=>chips[3].classList.add('on')],
+     [2500,()=>{cap.textContent=C.teach;msgs[0].classList.add('show');}],
+     [3800,()=>msgs[1].classList.add('show')],
+     [4900,()=>{cap.textContent=C.verify;msgs[2].classList.add('show');}],
+     [6500,()=>msgs[3].classList.add('show')],
+     [7700,()=>{cap.textContent=C.explain;msgs[4].classList.add('show');}],
+    ].forEach(([t,fn])=>setTimeout(fn,t));
+  }
+  run();
+  if (!reduce) setInterval(run, 12500);
+})();
+</script>
+</body>
+</html>

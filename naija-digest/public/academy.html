@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Tutor Academy — teach your teen to command AI, not cheat with it</title>
+<meta name="description" content="A private AI academy for students aged 8–16 on the Nigerian (NERDC) and British (UK) curricula. We turn AI from a shortcut into an elite academic partner: critical thinking, source verification, independent study.">
+<meta property="og:title" content="AI Tutor Academy — command AI, don't cheat with it">
+<meta property="og:description" content="Private AI training for students 8–16. Master Microsoft Copilot & Google NotebookLM for real study — with guardrails parents can trust.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,540;0,9..144,600;0,9..144,660;1,9..144,400&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --paper:#f6f7f3; --paper-2:#edf0e9; --card:#ffffff;
+  --ink:#15201c; --ink-2:#42504a; --ink-3:#6b7a72;
+  --line:#dde3da; --line-2:#c7d1c4;
+  --accent:#1f7a5c; --accent-bright:#2fa07a; --accent-ink:#0f4a38;
+  --gold:#b28636; --gold-soft:#d9bd88;
+  --flag:#a5392f; --flag-bg:#f7e8e5;
+  --ng:#bd6c26; --uk:#2b6f8c;
+  --deep:#123c2f; --deep-2:#0e3227; --deep-line:#2c5647; --on-deep:#eaf1ec; --on-deep-2:#a9c4ba;
+  --code-bg:#eef2ec;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#101613; --paper-2:#161e1a; --card:#1a221e;
+    --ink:#e9efea; --ink-2:#aebbb3; --ink-3:#8a978f;
+    --line:#28322c; --line-2:#374238;
+    --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
+    --gold:#cfa85c; --gold-soft:#e6cf9f;
+    --flag:#e79488; --flag-bg:#2f211e;
+    --ng:#db9a5f; --uk:#7bbcd7;
+    --deep:#0d2c23; --deep-2:#0a231c; --deep-line:#26463a; --on-deep:#e7efe9; --on-deep-2:#9db8ae;
+    --code-bg:#131b18;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101613; --paper-2:#161e1a; --card:#1a221e;
+  --ink:#e9efea; --ink-2:#aebbb3; --ink-3:#8a978f;
+  --line:#28322c; --line-2:#374238;
+  --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
+  --gold:#cfa85c; --gold-soft:#e6cf9f;
+  --flag:#e79488; --flag-bg:#2f211e;
+  --ng:#db9a5f; --uk:#7bbcd7;
+  --deep:#0d2c23; --deep-2:#0a231c; --deep-line:#26463a; --on-deep:#e7efe9; --on-deep-2:#9db8ae;
+  --code-bg:#131b18;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+img{max-width:100%}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,sans-serif;
+  font-size:17px; line-height:1.62; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:"Fraunces","Fraunces Fallback",Georgia,serif;font-weight:600;line-height:1.12;margin:0;text-wrap:balance}
+p{margin:0}
+a{color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 clamp(1.1rem,4vw,2rem)}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
+.lede{font-size:clamp(1.05rem,2.2vw,1.2rem);color:var(--ink-2);max-width:60ch}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:.5rem;font:inherit;font-weight:700;cursor:pointer;
+  text-decoration:none;border-radius:999px;padding:.85rem 1.5rem;border:1.5px solid transparent;
+  transition:transform .12s ease, box-shadow .12s ease, background .12s}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 1px 0 rgba(0,0,0,.06)}
+.btn-primary:hover{background:var(--accent-bright);transform:translateY(-1px);box-shadow:0 6px 20px -8px var(--accent)}
+.btn-ghost{background:transparent;border-color:currentColor;color:inherit}
+.btn-ghost:hover{transform:translateY(-1px)}
+.btn-gold{background:transparent;border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover{background:var(--gold);color:#1c1204;transform:translateY(-1px)}
+.btn-lg{padding:1rem 1.8rem;font-size:1.05rem}
+
+/* ---------- top bar ---------- */
+.topbar{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.topbar .row{display:flex;align-items:center;gap:1.2rem;height:60px}
+.brand{display:flex;align-items:center;gap:.55rem;font-family:"Fraunces",serif;font-weight:600;font-size:1.05rem;text-decoration:none;color:var(--ink)}
+.brand svg{flex:none}
+.topbar nav{display:flex;gap:1.4rem;margin-left:auto;font-size:.9rem}
+.topbar nav a{text-decoration:none;color:var(--ink-2)}
+.topbar nav a:hover{color:var(--ink)}
+.topbar .btn{margin-left:1rem;padding:.55rem 1.1rem;font-size:.9rem}
+@media (max-width:860px){.topbar nav{display:none}.topbar .btn{margin-left:auto}}
+
+/* ---------- sections ---------- */
+section{padding:clamp(3.5rem,8vw,6rem) 0}
+.sec-head{max-width:64ch}
+.sec-head .eyebrow{margin-bottom:.9rem}
+.sec-head h2{font-size:clamp(1.8rem,4.4vw,2.9rem);font-weight:660;letter-spacing:-.01em}
+.sec-head p{margin-top:1rem}
+
+.on-deep{background:linear-gradient(180deg,var(--deep),var(--deep-2));color:var(--on-deep)}
+.on-deep .eyebrow{color:var(--gold-soft)}
+.on-deep .lede,.on-deep .sec-head p{color:var(--on-deep-2)}
+.tint{background:var(--paper-2)}
+
+/* ---------- hero ---------- */
+.hero{background:radial-gradient(1200px 600px at 78% -10%, #1a5643 0%, var(--deep) 45%, var(--deep-2) 100%);color:var(--on-deep);
+  padding:clamp(2.5rem,6vw,4.5rem) 0 clamp(3rem,7vw,5rem);overflow:hidden;position:relative}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(600px 300px at 12% 110%, rgba(178,134,54,.10), transparent 70%)}
+.hero .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(2rem,5vw,3.5rem);align-items:center;position:relative}
+@media (max-width:920px){.hero .grid{grid-template-columns:1fr;gap:2.4rem}}
+.hero .eyebrow{color:var(--gold-soft)}
+.hero h1{font-size:clamp(2.3rem,5.6vw,3.7rem);font-weight:660;letter-spacing:-.015em;margin:1rem 0 0}
+.hero h1 .em{color:var(--gold-soft);font-style:italic}
+.hero .lede{color:var(--on-deep-2);margin-top:1.2rem;font-size:clamp(1.02rem,2vw,1.16rem)}
+.hero .cta{display:flex;flex-wrap:wrap;gap:.8rem;margin-top:1.8rem}
+.hero .trust{margin-top:1.6rem;font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.03em;color:var(--on-deep-2);
+  display:flex;flex-wrap:wrap;gap:.4rem 1rem}
+.hero .trust span{display:inline-flex;align-items:center;gap:.4rem}
+.hero .trust span::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent-bright)}
+
+/* ---------- animated demo ---------- */
+.demo{background:#0c261e;border:1px solid var(--deep-line);border-radius:18px;padding:14px;
+  box-shadow:0 40px 80px -30px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.04);position:relative}
+.demo .bar{display:flex;gap:6px;padding:2px 4px 10px}
+.demo .bar i{width:9px;height:9px;border-radius:50%;background:#2c5647}
+.demo .screen{background:#f6f7f3;border-radius:11px;padding:16px 16px 18px;color:#15201c;min-height:340px;position:relative;overflow:hidden}
+.demo .kicker{font-family:"IBM Plex Mono",monospace;font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:#6b7a72}
+.demo .path{display:flex;flex-wrap:wrap;gap:6px;margin:9px 0 4px}
+.demo .chip{font-family:"IBM Plex Mono",monospace;font-size:.64rem;border:1px solid #c7d1c4;border-radius:999px;padding:3px 9px;color:#42504a;
+  opacity:0;transform:translateY(4px);transition:opacity .4s, transform .4s, border-color .4s, color .4s}
+.demo .chip.on{opacity:1;transform:none}
+.demo .chip.jur.on{border-color:var(--ng);color:var(--ng);font-weight:500}
+.demo .thread{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.demo .msg{max-width:86%;border-radius:12px;padding:8px 11px;font-size:.82rem;line-height:1.5;opacity:0;transform:translateY(6px);transition:opacity .45s, transform .45s}
+.demo .msg.show{opacity:1;transform:none}
+.demo .msg.tutor{align-self:flex-start;background:#e9f2ed;border:1px solid #d3e0d8}
+.demo .msg.you{align-self:flex-end;background:#e7edf3;border:1px solid #d4dee7}
+.demo .msg .who{font-family:"IBM Plex Mono",monospace;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;color:#6b7a72;margin-bottom:2px}
+.demo .caption{position:absolute;left:16px;right:16px;bottom:12px;font-family:"IBM Plex Mono",monospace;font-size:.58rem;letter-spacing:.06em;
+  text-transform:uppercase;color:#6b7a72;text-align:center;opacity:.9}
+.demo-note{margin-top:.7rem;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:.62rem;letter-spacing:.08em;color:var(--on-deep-2)}
+
+/* ---------- problem: two columns ---------- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:2.4rem}
+@media (max-width:760px){.split{grid-template-columns:1fr}}
+.pane{border:1px solid var(--line);border-radius:16px;padding:1.5rem;background:var(--card)}
+.pane.bad{border-color:color-mix(in srgb,var(--flag) 40%,var(--line))}
+.pane.good{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.pane h3{font-size:1.15rem;font-weight:660;display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem}
+.pane.bad h3{color:var(--flag)} .pane.good h3{color:var(--accent-ink)}
+.pane ol{margin:0;padding-left:1.1rem;color:var(--ink-2);font-size:.98rem}
+.pane li{margin:.5rem 0}
+.pivot{margin-top:2rem;font-size:1.15rem;font-family:"Fraunces",serif;font-weight:540;text-wrap:balance}
+.pivot b{color:var(--accent-ink)}
+
+/* ---------- tool stack ---------- */
+.tools{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:2.4rem}
+@media (max-width:760px){.tools{grid-template-columns:1fr}}
+.tool{border:1px solid var(--line);border-radius:16px;padding:1.6rem;background:var(--card);position:relative;overflow:hidden}
+.tool::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--tc,var(--accent))}
+.tool .tag{font-family:"IBM Plex Mono",monospace;font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--tc,var(--accent))}
+.tool h3{font-size:1.3rem;font-weight:660;margin:.5rem 0 .2rem}
+.tool .sub{color:var(--ink-3);font-size:.92rem;margin-bottom:.9rem}
+.tool p{color:var(--ink-2);font-size:.98rem}
+.tool ul{margin:.7rem 0 0;padding-left:1.1rem;color:var(--ink-2);font-size:.95rem}
+.tool li{margin:.35rem 0}
+
+/* comparison strip */
+.compare{margin-top:2.8rem;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--card)}
+.compare table{width:100%;border-collapse:collapse;font-size:.93rem}
+.compare th,.compare td{padding:.85rem 1rem;text-align:left;vertical-align:top}
+.compare thead th{font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-3);background:var(--paper-2);border-bottom:1px solid var(--line-2)}
+.compare thead th:last-child{color:var(--accent-ink)}
+.compare tbody tr+tr td{border-top:1px solid var(--line)}
+.compare td:first-child{font-weight:600;color:var(--ink)}
+.compare td.no{color:var(--ink-3)} .compare td.yes{color:var(--accent-ink);font-weight:600}
+.compare .col-us{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.compare-wrap{overflow-x:auto}
+.compare table{min-width:560px}
+
+/* ---------- pathways ---------- */
+.paths{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem;margin-top:2.4rem}
+@media (max-width:760px){.paths{grid-template-columns:1fr}}
+.path-card{border:1px solid var(--line);border-radius:16px;padding:1.7rem;background:var(--card);border-top:5px solid var(--pc)}
+.path-card .age{font-family:"IBM Plex Mono",monospace;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--pc)}
+.path-card h3{font-size:1.4rem;font-weight:660;margin:.4rem 0}
+.path-card .goal{color:var(--ink-2);font-style:italic;margin-bottom:.9rem}
+.path-card ul{margin:0;padding-left:1.1rem;color:var(--ink-2);font-size:.96rem}
+.path-card li{margin:.4rem 0}
+.path-card li b{color:var(--ink)}
+
+/* ---------- guardrails / charter ---------- */
+.charter{border:1px solid var(--deep-line);border-radius:20px;padding:clamp(1.6rem,4vw,2.6rem);margin-top:2.4rem;
+  background:linear-gradient(180deg, rgba(255,255,255,.03), transparent);position:relative}
+.charter .seal{position:absolute;top:-26px;left:50%;transform:translateX(-50%);width:52px;height:52px}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem 1.8rem;margin-top:1rem;counter-reset:r}
+@media (max-width:680px){.rules{grid-template-columns:1fr}}
+.rule{display:grid;grid-template-columns:28px 1fr;column-gap:.85rem;row-gap:.3rem;align-content:start}
+.rule::before{grid-column:1;grid-row:1;counter-increment:r;content:counter(r);font-family:"IBM Plex Mono",monospace;
+  color:var(--gold-soft);font-size:.82rem;border:1px solid var(--deep-line);border-radius:50%;width:28px;height:28px;
+  display:grid;place-items:center}
+.rule b{grid-column:2;grid-row:1;align-self:center;color:var(--on-deep);font-family:"Fraunces",serif;font-weight:540;font-size:1.06rem}
+.rule span{grid-column:2;grid-row:2;color:var(--on-deep-2);font-size:.94rem;line-height:1.5}
+
+/* ---------- try it ---------- */
+.tryframe{margin-top:2.2rem;border:1px solid var(--line-2);border-radius:18px;overflow:hidden;background:var(--card);
+  box-shadow:0 30px 60px -30px rgba(20,40,32,.28)}
+.tryframe .head{display:flex;align-items:center;gap:.5rem;padding:.7rem 1rem;border-bottom:1px solid var(--line);
+  font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.08em;color:var(--ink-3)}
+.tryframe .head i{width:8px;height:8px;border-radius:50%;background:var(--line-2)}
+.tryframe iframe{display:block;width:100%;height:900px;border:0;background:var(--paper)}
+.try-alt{margin-top:.9rem;font-size:.9rem;color:var(--ink-3)}
+.try-alt a{color:var(--accent-ink)}
+
+/* ---------- testimonial + final ---------- */
+.quote{max-width:44ch;margin:0 auto;text-align:center}
+.quote p{font-family:"Fraunces",serif;font-weight:400;font-style:italic;font-size:clamp(1.3rem,3.2vw,1.7rem);line-height:1.35}
+.quote cite{display:block;margin-top:1.1rem;font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.08em;color:var(--on-deep-2)}
+.final{text-align:center;margin-top:3rem}
+.final h2{font-size:clamp(1.9rem,4.6vw,3rem);font-weight:660}
+.final .cta{display:flex;flex-wrap:wrap;gap:.8rem;justify-content:center;margin-top:1.6rem}
+
+footer{background:var(--deep-2);color:var(--on-deep-2);padding:2.6rem 0;font-size:.86rem}
+footer .row{display:flex;flex-wrap:wrap;gap:1.5rem;justify-content:space-between;align-items:center}
+footer a{color:var(--on-deep)}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease, transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOP BAR ===================== -->
+<header class="topbar">
+  <div class="wrap row">
+    <a class="brand" href="#top">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2 3 6.5v2l9 4.5 9-4.5v-2L12 2Z" fill="var(--accent)"/>
+        <path d="M6 11v4.2c0 1.9 2.7 3.3 6 3.3s6-1.4 6-3.3V11l-6 3-6-3Z" fill="var(--gold)"/>
+      </svg>
+      AI Tutor Academy
+    </a>
+    <nav>
+      <a href="#problem">The problem</a>
+      <a href="#tools">The tools</a>
+      <a href="#pathways">Curriculum</a>
+      <a href="#guardrails">Guardrails</a>
+      <a href="#try">Try it</a>
+    </nav>
+    <a class="btn btn-primary" href="#enrol">Book a free session</a>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <div class="wrap grid">
+    <div>
+      <p class="eyebrow">Private AI academy &middot; ages 8&ndash;16 &middot; Nigerian (NERDC) &amp; British (UK) curricula</p>
+      <h1>Stop your teen from cheating with AI. Teach them to <span class="em">command</span> it.</h1>
+      <p class="lede">The AI Tutor Academy turns AI from an easy shortcut into an elite, private academic
+        partner. We train students aged 8&ndash;16 to master the industry-standard AI tools for
+        critical thinking, source verification and genuinely independent study.</p>
+      <div class="cta">
+        <a class="btn btn-primary btn-lg" href="#enrol">Book a free 45-minute AI Skills Diagnostic</a>
+        <a class="btn btn-ghost btn-lg" href="#try">See it in action &darr;</a>
+      </div>
+      <div class="trust">
+        <span>Enterprise-grade private workspaces</span>
+        <span>No data used to train public AI</span>
+        <span>A real tutor &mdash; not a homework machine</span>
+      </div>
+    </div>
+
+    <!-- animated product demo -->
+    <div>
+      <div class="demo" id="demo" aria-hidden="true">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="screen">
+          <div class="kicker">AI Tutor Command Center</div>
+          <div class="path">
+            <span class="chip jur" data-step="1">Nigerian (NERDC)</span>
+            <span class="chip" data-step="2">Secondary &middot; SSS 2</span>
+            <span class="chip" data-step="3">Physics</span>
+            <span class="chip" data-step="4">Projectile motion</span>
+          </div>
+          <div class="thread" id="demoThread">
+            <div class="msg tutor" data-msg="1"><span class="who">Tutor</span>Welcome to Projectile Motion. First: what two things is the ball doing at the same time once it leaves your hand?</div>
+            <div class="msg you" data-msg="2"><span class="who">You</span>Moving forward and also falling?</div>
+            <div class="msg tutor" data-msg="3"><span class="who">Tutor</span>Good. Before I confirm &mdash; check your textbook or Copilot. Is there any horizontal force on the ball in flight (ignore air resistance)?</div>
+            <div class="msg you" data-msg="4"><span class="who">You</span>No force &mdash; so the sideways speed stays the same.</div>
+            <div class="msg tutor" data-msg="5"><span class="who">Tutor</span>Exactly. Now explain, in your own words, <em>why</em> &ldquo;no force&rdquo; means &ldquo;constant velocity&rdquo;.</div>
+          </div>
+          <div class="caption" id="demoCaption">Set the learning path</div>
+        </div>
+      </div>
+      <p class="demo-note">A real session. The tutor never just hands over the answer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== S2  THE PROBLEM ===================== -->
+<section id="problem">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">The cognitive trap</p>
+      <h2>Most kids are using AI the exact wrong way.</h2>
+      <p class="lede">They type a question, copy the answer, and hand it in. That doesn&rsquo;t just
+        trip plagiarism filters &mdash; it stops them thinking. They aren&rsquo;t learning the
+        technology. They&rsquo;re becoming dependent on it.</p>
+    </div>
+
+    <div class="split">
+      <div class="pane bad reveal">
+        <h3>The shortcut &mdash; how most kids use AI</h3>
+        <ol>
+          <li>Paste the homework question into a chatbot.</li>
+          <li>Copy the answer, tidy a few words, submit.</li>
+          <li>Plagiarism flag &mdash; or a teacher who knows it isn&rsquo;t their voice.</li>
+          <li>No idea how the answer was reached. Can&rsquo;t reproduce it in an exam.</li>
+          <li>Every new task, the same reflex: ask the machine.</li>
+        </ol>
+      </div>
+      <div class="pane good reveal">
+        <h3>The Socratic Shift &mdash; what we teach on day one</h3>
+        <ol>
+          <li>The AI is set up as a patient tutor that <b>refuses</b> to give the answer.</li>
+          <li>It breaks the topic down and asks one diagnostic question at a time.</li>
+          <li>Every claim the student makes has to be checked against a real source.</li>
+          <li>When they get it right, they have to explain <em>why</em> it works.</li>
+          <li>They leave able to do it again &mdash; on paper, in the exam hall, alone.</li>
+        </ol>
+      </div>
+    </div>
+
+    <p class="pivot reveal">We fix this on day one. It&rsquo;s a single change in how the tool is
+      pointed &mdash; and it turns AI from a crutch into <b>the most patient teacher your child
+      has ever had</b>.</p>
+  </div>
+</section>
+
+<!-- ===================== S3  THE TOOL STACK ===================== -->
+<section id="tools" class="tint">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Why this academy is different</p>
+      <h2>Your child learns the two tools universities and workplaces actually use.</h2>
+      <p class="lede">Not a bag of tricks for one chatbot. A proper stack: one tool to research
+        widely and cite, one tool to study deeply from their own materials &mdash; with no
+        hallucinations.</p>
+    </div>
+
+    <div class="tools">
+      <div class="tool reveal" style="--tc:var(--uk)">
+        <p class="tag">The research engine</p>
+        <h3>Microsoft Copilot</h3>
+        <p class="sub">Runs inside their school Microsoft&nbsp;365 account &mdash; their work stays in the school tenant.</p>
+        <p>Students learn to map out a complex school topic, brainstorm essay angles, and
+          cross-reference <b>live web sources with built-in citations</b> &mdash; so every fact
+          comes with somewhere to check it.</p>
+        <ul>
+          <li>Break a big topic into a structured plan</li>
+          <li>Pressure-test an argument before writing it</li>
+          <li>Pull current, cited context a textbook can&rsquo;t give</li>
+        </ul>
+      </div>
+
+      <div class="tool reveal" style="--tc:var(--accent)">
+        <p class="tag">The private study sandbox</p>
+        <h3>Google NotebookLM</h3>
+        <p class="sub">The AI is locked to <b>only</b> the material the student uploads.</p>
+        <p>Students upload their <b>actual textbooks and syllabus PDFs</b> into a secure sandbox.
+          The assistant answers strictly from that verified classroom material.
+          <b>No hallucinations. No guessing.</b></p>
+        <ul>
+          <li>Ask questions and get answers grounded in the real syllabus</li>
+          <li>Turn a chapter into a study guide, timeline or quiz</li>
+          <li>Every answer traceable back to a page they can read</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="compare reveal">
+      <div class="compare-wrap">
+      <table>
+        <thead><tr>
+          <th>What you usually get</th><th>A private tutor</th><th>A normal AI chatbot</th><th>The AI Tutor Academy</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Gives the answer</td><td class="no">Sometimes</td><td class="no">Always &mdash; instantly</td><td class="yes col-us">Never &mdash; guides you to it</td></tr>
+          <tr><td>Available at 11pm before a deadline</td><td class="no">No</td><td class="yes">Yes</td><td class="yes col-us">Yes</td></tr>
+          <tr><td>Teaches source-checking</td><td class="no">Rarely</td><td class="no">No</td><td class="yes col-us">Every claim, every session</td></tr>
+          <tr><td>Works from your child&rsquo;s own syllabus</td><td class="no">If briefed</td><td class="no">No</td><td class="yes col-us">Yes &mdash; via NotebookLM</td></tr>
+          <tr><td>Builds skills your child keeps for life</td><td class="no">Depends</td><td class="no">Builds dependence</td><td class="yes col-us">Prompting, verification, independent study</td></tr>
+          <tr><td>Cost per hour</td><td class="no">&pound;25&ndash;&pound;60</td><td class="no">&mdash;</td><td class="yes col-us">A fraction, and unlimited</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== S4  CURRICULUM PATHWAYS ===================== -->
+<section id="pathways">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Two pathways</p>
+      <h2>The right level of challenge for your child&rsquo;s age.</h2>
+    </div>
+
+    <div class="paths">
+      <div class="path-card reveal" style="--pc:var(--ng)">
+        <p class="age">Primary &middot; ages 8&ndash;11</p>
+        <h3>The AI Explorer</h3>
+        <p class="goal">Goal: build fundamental digital intuition.</p>
+        <ul>
+          <li><b>Talk to it well</b> &mdash; clear voice and typed commands</li>
+          <li><b>Learn through play</b> &mdash; prompting for fun analogies that make hard ideas click</li>
+          <li><b>Spot a guess</b> &mdash; recognising when an AI is making something up</li>
+        </ul>
+      </div>
+
+      <div class="path-card reveal" style="--pc:var(--uk)">
+        <p class="age">Secondary &middot; ages 12&ndash;16</p>
+        <h3>The AI Co-Pilot</h3>
+        <p class="goal">Goal: advanced academic workflow automation.</p>
+        <ul>
+          <li><b>The RTCE framework</b> &mdash; Role, Task, Context, Execution: professional-grade prompting</li>
+          <li><b>Source-grounded synthesis</b> &mdash; building answers from their own verified materials</li>
+          <li><b>Manual fact-checking protocols</b> &mdash; nothing is trusted until the student has confirmed it</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="try-alt reveal" style="margin-top:1.6rem">
+      Both pathways run on the <a href="https://claude.ai/code/artifact/12f870df-338f-4eee-8be2-c82db15cf715">full four-track curriculum</a>
+      &mdash; AI Foundations, Prompt Engineering, Build with AI, and AI for Creativity &mdash; with a badge for each and a capstone project.
+    </p>
+  </div>
+</section>
+
+<!-- ===================== S5  GUARDRAILS ===================== -->
+<section id="guardrails" class="on-deep">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Parent peace of mind</p>
+      <h2>Four rules we enforce on every single submission.</h2>
+      <p class="lede">This isn&rsquo;t a hope. It&rsquo;s a graded code of conduct &mdash; work that
+        breaks it is handed back, not marked.</p>
+    </div>
+
+    <div class="charter reveal">
+      <svg class="seal" viewBox="0 0 52 52" aria-hidden="true">
+        <circle cx="26" cy="26" r="24" fill="none" stroke="var(--gold-soft)" stroke-width="1.5"/>
+        <circle cx="26" cy="26" r="19" fill="none" stroke="var(--deep-line)" stroke-width="1"/>
+        <path d="M26 12 15 17v6c0 7 5 12 11 15 6-3 11-8 11-15v-6L26 12Z" fill="none" stroke="var(--gold-soft)" stroke-width="1.5"/>
+      </svg>
+      <div class="rules">
+        <div class="rule"><b>The 40% Human Rule</b><span>Students must manually rewrite, expand or
+          critique at least 40% of any AI-assisted draft. If they can&rsquo;t explain a sentence,
+          it doesn&rsquo;t go in.</span></div>
+        <div class="rule"><b>Source-First</b><span>No fact from an AI enters their work without a
+          second source the student found &mdash; a textbook, a named site, a teacher.</span></div>
+        <div class="rule"><b>100% Privacy Sandbox</b><span>Training happens inside enterprise-grade
+          private workspaces. Their data is never used to train public AI models.</span></div>
+        <div class="rule"><b>Declare the help</b><span>Students tell their teacher exactly how AI
+          helped &mdash; to plan, to check grammar, to make flashcards. Honesty is the whole point.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== S6  TRY IT ===================== -->
+<section id="try" class="tint">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <p class="eyebrow">Try the Command Center &mdash; no sign-up</p>
+      <h2>This is the exact tool your child uses. Try it yourself.</h2>
+      <p class="lede">Pick a curriculum, a level and a topic. Ask it something. Watch it refuse to
+        just give you the answer &mdash; and pull you through the thinking instead.</p>
+    </div>
+
+    <div class="tryframe reveal">
+      <div class="head"><i></i><i></i><i></i> &nbsp;news.nigeriastudentambassador.com/ai-tutor</div>
+      <iframe src="/ai-tutor.html" title="AI Tutor Command Center" loading="lazy"></iframe>
+    </div>
+    <p class="try-alt">Prefer full screen? <a href="/ai-tutor.html" target="_blank" rel="noopener">Open the AI Tutor in a new tab &#8599;</a></p>
+  </div>
+</section>
+
+<!-- ===================== S7  SOCIAL PROOF + FINAL ===================== -->
+<section class="on-deep" id="enrol">
+  <div class="wrap">
+    <blockquote class="quote reveal">
+      <p>&ldquo;My son went from copy-pasting ChatGPT answers to building his own study guides in
+        NotebookLM. His grades improved &mdash; but more importantly, his study habits did too.&rdquo;</p>
+      <cite>&mdash; Sarah T., parent of a 14-year-old</cite>
+    </blockquote>
+
+    <div class="final reveal">
+      <h2>Secure your teen&rsquo;s spot in the next cohort.</h2>
+      <p class="lede" style="margin:1rem auto 0;text-align:center">Start with a free 45-minute
+        diagnostic. We&rsquo;ll show you exactly how your child is using AI now &mdash; and the
+        three habits that change everything.</p>
+      <div class="cta">
+        <a class="btn btn-gold btn-lg" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u" id="ctaPrimary">Book a free AI Skills Diagnostic</a>
+        <a class="btn btn-primary btn-lg" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u" id="ctaSecondary">Join the next cohort</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <span>AI Tutor Academy &mdash; part of the AI Academy for Teens. Nigerian (NERDC) &amp; British (UK) curricula, ages 8&ndash;16.</span>
+    <span><a href="/ai-tutor.html">Try the tutor</a> &nbsp;&middot;&nbsp; <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u">Apply</a></span>
+  </div>
+</footer>
+
+<script>
+/* ---------- scroll reveal (with guaranteed fallback) ---------- */
+(function(){
+  const els = [...document.querySelectorAll('.reveal')];
+  const showIfNear = () => {
+    const vh = window.innerHeight;
+    for (const el of els){
+      if (el.classList.contains('in')) continue;
+      if (el.getBoundingClientRect().top < vh - 40) el.classList.add('in');
+    }
+  };
+  if ('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); }
+    }, { rootMargin: '0px 0px -6% 0px' });
+    els.forEach(el => io.observe(el));
+  }
+  showIfNear();
+  addEventListener('scroll', showIfNear, { passive: true });
+  addEventListener('resize', showIfNear);
+  // hard backstop: nothing stays hidden
+  setTimeout(() => els.forEach(el => el.classList.add('in')), 1400);
+})();
+
+/* ---------- hero demo loop ---------- */
+(function(){
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const chips = [...document.querySelectorAll('#demo .chip')];
+  const msgs  = [...document.querySelectorAll('#demo .msg')];
+  const cap   = document.getElementById('demoCaption');
+  const captions = {
+    path: 'Set the learning path',
+    teach: 'The tutor teaches — one question at a time',
+    verify: 'Every claim gets checked against a real source',
+    explain: 'Get it right? Now explain why.'
+  };
+  function reset(){ chips.forEach(c=>c.classList.remove('on')); msgs.forEach(m=>m.classList.remove('show')); cap.textContent = captions.path; }
+  function run(){
+    reset();
+    if (reduce){ chips.forEach(c=>c.classList.add('on')); msgs.forEach(m=>m.classList.add('show')); cap.textContent = captions.explain; return; }
+    const seq = [
+      [400,  () => chips[0].classList.add('on')],
+      [750,  () => chips[1].classList.add('on')],
+      [1100, () => chips[2].classList.add('on')],
+      [1450, () => chips[3].classList.add('on')],
+      [2100, () => { cap.textContent = captions.teach; msgs[0].classList.add('show'); }],
+      [3200, () => msgs[1].classList.add('show')],
+      [4200, () => { cap.textContent = captions.verify; msgs[2].classList.add('show'); }],
+      [5600, () => msgs[3].classList.add('show')],
+      [6700, () => { cap.textContent = captions.explain; msgs[4].classList.add('show'); }],
+    ];
+    seq.forEach(([t, fn]) => setTimeout(fn, t));
+  }
+  run();
+  if (!reduce) setInterval(run, 11000);
+})();
+</script>
+</body>
+</html>
