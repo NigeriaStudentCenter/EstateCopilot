@@ -9,11 +9,11 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,540;0,9..144,640;1,9..144,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
   *{box-sizing:border-box;margin:0}
-  html,body{background:#0b1512;display:grid;place-items:center;min-height:100%}
-  body{padding:24px;font-family:"IBM Plex Mono",monospace}
-  /* exact YouTube / poster size */
+  html,body{background:#0b1512}
+  body{font-family:"IBM Plex Mono",monospace}
+  /* exact YouTube / poster size — screenshot this box, or the whole window at 1280x720 */
   .thumb{
-    width:1280px;height:720px;position:relative;overflow:hidden;border-radius:2px;
+    width:1280px;height:720px;position:relative;overflow:hidden;
     background:radial-gradient(1100px 700px at 80% -12%, #1f6249 0%, #133f31 46%, #0b241c 100%);
     color:#eaf1ec;
   }
@@ -36,21 +36,20 @@
   .motif .msg.t{background:#e9f2ed;border:1px solid #d3e0d8;color:#15201c}
   .motif .msg.y{background:#e7edf3;border:1px solid #d4dee7;color:#15201c;margin-left:auto}
 
-  /* content */
-  .fg{position:absolute;left:0;bottom:0;z-index:3;padding:72px 80px}
-  .kick{font-size:16px;letter-spacing:.22em;text-transform:uppercase;color:#dcc088;display:flex;align-items:center;gap:12px}
-  .kick::before{content:"";border-left:15px solid #dcc088;border-top:10px solid transparent;border-bottom:10px solid transparent}
-  h1{font-family:"Fraunces",serif;font-weight:640;font-size:76px;line-height:1.04;letter-spacing:-.01em;margin:20px 0 0;max-width:16ch;color:#fff}
-  .sub{font-size:18px;color:#a9c4ba;margin-top:18px}
-  .brand{position:absolute;left:80px;top:64px;z-index:3;display:flex;align-items:center;gap:12px;
-    font-family:"Fraunces",serif;font-weight:540;font-size:22px;color:#fff}
+  /* content — explicit positions (Quick Look's flex justify is unreliable) */
+  .fg{position:absolute;left:80px;right:80px;top:392px;z-index:3}
+  .kick{font-size:15px;letter-spacing:.24em;text-transform:uppercase;color:#dcc088;display:flex;align-items:center;gap:12px}
+  .kick::before{content:"";border-left:14px solid #dcc088;border-top:9px solid transparent;border-bottom:9px solid transparent}
+  h1{font-family:"Fraunces",Georgia,serif;font-weight:640;font-size:46px;line-height:1.1;letter-spacing:-.01em;margin:14px 0 0;max-width:26ch;color:#fff}
+  .sub{font-size:16px;color:#a9c4ba;margin-top:14px}
+  .brand{position:absolute;left:80px;top:56px;z-index:3;display:flex;align-items:center;gap:12px;
+    font-family:"Fraunces",Georgia,serif;font-weight:540;font-size:20px;color:#fff}
   .brand svg{flex:none}
 
-  .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:3;width:132px;height:132px;border-radius:50%;
-    background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.65);display:grid;place-items:center}
-  .play::after{content:"";border-left:40px solid #fff;border-top:26px solid transparent;border-bottom:26px solid transparent;margin-left:10px}
+  .play{position:absolute;left:640px;top:250px;z-index:3;width:116px;height:116px;border-radius:50%;
+    background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.68);display:grid;place-items:center}
+  .play::after{content:"";border-left:35px solid #fff;border-top:22px solid transparent;border-bottom:22px solid transparent;margin-left:9px}
 
-  .hint{position:fixed;bottom:6px;left:0;right:0;text-align:center;font-size:12px;color:#5c6b63}
 </style>
 </head>
 <body>
@@ -84,11 +83,10 @@
     <div class="play" aria-hidden="true"></div>
 
     <div class="fg">
-      <p class="kick">Watch</p>
-      <h1>See exactly what your child will learn.</h1>
+      <p class="kick">Watch &middot; 2 min</p>
+      <h1>The tutor that won&rsquo;t do the homework.</h1>
       <p class="sub">One private academy. Two courses. A fraction of a tutor&rsquo;s price.</p>
     </div>
   </div>
-  <p class="hint">Screenshot the panel above at 1280&times;720 &rarr; save as <code>academy-thumb.png</code> (thumbnail + video poster).</p>
 </body>
 </html>
