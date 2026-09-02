@@ -83,7 +83,7 @@ const communityRailHtml = `
     <div class="community-compact-row">
       <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
     </div>
-    <a class="community-student-tools" href="./students.html">🎓 Free student tools — study, scholarships, jobs, housing</a>
+    <a class="community-student-tools" href="./students.html">🎓 AI Agents for Students — study, scholarships, jobs, housing</a>
     <a class="community-ambassador" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXloJuLeFjWtAiMlqr2n6TRRUMDcyU1BPVVpGNzNCOFlPUjI5TEk1UFpaMC4u" target="_blank" rel="noopener noreferrer">📍 Get news from your home LGA<span>Register your Local Government Area — it's free</span></a>
     <p class="community-links-label">Follow for news updates</p>
     <div class="community-links">
@@ -108,7 +108,7 @@ async function main() {
         <div class="topbar">
           <div class="logo">Global Nigeria<span class="accent">Student</span>Ambassador</div>
           <div class="topbar-right">
-            <a class="student-tools-link" href="./students.html">🎓 Student Tools</a>
+            <a class="student-tools-link" href="./students.html">🎓 AI Agents for Students</a>
             <div class="badge">Naija Digest</div>
           </div>
         </div>

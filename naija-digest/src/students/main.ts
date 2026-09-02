@@ -220,17 +220,17 @@ function main() {
           <div class="logo">Global Nigeria<span class="accent">Student</span>Ambassador</div>
           <div class="topbar-right">
             <a class="student-tools-link" href="./">← Naija Digest</a>
-            <div class="badge">Student Tools</div>
+            <div class="badge">AI Agents for Students</div>
           </div>
         </div>
 
-        <h1 class="intro-title">Free AI helpers for students</h1>
+        <h1 class="intro-title">AI Agents for Students</h1>
         <p class="intro-sub">Five assistants for the things students actually spend time on — studying well, finding scholarships, work, housing and events. Answers are AI-generated: always check sources, deadlines and prices on the official site.</p>
         <p class="mobile-hint">📱 On a phone the tools come first — scroll down for the live room, chat and videos.</p>
 
         <div class="keybar">
           <span class="keydot on"></span>
-          <span class="grow">Powered by AI · free to use · nothing to sign up for.</span>
+          <span class="grow">Powered by Nigeria Student AI Agent.</span>
         </div>
 
         <div class="tabs" id="tabs" role="tablist" aria-label="Student tools"></div>
@@ -243,7 +243,7 @@ function main() {
         ${communityRailHtml}
       </aside>
       <footer class="colophon">
-        A free tool for the <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a> community.
+        A tool for the <a href="https://nigeriastudentambassador.com">Nigeria Student Ambassador</a> community.
         <span class="sep">·</span><a href="./">Back to Naija Digest</a>
       </footer>
     </div>`;
