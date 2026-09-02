@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex">
+<title>AI Tutor Academy — YouTube thumbnail (1280×720)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,680;1,9..144,500&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  *{box-sizing:border-box;margin:0}
+  html,body{background:#08140f}
+  body{font-family:"IBM Plex Mono",monospace}
+
+  /* exact YouTube size — screenshot this box at 1280x720 */
+  .thumb{
+    width:1280px;height:720px;position:relative;overflow:hidden;
+    background:radial-gradient(1200px 780px at 82% -18%, #24785a 0%, #144633 42%, #0a2018 100%);
+    color:#eef4f0;
+  }
+  .thumb::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(680px 360px at 4% 118%, rgba(210,164,84,.20), transparent 70%)}
+
+  /* product-card motif, right side, bleeding off-edge */
+  .motif{position:absolute;right:-140px;top:96px;width:760px;transform:rotate(4deg);opacity:.92}
+  .motif .card{background:#0c261e;border:1px solid #2f5a49;border-radius:20px;padding:16px;
+    box-shadow:0 60px 120px -40px rgba(0,0,0,.7)}
+  .motif .bar{display:flex;gap:8px;padding:2px 4px 12px}
+  .motif .bar i{width:12px;height:12px;border-radius:50%;background:#325244;display:inline-block}
+  .motif .screen{background:#f6f7f3;border-radius:13px;padding:20px;min-height:340px}
+  .motif .k{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#6b7a72}
+  .motif .chips{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}
+  .motif .chip{font-size:13px;border:1px solid #c7d1c4;border-radius:999px;padding:4px 11px;color:#42504a}
+  .motif .chip.j{border-color:#bd6c26;color:#bd6c26}
+  .motif .msg{border-radius:13px;padding:10px 13px;font-size:14px;line-height:1.45;margin:9px 0;max-width:86%;
+    font-family:"Fraunces",serif}
+  .motif .msg.t{background:#e9f2ed;border:1px solid #d3e0d8;color:#15201c}
+  .motif .msg.y{background:#e7edf3;border:1px solid #d4dee7;color:#15201c;margin-left:auto}
+
+  /* dark scrim so the headline always wins over the motif */
+  .scrim{position:absolute;inset:0;z-index:2;
+    background:linear-gradient(100deg, #08140f 34%, rgba(8,20,15,.86) 48%, rgba(8,20,15,0) 66%)}
+
+  .brand{position:absolute;left:72px;top:60px;z-index:4;display:flex;align-items:center;gap:14px;
+    font-family:"Fraunces",Georgia,serif;font-weight:600;font-size:24px;color:#fff}
+  .brand svg{flex:none}
+
+  .fg{position:absolute;left:72px;right:520px;top:196px;z-index:4}
+  .tag{display:inline-block;font-family:"IBM Plex Mono",monospace;font-weight:600;
+    font-size:16px;letter-spacing:.16em;text-transform:uppercase;color:#0a1a13;
+    background:#d9b877;border-radius:6px;padding:6px 12px}
+  h1{font-family:"Fraunces",Georgia,serif;font-weight:680;font-size:92px;line-height:1.03;
+    letter-spacing:-.02em;margin:22px 0 0;color:#fff;text-shadow:0 2px 30px rgba(0,0,0,.35)}
+  .sub{font-family:"Fraunces",Georgia,serif;font-style:italic;font-weight:500;
+    font-size:27px;color:#bfe0d1;margin-top:22px}
+
+  .rule{position:absolute;left:72px;bottom:64px;z-index:4;width:132px;height:8px;border-radius:4px;
+    background:linear-gradient(90deg,#d9b877,rgba(217,184,119,0))}
+</style>
+</head>
+<body>
+  <div class="thumb" id="thumb">
+    <div class="motif" aria-hidden="true">
+      <div class="card">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="screen">
+          <div class="k">AI Tutor Command Center</div>
+          <div class="chips">
+            <span class="chip j">Nigerian (NERDC)</span>
+            <span class="chip">Secondary &middot; SSS 2</span>
+            <span class="chip">Physics</span>
+            <span class="chip">Projectile motion</span>
+          </div>
+          <div class="msg t">Before I confirm &mdash; check your textbook or Copilot. Is there any horizontal force on the ball in flight?</div>
+          <div class="msg y">No force &mdash; so the sideways speed stays the same.</div>
+          <div class="msg t">Exactly. Now explain <em>why</em> &ldquo;no force&rdquo; means &ldquo;constant velocity&rdquo;.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scrim"></div>
+
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2 3 6.5v2l9 4.5 9-4.5v-2L12 2Z" fill="#2fa07a"/>
+        <path d="M6 11v4.2c0 1.9 2.7 3.3 6 3.3s6-1.4 6-3.3V11l-6 3-6-3Z" fill="#b98f43"/>
+      </svg>
+      AI Tutor Academy
+    </div>
+
+    <div class="fg">
+      <span class="tag">See it in action</span>
+      <h1>The tutor that won&rsquo;t do the homework.</h1>
+      <p class="sub">A private AI academy for ages 8&ndash;16.</p>
+    </div>
+
+    <div class="rule"></div>
+  </div>
+</body>
+</html>
