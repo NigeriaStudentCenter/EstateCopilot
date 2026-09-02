@@ -79,7 +79,10 @@ a{color:inherit}
 .btn-ghost:hover{transform:translateY(-1px)}
 .btn-gold{background:transparent;border-color:var(--gold);color:var(--gold)}
 .btn-gold:hover{background:var(--gold);color:#1c1204;transform:translateY(-1px)}
+.btn-gold-fill{background:var(--gold);color:#1c1204}
+.btn-gold-fill:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .btn-lg{padding:1rem 1.8rem;font-size:1.05rem}
+.pay-note{margin-top:.9rem;font-size:.82rem;color:var(--on-deep-2);font-family:"IBM Plex Mono",monospace;letter-spacing:.02em}
 
 /* ---------- top bar ---------- */
 .topbar{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--paper) 88%,transparent);
@@ -305,7 +308,7 @@ footer a{color:var(--on-deep)}
       <a href="#guardrails">Guardrails</a>
       <a href="#try">Try it</a>
     </nav>
-    <a class="btn btn-primary" href="#enrol">Book a free session</a>
+    <a class="btn btn-primary" href="#enrol">Enrol</a>
   </div>
 </header>
 
@@ -637,13 +640,17 @@ footer a{color:var(--on-deep)}
 
     <div class="final reveal">
       <h2>Secure your teen&rsquo;s spot in the next cohort.</h2>
-      <p class="lede" style="margin:1rem auto 0;text-align:center">Start with a free 45-minute
-        diagnostic. We&rsquo;ll show you exactly how your child is using AI now &mdash; and the
-        three habits that change everything.</p>
+      <p class="lede" style="margin:1rem auto 0;text-align:center">Enrol now, or start with a free
+        45-minute diagnostic &mdash; we&rsquo;ll show you exactly how your child is using AI today,
+        and the three habits that change everything.</p>
       <div class="cta">
-        <a class="btn btn-gold btn-lg" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u" id="ctaPrimary">Book a free AI Skills Diagnostic</a>
-        <a class="btn btn-primary btn-lg" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u" id="ctaSecondary">Join the next cohort</a>
+        <a class="btn btn-primary btn-lg" href="https://paystack.shop/pay/teensaiacademy" id="ctaNG" rel="noopener" target="_blank">Enrol &mdash; Nigeria (&#8358;)</a>
+        <a class="btn btn-gold-fill btn-lg" href="https://buy.stripe.com/bJe5kFckscrfdtI9KLbbG02" id="ctaUK" rel="noopener" target="_blank">Enrol &mdash; UK (&pound;)</a>
       </div>
+      <div class="cta" style="margin-top:.7rem">
+        <a class="btn btn-ghost" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u" id="ctaDiag">Book a free AI Skills Diagnostic first</a>
+      </div>
+      <p class="pay-note">Secure checkout &middot; Paystack for Nigeria, Stripe for the UK</p>
     </div>
   </div>
 </section>
@@ -651,7 +658,7 @@ footer a{color:var(--on-deep)}
 <footer>
   <div class="wrap row">
     <span>AI Tutor Academy &mdash; part of the AI Academy for Teens. Nigerian (NERDC) &amp; British (UK) curricula, ages 8&ndash;16.</span>
-    <span><a href="/ai-tutor.html">Try the tutor</a> &nbsp;&middot;&nbsp; <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXj3aYmYeJYNEs8mdm5YTtfRUMERXWDdRNkdWSkk4UEFPUDRYS0k1VzRVTC4u">Apply</a></span>
+    <span><a href="/ai-tutor.html">Try the tutor</a> &nbsp;&middot;&nbsp; <a href="#enrol">Enrol</a></span>
   </div>
 </footer>
 
