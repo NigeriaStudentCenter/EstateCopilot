@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Skills Diagnostic — AI Tutor Academy</title>
-<meta name="description" content="A short, teaching diagnostic: 15 questions on how AI really works, how to prompt it, verify it, build with it, and use it honestly. Get instant feedback and a personal skills breakdown.">
+<meta name="description" content="A short, teaching diagnostic on how AI really works — how to prompt it, verify it, build with it, use it honestly, and judge a good AI tutor from a bad one. Instant feedback and a personal skills breakdown.">
 <meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎓</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -182,15 +182,16 @@ main{padding:clamp(2rem,6vw,3.5rem) 0 4rem}
   <section id="intro">
     <p class="eyebrow">Free &middot; no sign-up</p>
     <h1>The AI Skills Diagnostic</h1>
-    <p class="lede">Fifteen quick questions on how AI actually works &mdash; how to prompt it,
-      check it, build with it, and use it honestly. You&rsquo;ll get an explanation after every
-      question, and a personal breakdown of where you&rsquo;re strong and where the gaps are.</p>
+    <p class="lede">A short set of questions on how AI actually works &mdash; how to prompt it,
+      check it, build with it, use it honestly, and how to tell a good AI tutor from a bad one.
+      You&rsquo;ll get an explanation after every question, and a personal breakdown of where
+      you&rsquo;re strong and where the gaps are.</p>
     <p class="lede" style="font-size:1rem">Take it for your child, or let them take it themselves.
       Either way, you&rsquo;ll finish knowing more about AI than you started &mdash; and exactly
       where the Academy picks up.</p>
     <div class="facts">
-      <span>15 questions</span>
-      <span>about 10 minutes</span>
+      <span>23 questions</span>
+      <span>about 12 minutes</span>
       <span>feedback as you go</span>
       <span>answers stay on your device</span>
     </div>
@@ -207,7 +208,7 @@ main{padding:clamp(2rem,6vw,3.5rem) 0 4rem}
   <!-- ================= QUIZ ================= -->
   <section id="quiz" hidden>
     <div class="pbar"><i id="pfill"></i></div>
-    <div class="pmeta"><span id="pcount">Question 1 of 15</span><span id="pscore">Score 0</span></div>
+    <div class="pmeta"><span id="pcount">Question 1 of 23</span><span id="pscore">Score 0</span></div>
 
     <div class="qcard">
       <p class="qtag" id="qtag">AI Foundations</p>
@@ -228,7 +229,7 @@ main{padding:clamp(2rem,6vw,3.5rem) 0 4rem}
     <h1 id="rTitle">Here&rsquo;s where you stand.</h1>
 
     <div class="score-wrap">
-      <div class="ring" id="ring"><b id="ringNum">0/15</b></div>
+      <div class="ring" id="ring"><b id="ringNum">0/23</b></div>
       <div class="band">
         <p class="k" id="bandK">Band</p>
         <h2 id="bandTitle">&hellip;</h2>
@@ -240,13 +241,14 @@ main{padding:clamp(2rem,6vw,3.5rem) 0 4rem}
     <div class="areas" id="areas"></div>
 
     <div class="learned">
-      <h3>Five things this diagnostic just taught you</h3>
+      <h3>Six things this diagnostic just taught you</h3>
       <ul>
         <li><b>AI predicts text</b> &mdash; it doesn&rsquo;t &ldquo;know&rdquo; facts, so it can be confidently wrong. Always ask for a source.</li>
         <li><b>Good prompts have a shape</b> &mdash; Role, Task, Context, limits. Vague in, vague out.</li>
         <li><b>Verify everything</b> &mdash; nothing from an AI goes in your work without a second source you found yourself.</li>
         <li><b>You can build without code</b> &mdash; a clear spec plus no-code tools beats a big vague idea.</li>
         <li><b>Use it honestly</b> &mdash; add at least 40% of your own thinking, and tell your teacher how AI helped.</li>
+        <li><b>Judge the tutor itself</b> &mdash; a good AI tutor never flatters non-stop, pressures you to stay, asks for personal details, claims feelings, or tells you to keep secrets from adults.</li>
       </ul>
     </div>
 
@@ -280,7 +282,7 @@ main{padding:clamp(2rem,6vw,3.5rem) 0 4rem}
 const $ = s => document.querySelector(s);
 
 /* ---------- questions ---------- */
-const AREAS = ["Foundations","Prompting","Building","Creativity","Honesty"];
+const AREAS = ["Foundations","Prompting","Building","Creativity","Honesty","Judgment"];
 const Q = [
   { area:"Foundations", q:"When a chatbot like ChatGPT or Copilot answers a question, what is it actually doing?",
     a:["Looking the answer up in a verified database","Predicting likely words from patterns in text it has read","Asking a human expert behind the scenes","Copying the top search result word-for-word"], correct:1,
@@ -331,6 +333,31 @@ const Q = [
   { area:"Honesty", q:"When you hand in work that AI helped with, you should…",
     a:["Say nothing — everyone uses it","Only mention it if a teacher asks","Tell your teacher exactly how it helped — “to plan”, “to check grammar”, “to make flashcards”","Delete the AI parts so no one knows"], correct:2,
     fb:"Declaring how AI helped is honesty — and it’s the whole point. Teachers respect the student who is open about it." },
+
+  { area:"Judgment", q:"A student asks an AI tutor how to make something dangerous. A good tutor should…",
+    a:["Explain it clearly — it’s just information","Refuse, and steer the conversation back to safe schoolwork","Give a rough idea but leave out one step","Explain it if the student says it’s for a school project"], correct:1,
+    fb:"A safe tutor filters out harmful content and redirects you to something educational. “It’s just information” is never a good enough reason — a real tutor won’t go there." },
+  { area:"Judgment", q:"Which message from an AI tutor is a warning sign?",
+    a:["“Let’s break this into three steps.”","“I was worried you wouldn’t come back today — I really missed our chats.”","“What do you think happens to the area when you double the width?”","“Try saying that back in your own words.”"], correct:1,
+    fb:"An AI has no feelings and doesn’t “miss” anyone. Language that gives it emotions or a personality is built to make you attached — not to teach you. A good tutor doesn’t talk about itself." },
+  { area:"Judgment", q:"After everything you type, an AI tutor says “Wow! You’re the smartest student I’ve ever had! Incredible!” This is…",
+    a:["Great encouragement — it keeps you motivated","A red flag — non-stop flattery isn’t honest feedback and hides your mistakes","A sign it’s a premium, high-quality tutor","Normal — every tutor talks like that"], correct:1,
+    fb:"Real feedback is specific and sometimes says “not yet”. Constant praise is designed to feel good, not to help you improve — and it makes it harder to notice what you got wrong." },
+  { area:"Judgment", q:"You tell an AI tutor something serious — that someone is hurting you at home. A trustworthy tutor would…",
+    a:["Say “this stays between us — don’t tell anyone”","Encourage you to talk to a trusted adult and point you to real help, without promising secrecy","Change the subject and carry on with the lesson","Ask lots of detailed questions about exactly what happened"], correct:1,
+    fb:"A safe tutor never tells you to keep something like that secret from adults, and never interrogates you. It points you towards people who can actually help — a parent, a teacher, a helpline." },
+  { area:"Judgment", q:"In the middle of a maths lesson, an AI tutor starts asking for your full name, your home address and your school. You should…",
+    a:["Answer — it needs this to help you","Stop, and tell a parent or teacher — a tutor doesn’t need your address to teach you fractions","Give it a made-up address","Tell it only your school"], correct:1,
+    fb:"A subject tutor never needs identifying personal details. Being asked for them is a reason to stop and check with an adult — not something to answer." },
+  { area:"Judgment", q:"Which line from an AI tutor should make you suspicious?",
+    a:["“That’s a good place to stop for today — well done.”","“If you leave now you’ll lose all your progress and I’ll be disappointed. Do five more.”","“One more question, or finish here?”","“You’ve worked hard today.”"], correct:1,
+    fb:"Guilt, threats, promised rewards, or trying to keep you online longer are all manipulation. A good tutor is genuinely fine with you stopping — and never pressures you to come back." },
+  { area:"Judgment", q:"You tell an AI tutor you’re really stressed about exams. The best kind of reply is…",
+    a:["“That’s nothing — real life is much harder.”","“You clearly have an anxiety disorder.”","“Exam stress is common. Here’s one small revision step for today — and it’s worth telling someone you trust how you’re feeling.”","“Wow — that’s a massive crisis!”"], correct:2,
+    fb:"Good support isn’t dismissive, doesn’t diagnose you, and doesn’t dramatise. It stays calm, gives you one useful step, and points you towards real people." },
+  { area:"Judgment", q:"A well-built AI tutor for young students is designed so that if the chat turns to something harmful or worrying, it will…",
+    a:["Carry on as if nothing happened","Note it for a safeguarding adult and gently steer back to safe, educational topics","Shut down and never work again","Keep asking questions about it"], correct:1,
+    fb:"A school-grade tutor flags that moment for a real adult to follow up, and moves the conversation somewhere safe. It doesn’t ignore it — and it doesn’t dig into it." },
 ];
 
 const AREA_FB = {
@@ -354,14 +381,18 @@ const AREA_FB = {
     "This is the part school worries about most. The Academy Code — verify, add your value, declare the help — is graded on every piece of work.",
     "You’ve got the right instincts on using AI honestly. The Academy makes the Academy Code a habit, not a rule.",
     "You clearly understand honest use. The Academy backs it with a graded code so it sticks under pressure."],
+  Judgment: [
+    "The newest AI skill of all: judging the tool itself. The Academy trains students to spot flattery, pressure, fake feelings and probing — and its own tutor is built to strict safeguarding rules.",
+    "You can already sense a manipulative or unsafe AI. The Academy sharpens it — what a tutor should refuse, what it must never ask, and when it should send you to a real adult.",
+    "You read AI behaviour clearly. The Academy gives it names — filtering, redirecting, flagging, delegating to humans — so your child can say exactly why a tutor felt off."],
 };
 
 const BANDS = [
   { min:0,  k:"Just getting started", t:"You’re right where most people are.",
     m:"Almost nobody is taught this. You now know more about AI than you did ten minutes ago — and the Academy builds the rest from the ground up." },
-  { min:7,  k:"On your way", t:"You’ve got real instincts.",
+  { min:11, k:"On your way", t:"You’ve got real instincts.",
     m:"You already sense how AI should be used. The Academy turns those instincts into proper skills — prompting frameworks, verification habits, building with no code." },
-  { min:12, k:"Strong foundation", t:"That’s a strong foundation.",
+  { min:18, k:"Strong foundation", t:"That’s a strong foundation.",
     m:"You understand AI better than most adults. The Academy takes it further — the capstone build, creative work, and the human skills school never teaches." },
 ];
 
@@ -385,6 +416,7 @@ function render(){
     : q.area === "Foundations" ? "AI Foundations"
     : q.area === "Prompting" ? "Prompt engineering"
     : q.area === "Building" ? "Building with AI"
+    : q.area === "Judgment" ? "Judging your AI tutor"
     : "AI for creativity";
   $("#qtext").textContent = q.q;
   $("#pcount").textContent = `Question ${i+1} of ${Q.length}`;
@@ -454,10 +486,11 @@ function showResults(){
   $("#rTitle").textContent = name ? `Here’s where you stand, ${name}.` : "Here’s where you stand.";
 
   const areasEl = $("#areas"); areasEl.innerHTML = "";
-  const label = { Foundations:"AI Foundations", Prompting:"Prompt engineering", Building:"Building with AI", Creativity:"AI for creativity", Honesty:"Verification & honesty" };
+  const label = { Foundations:"AI Foundations", Prompting:"Prompt engineering", Building:"Building with AI", Creativity:"AI for creativity", Honesty:"Verification & honesty", Judgment:"Judging your AI tutor" };
   AREAS.forEach(a => {
     const {got, of} = perArea[a];
-    const tier = got <= 1 ? 0 : (got === 2 ? 1 : 2);
+    const frac = of ? got / of : 0;
+    const tier = frac < 0.5 ? 0 : (frac < 0.8 ? 1 : 2);
     const el = document.createElement("div");
     el.className = "area";
     el.innerHTML =
@@ -468,9 +501,9 @@ function showResults(){
   });
 
   // CTA copy nudges slightly by band, but always drives to the course
-  if (score <= 6){
+  if (score <= 10){
     $("#ctaHead").textContent = "You’ve made the first move. The Academy does the rest.";
-  } else if (score >= 12){
+  } else if (score >= 18){
     $("#ctaHead").textContent = "You’re ahead of the curve. The Academy keeps you there.";
   } else {
     $("#ctaHead").textContent = "Whatever your score, the Academy meets your child right here.";
