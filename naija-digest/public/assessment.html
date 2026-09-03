@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track Assessment — AI Tutor Academy</title>
+<meta name="description" content="Self-marking end-of-track assessment: multiple choice with instant feedback, plus written questions you check against a model answer and a criteria checklist.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#9989;</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,540;0,9..144,600;0,9..144,660&family=Public+Sans:wght@0,400;0,500;0,600;0,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f6f7f3; --paper-2:#edf0e9; --card:#ffffff;
+  --ink:#15201c; --ink-2:#42504a; --ink-3:#6b7a72;
+  --line:#dde3da; --line-2:#c7d1c4;
+  --accent:#1f7a5c; --accent-bright:#2fa07a; --accent-ink:#0f4a38;
+  --gold:#b28636;
+  --ok:#1f7a5c; --ok-bg:#e7f2ec;
+  --no:#a5392f; --no-bg:#f7e8e5;
+  --deep:#123c2f; --deep-2:#0e3227; --on-deep:#eaf1ec; --on-deep-2:#a9c4ba;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#101613; --paper-2:#161e1a; --card:#1a221e;
+  --ink:#e9efea; --ink-2:#aebbb3; --ink-3:#8a978f;
+  --line:#28322c; --line-2:#374238;
+  --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
+  --gold:#cfa85c;
+  --ok:#4fbf97; --ok-bg:#16251f;
+  --no:#e79488; --no-bg:#2f211e;
+  --deep:#0d2c23; --deep-2:#0a231c; --on-deep:#e7efe9; --on-deep-2:#9db8ae;
+}}
+:root[data-theme="dark"]{
+  --paper:#101613; --paper-2:#161e1a; --card:#1a221e;
+  --ink:#e9efea; --ink-2:#aebbb3; --ink-3:#8a978f;
+  --line:#28322c; --line-2:#374238;
+  --accent:#4fbf97; --accent-bright:#63d3ac; --accent-ink:#bfe9d9;
+  --gold:#cfa85c;
+  --ok:#4fbf97; --ok-bg:#16251f;
+  --no:#e79488; --no-bg:#2f211e;
+  --deep:#0d2c23; --deep-2:#0a231c; --on-deep:#e7efe9; --on-deep-2:#9db8ae;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Public Sans",system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.001ms!important}}
+h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;line-height:1.14;margin:0;text-wrap:balance}
+h1{font-size:clamp(1.6rem,4.4vw,2.3rem);font-weight:640;letter-spacing:-.01em}
+p{margin:0}
+a{color:var(--accent-ink)}
+button{font:inherit;cursor:pointer}
+.wrap{max-width:680px;margin:0 auto;padding:0 clamp(1rem,4vw,1.6rem)}
+
+.top{background:var(--deep);color:var(--on-deep)}
+.top .row{display:flex;align-items:center;gap:1rem;height:54px;font-size:.9rem}
+.top .brand{display:flex;align-items:center;gap:.5rem;font-family:"Fraunces",serif;font-weight:600;color:#fff;text-decoration:none}
+.top a.back{margin-left:auto;color:var(--on-deep-2);text-decoration:none}
+.top a.back:hover{color:#fff}
+
+main{padding:clamp(1.6rem,5vw,2.6rem) 0 3.5rem}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:.5rem}
+.lede{color:var(--ink-2);margin:.7rem 0 0;font-size:1rem}
+.facts{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin:1.2rem 0 0;font-family:"IBM Plex Mono",monospace;font-size:.74rem;color:var(--ink-3)}
+.facts span{display:inline-flex;align-items:center;gap:.4rem}
+.facts span::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;font-weight:700;border-radius:999px;
+  padding:.75rem 1.4rem;border:1.5px solid transparent;text-decoration:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent-bright)}
+.btn-ghost{background:transparent;border-color:var(--line-2);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-lg{padding:.9rem 1.6rem;font-size:1.03rem}
+
+.pbar{height:6px;border-radius:999px;background:var(--paper-2);overflow:hidden;margin:1.6rem 0 .5rem}
+.pbar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.pmeta{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:.72rem;color:var(--ink-3);margin-bottom:1.4rem}
+
+.qcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(1.2rem,4vw,1.8rem)}
+.qtag{font-family:"IBM Plex Mono",monospace;font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}
+.qtext{font-family:"Fraunces",serif;font-weight:540;font-size:1.2rem;line-height:1.34}
+.opts{display:flex;flex-direction:column;gap:.55rem;margin-top:1.1rem}
+.opt{display:flex;gap:.65rem;align-items:flex-start;border:1.5px solid var(--line-2);border-radius:11px;padding:.75rem .85rem;background:var(--paper);cursor:pointer}
+.opt:hover{border-color:var(--accent)}
+.opt input{margin-top:.25rem;accent-color:var(--accent);flex:none}
+.opt .t{font-size:.96rem}
+.opt.is-correct{border-color:var(--ok);background:var(--ok-bg)}
+.opt.is-wrong{border-color:var(--no);background:var(--no-bg)}
+.opt.locked{cursor:default}
+
+textarea{width:100%;min-height:120px;resize:vertical;font:inherit;line-height:1.5;padding:.75rem .85rem;
+  border:1.5px solid var(--line-2);border-radius:11px;background:var(--paper);color:var(--ink);margin-top:1rem}
+textarea:focus,.opt:focus-within,.btn:focus-visible,a:focus-visible,input:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+
+.feedback{margin-top:1.1rem;border-radius:11px;padding:.85rem 1rem;font-size:.94rem}
+.feedback.ok{background:var(--ok-bg);border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line))}
+.feedback.no{background:var(--no-bg);border:1px solid color-mix(in srgb,var(--no) 40%,var(--line))}
+.feedback.model{background:var(--paper-2);border:1px solid var(--line-2)}
+.feedback b{display:block;font-family:"Fraunces",serif;font-weight:600;margin-bottom:.25rem}
+.feedback.ok b{color:var(--ok)} .feedback.no b{color:var(--no)}
+.feedback ul{margin:.5rem 0 0;padding-left:1.2rem}
+.feedback li{margin:.25rem 0}
+
+.selfmark{margin-top:1rem;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+.selfmark .q{font-size:.9rem;color:var(--ink-2);width:100%}
+
+.qnav{margin-top:1.3rem;display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+
+.score-wrap{display:flex;gap:1.3rem;align-items:center;flex-wrap:wrap;margin:1.4rem 0}
+.ring{--p:0;width:112px;height:112px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:conic-gradient(var(--accent) calc(var(--p)*1%), var(--paper-2) 0)}
+.ring b{width:86px;height:86px;border-radius:50%;background:var(--card);display:grid;place-items:center;
+  font-family:"Fraunces",serif;font-weight:640;font-size:1.4rem}
+.score-wrap .band{flex:1;min-width:210px}
+.score-wrap .band .k{font-family:"IBM Plex Mono",monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.score-wrap .band h2{margin:.15rem 0 .3rem;font-size:1.3rem}
+.score-wrap .band p{color:var(--ink-2);font-size:.96rem}
+
+.parts{display:flex;flex-direction:column;gap:.7rem;margin:1.4rem 0}
+.part{border:1px solid var(--line);border-radius:12px;background:var(--card);padding:.85rem 1rem;display:flex;justify-content:space-between;gap:1rem;font-size:.95rem}
+.part b{font-family:"Fraunces",serif;font-weight:600}
+.part .sc{font-family:"IBM Plex Mono",monospace;color:var(--ink-3)}
+
+.badge{background:var(--paper-2);border-radius:14px;padding:1.1rem 1.3rem;margin:1.4rem 0;font-size:.95rem;color:var(--ink-2)}
+.badge b{font-family:"Fraunces",serif;color:var(--ink)}
+.cta-block{background:linear-gradient(180deg,var(--deep),var(--deep-2));color:var(--on-deep);border-radius:16px;padding:clamp(1.4rem,5vw,2.2rem);margin-top:1.6rem;text-align:center}
+.cta-block h2{color:#fff;font-size:1.3rem}
+.cta-block p{color:var(--on-deep-2);margin:.7rem auto 0;max-width:44ch}
+.cta-block .row{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;margin-top:1.3rem}
+.after{margin-top:1.2rem;text-align:center;font-size:.9rem;color:var(--ink-3)}
+.after a{margin:0 .5rem}
+
+/* embedded mode (?e=1) */
+body.embed{background:transparent}
+body.embed .top{display:none}
+body.embed main{padding:.3rem 0 .6rem}
+body.embed .wrap{padding:0}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap row">
+    <a class="brand" href="https://news.nigeriastudentambassador.com/academy.html">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2 3 6.5v2l9 4.5 9-4.5v-2L12 2Z" fill="#2fa07a"/>
+        <path d="M6 11v4.2c0 1.9 2.7 3.3 6 3.3s6-1.4 6-3.3V11l-6 3-6-3Z" fill="#b98f43"/>
+      </svg>
+      AI Tutor Academy
+    </a>
+    <a class="back" href="https://news.nigeriastudentambassador.com/academy.html">&larr; Academy</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="intro">
+    <p class="eyebrow">End-of-track assessment &middot; self-marked</p>
+    <h1 id="introTitle">Track Assessment</h1>
+    <p class="lede">Six multiple-choice questions marked instantly with a comment on every answer,
+      then five written questions you mark yourself against a model answer and a short checklist.
+      Nothing is saved &mdash; your score stays on this page.</p>
+    <div class="facts">
+      <span>11 questions</span><span>about 15 minutes</span>
+      <span id="passFact">pass mark 7 / 11</span><span>feedback on every answer</span>
+    </div>
+    <p class="qnav"><button class="btn btn-primary btn-lg" id="startBtn">Start the assessment</button></p>
+  </section>
+
+  <section id="quiz" hidden>
+    <div class="pbar"><i id="pfill"></i></div>
+    <div class="pmeta"><span id="pcount">&hellip;</span><span id="pscore">Score 0</span></div>
+    <div class="qcard">
+      <p class="qtag" id="qtag">&hellip;</p>
+      <p class="qtext" id="qtext">&hellip;</p>
+      <div id="body"></div>
+      <div class="qnav">
+        <button class="btn btn-primary" id="checkBtn" disabled>Check answer</button>
+        <button class="btn btn-primary" id="revealBtn" hidden>Reveal model answer</button>
+        <button class="btn btn-primary" id="nextBtn" hidden>Next</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="results" hidden>
+    <p class="eyebrow">Your result</p>
+    <h1 id="rTitle">Here&rsquo;s how you did.</h1>
+    <div class="score-wrap">
+      <div class="ring" id="ring"><b id="ringNum">0 / 11</b></div>
+      <div class="band">
+        <p class="k">Result</p>
+        <h2 id="bandTitle">&hellip;</h2>
+        <p id="bandMsg">&hellip;</p>
+      </div>
+    </div>
+    <div class="parts" id="parts"></div>
+    <div class="badge" id="badge"></div>
+    <div class="cta-block">
+      <h2 id="ctaHead">Whatever the score, keep going.</h2>
+      <p id="ctaSub">Re-read the track for anything you missed, then move on. The pass mark is a floor, not a ceiling.</p>
+      <div class="row">
+        <a class="btn btn-primary btn-lg" id="trackLink" href="#" target="_blank" rel="noopener">Re-read this track</a>
+        <a class="btn btn-ghost btn-lg" style="border-color:rgba(255,255,255,.4);color:#fff" href="https://news.nigeriastudentambassador.com/prompt-lab.html" target="_blank" rel="noopener">Open the Prompt Lab</a>
+      </div>
+    </div>
+    <p class="after">
+      <a href="https://news.nigeriastudentambassador.com/academy.html">Academy</a> &middot;
+      <a href="#" id="retake">Retake this assessment</a>
+    </p>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+
+/* ---------------- data ---------------- */
+const T = "https://bsoed.sharepoint.com/sites/TeenSkills/SitePages/";
+const DATA = {
+ "1": {
+  title: "Track 1 — AI Foundations", pass: 7, url: T + "Track-1-AI-Foundations.aspx",
+  badge: "<b>Badge — AI Ready.</b> Awarded when you reach the pass mark, can state the four Academy Code rules from memory, and have a Myth-Buster posted that shows two independent sources.",
+  mcq: [
+   {q:"A language model produces its answers by…", a:["searching a live database of verified facts","predicting likely next words from patterns in text it has read","copying the closest matching website word-for-word","asking a human expert in the background"], correct:1,
+    fb:"A language model predicts likely text from patterns — it is not a live fact database."},
+   {q:"“AI hallucination” means…", a:["the AI refuses to answer","the AI produces false information presented as fact","the AI repeats your question back to you","the AI runs slowly"], correct:1,
+    fb:"Hallucination = confident output that is factually false."},
+   {q:"Which should go ONLY into your signed-in school Copilot, never a free public chatbot?", a:["a general question about how photosynthesis works","a request for practice quiz questions on algebra","your finished essay that you want feedback on","a request to explain a news topic"], correct:2,
+    fb:"Your own finished writing is private work; school Copilot keeps it inside the tenant."},
+   {q:"The best immediate follow-up to any factual claim from an AI is…", a:["“Are you sure?”","“Thank you”","“How do you know that? Give me a source I can check.”","“Rewrite that shorter”"], correct:2,
+    fb:"Asking for a checkable source exposes guesses; “Are you sure?” often just makes the AI agree with itself."},
+   {q:"Under the Academy Code, “Add your value” means…", a:["pay for the premium version","change, cut or build on at least 40% and be able to explain every sentence","add your name to the top","use at least three AI tools"], correct:1,
+    fb:"The 40% value-add test plus “explain every sentence” is the core of rule 1."},
+   {q:"Which is a sign an AI is guessing?", a:["it gives a clear, checkable source","it names a law or study that you cannot find anywhere","it says “I’m not certain, please verify this”","it asks you a clarifying question"], correct:1,
+    fb:"An un-findable source is the classic hallucination tell; A and C are signs of good behaviour."},
+  ],
+  written: [
+   {q:"In your own words, why can an AI sound completely confident and still be wrong?",
+    model:"The model only chooses words that sound right based on patterns; it has no built-in check for truth, so a false statement that fits the pattern comes out just as fluent and certain as a true one.",
+    check:["Says it predicts patterns, not facts","Names the lack of a truth check","Notes false can sound as fluent as true"]},
+   {q:"Give two signs that an AI answer might be made up.",
+    model:"Any two of: it cannot give a real source; it names a book, law or study that does not exist; it contradicts itself; oddly round numbers; it answers confidently about something too obscure or recent to know.",
+    check:["Two distinct signs","e.g. no real source / invented study / self-contradiction / suspiciously round numbers"]},
+   {q:"Rewrite this unsafe request as a shielded one: “Here is my whole essay [pasted]. Fix it and make it sound smarter.”",
+    model:"“A Year 11 student wrote a 300-word argument essay on [topic]. Without rewriting it, what 3 questions would reveal weak points, and what kind of evidence would make the argument stronger?” — describes the work instead of pasting it, and asks for guidance, not a rewrite.",
+    check:["Describes the essay instead of pasting it","Asks for questions / guidance, not a rewrite","No personal or identifying detail"]},
+   {q:"Name the four rules of the Academy Code.",
+    model:"(1) Add your value  (2) Check before you trust  (3) Guard what’s private  (4) Say when you used AI.",
+    check:["All four, in any words: add value / check before you trust / guard privacy / declare AI use"]},
+   {q:"Applied. You ask an AI for the year a Nigerian historical event happened and it gives you a date. List the exact steps you would take before putting that date in your assignment.",
+    model:"Ask the AI for its source and confidence; open a textbook or a named trusted website and look the date up myself; if the two disagree, trust the verified source; note in my work that I confirmed the date independently; add my AI-use declaration.",
+    check:["Ask the AI for its source","Verify against a second source you find yourself","Prefer the verified source if they disagree","Declare the AI use"]},
+  ]
+ },
+ "2": {
+  title: "Track 2 — Prompt Engineering & Chatbots", pass: 7, url: T + "Track-2-Prompt-Engineering.aspx",
+  badge: "<b>Badge — Prompt Builder.</b> Pass mark on the assessment; can write an RTCE prompt from a blank page in front of the facilitator; the study assistant is shipped with its write-up.",
+  mcq: [
+   {q:"RTCE stands for…", a:["Read, Test, Correct, Edit","Role, Task, Context, Execution constraints","Repeat, Try, Check, Explain","Request, Tone, Content, Ending"], correct:1,
+    fb:"Role, Task, Context, Execution constraints."},
+   {q:"The main job of the “Context” part of a prompt is to…", a:["make the answer longer","give the AI facts it cannot guess (your level, the topic, what you tried)","set the word limit","choose the AI’s personality"], correct:1,
+    fb:"Context supplies the facts the model cannot infer; missing context is the top cause of generic answers."},
+   {q:"“Few-shot prompting” means…", a:["asking very short questions","giving the AI a few worked examples of the output you want","limiting yourself to a few prompts per day","using a fast model"], correct:1,
+    fb:"Few-shot = provide examples of the desired output, then ask for more in that style."},
+   {q:"Which execution constraint best protects your learning during revision?", a:["“answer in under 200 words”","“use bullet points”","“give one hint at a time and never state the final answer”","“use simple English”"], correct:2,
+    fb:"Hints-only and no-final-answer keep the thinking with the student; the others are formatting only."},
+   {q:"A Custom GPT / Gem / Copilot agent differs from a normal chat because…", a:["it is always free","it applies a saved set of instructions to every new conversation","it can browse the internet","it never makes mistakes"], correct:1,
+    fb:"The defining feature is persistent, reusable instructions."},
+   {q:"Your AI chat has started forgetting your rules and mixing up topics. Best first move?", a:["keep going and correct each mistake","start a fresh chat and re-paste your key instructions","switch to a different AI company","make your questions longer"], correct:1,
+    fb:"Drift is fixed by a fresh context plus re-stating the rules."},
+  ],
+  written: [
+   {q:"Write a complete RTCE prompt (all four parts labelled) to help you revise one topic of your choice — without the AI giving you final answers.",
+    model:"Role: “You are a patient SS3 Physics tutor.”  Task: “Help me understand how to calculate resistance in a series circuit.”  Context: “I’m in SS3, I know V=IR but I get confused with three resistors.”  Execution constraints: “One hint at a time; ask me what to do next before continuing; never give me the final numeric answer.”",
+    check:["All four parts present and labelled","Task is specific","Context gives your level and what you already tried","A constraint blocks final answers"]},
+   {q:"Explain, in your own words, why a vague role like “be helpful” produces a weak answer.",
+    model:"“Helpful” does not tell the model the standard, tone or depth to aim for, so it defaults to a broad, shallow, average answer instead of one shaped to your need.",
+    check:["No standard / tone / depth is signalled","Model defaults to a generic answer","A specific role would shape the answer"]},
+   {q:"Give two situations where few-shot prompting (showing examples) would help.",
+    model:"Any two: making flashcards in a set format; matching an essay-introduction style; keeping summary notes in one shape; matching a particular question style; setting the tone of a message.",
+    check:["Two distinct situations","Each is about matching a format, style or shape"]},
+   {q:"List three things a good set of assistant instructions must include.",
+    model:"A name / role, a described behaviour, relevant context, and hard limits (the Academy Code) — any three.",
+    check:["Any three of: name/role, behaviour, context, hard limits"]},
+   {q:"Applied. Here is a weak prompt: “help me with my essay”. Rewrite it as a strong RTCE prompt for getting feedback on structure (not a rewrite), keeping the Academy Code.",
+    model:"Role: “You are a secondary-school writing coach.”  Task: “Give me feedback on the STRUCTURE of my essay only.”  Context: “It argues Nigeria should invest in solar power; it has an intro, three body paragraphs and a conclusion; I think the middle is weak.”  Execution constraints: “Do not rewrite any part. Give 3 structural strengths, 3 structural weaknesses, and 3 questions to help me fix it myself.”",
+    check:["Labelled RTCE","Task = structure feedback only","Constraint says do not rewrite","Asks for questions so you fix it yourself"]},
+  ]
+ },
+ "3": {
+  title: "Track 3 — Build with AI (no-code)", pass: 7, url: T + "Track-3-Build-with-AI.aspx",
+  badge: "<b>Badge — Builder.</b> Capstone accepted against the rubric (working tool + real user + full package + live demo); pass mark on the assessment.",
+  mcq: [
+   {q:"The best first project idea is…", a:["“an app that helps all students in Nigeria study better”","“a tool to drill JSS3 Basic Science past questions on a phone for students in my area”","“a social network for teenagers”","“an AI that can answer any question”"], correct:1,
+    fb:"Narrow, specific, real, named users — something you can actually finish."},
+   {q:"A project spec should always include…", a:["the programming language","who it’s for, what it does, and what it deliberately does not do","a logo and a name","the price"], correct:1,
+    fb:"Who / what / what-it-does-not-do keeps version 1 finishable."},
+   {q:"You need a tool where users submit a request and get an automatic email back. Best no-code route?", a:["a Custom GPT","Microsoft Forms + Lists + Power Automate","a Canva poster","a Telegram sticker pack"], correct:1,
+    fb:"Forms captures the request, Lists stores it, Power Automate sends the reply — all in the Academy account."},
+   {q:"When giving your tool “a brain”, you should…", a:["load all your content at once, then test","load a little content, test, then add more","skip testing to save time","avoid writing instructions so the AI is flexible"], correct:1,
+    fb:"Incremental content plus testing catches problems early."},
+   {q:"After testing with three users you should…", a:["fix every single problem before shipping","fix the top two problems for version 1","ignore the feedback if the tool works for you","add three new features"], correct:1,
+    fb:"You cannot fix everything; the top two give the biggest gain."},
+   {q:"Which is NOT one of the three “ship it” deliverables?", a:["a share link or access steps","a one-page user guide","a 60-second demo video","a full written business plan"], correct:3,
+    fb:"The three deliverables are link, guide, demo — not a business plan."},
+  ],
+  written: [
+   {q:"Write a one-paragraph spec for a small tool you could actually build, including what it does NOT do.",
+    model:"“A revision helper for SS1 students at my school preparing for Geography tests. It gives Socratic hints on past questions and short topic explanations. It does NOT store any user details, does not give final answers, and only covers the SS1 syllabus.”",
+    check:["Names who it is for","Says what it does","Says what it does NOT do","Small enough to finish"]},
+   {q:"Name the four no-code routes and give one good use for each.",
+    model:"A: custom assistant → a revision Q&A helper.  B: Forms + Lists + Power Automate → a club sign-up desk with auto-reply.  C: Google Sites / Canva → a past-questions resource hub.  D: Telegram bot → daily quiz drills.",
+    check:["All four routes named","A sensible use for each"]},
+   {q:"Give two reasons you test with real users instead of just checking it yourself.",
+    model:"Any two: you already know how it works so you cannot see what is confusing; real users try things you did not expect; you find out whether the guide is enough; you get honest reactions to the answers’ quality.",
+    check:["Two distinct reasons","About blind spots / unexpected use / guide clarity / honest feedback"]},
+   {q:"Where and how is the Academy Code enforced inside a tool you build?",
+    model:"In the tool’s instructions / system prompt — forbidding final answers to marked questions, refusing to collect personal data, telling users to verify uncertain facts — and in the design, by only asking for the minimum information needed.",
+    check:["In the system prompt / instructions","Specific rules: no final answers / no personal data / verify","Also enforced by the design (minimum data)"]},
+   {q:"Applied. Your tester says: “I didn’t know what to type first, and when I asked a question it just gave me the answer straight away.” Name the two problems and what you would change.",
+    model:"Problem 1 — no starting guidance, so add a welcome message with 2–3 example things to type.  Problem 2 — the assistant gives answers directly, so change the instructions to require Socratic hints, one at a time, before any answer.",
+    check:["Problem 1: no onboarding → add example prompts / a welcome message","Problem 2: gives answers → require Socratic hints first"]},
+  ]
+ },
+ "4": {
+  title: "Track 4 — AI for Creativity", pass: 7, url: T + "Track-4-AI-for-Creativity.aspx",
+  badge: "<b>Badge — Creator.</b> Pass mark on the assessment; the 3-piece set is posted, each item labelled “Made with AI”; the learner can build and refine a layered image prompt in front of the facilitator and explain the likeness rules.",
+  mcq: [
+   {q:"The five layers of a structured image prompt are…", a:["Colour, Size, Shape, Texture, Border","Subject, Action, Setting, Style, Framing","Who, What, When, Where, Why","Title, Body, Caption, Logo, Footer"], correct:1,
+    fb:"Subject, Action, Setting, Style, Framing."},
+   {q:"Which layer controls whether the image looks like a photograph or an illustration?", a:["Subject","Setting","Style","Framing"], correct:2,
+    fb:"Style sets the medium — photo vs illustration vs render."},
+   {q:"The best way to fix an image that is almost right is to…", a:["rewrite the whole prompt from scratch","keep everything and change one specific thing at a time","switch to a different tool","accept it as it is"], correct:1,
+    fb:"Iterative one-change refinement keeps the parts that already worked."},
+   {q:"AI video on a free tool is best used for…", a:["a full 5-minute documentary","a short title shot or background clip, then edited in CapCut / Canva","anything with a lot of on-screen text","replacing a real camera entirely"], correct:1,
+    fb:"Short clips plus real editing; free tools are limited and add artefacts."},
+   {q:"Making an AI image of a classmate doing something embarrassing, “as a joke”, is…", a:["fine if you don’t post it publicly","a deepfake and harmful, and not allowed","fine if it looks obviously fake","fine if they never find out"], correct:1,
+    fb:"It is a deepfake; the harm does not depend on reach or realism."},
+   {q:"When you share AI-made images or audio you should…", a:["say nothing","clearly label them as made with AI","claim you drew them yourself","remove all captions"], correct:1,
+    fb:"Labelling AI-made work is required by the Academy Code."},
+  ],
+  written: [
+   {q:"Write a five-layer image prompt for a poster advertising a school debate club meeting.",
+    model:"Subject: a group of secondary students mid-debate at a table.  Action: one student standing and speaking, others listening.  Setting: a bright classroom, chairs in rows.  Style: bold flat illustration, three school colours, poster-friendly, large clear shapes.  Framing: portrait poster, upper third left empty for the meeting time and place.",
+    check:["All five layers present","Style names a medium","Framing leaves room for text"]},
+   {q:"Explain why changing one thing at a time works better than rewriting an image prompt.",
+    model:"The tool regenerates the whole image from the prompt each time; if you rewrite everything you also change the parts that were already good, so you go in circles. One change at a time keeps progress.",
+    check:["Whole image regenerates each time","Rewriting loses the good parts","One change keeps progress"]},
+   {q:"Besides the lyrics, name two things you should describe when prompting for a jingle.",
+    model:"Any two: genre / style, mood / energy, tempo or length, instruments, the hook line, “clear vocals / short intro”.",
+    check:["Two distinct musical attributes"]},
+   {q:"State two rules for using AI images that respect other people.",
+    model:"Any two: never make an identifiable person do or say something they did not; only upload someone’s photo with their clear permission; never use another student’s photo; label AI images; follow the school’s rules for graded art.",
+    check:["Two distinct rules","About consent / not faking real people / labelling"]},
+   {q:"Applied. You want a photo-style image of “students studying outdoors” for a school flyer, but the first result has odd, blurry faces. Describe your next two prompt changes and why.",
+    model:"(1) Add Style detail — “realistic photo, natural daylight, sharp focus on faces, shot on a normal lens” — and Framing — “medium shot, faces clearly visible”.  (2) If faces are still wrong, change Framing to a wider shot where people are smaller and facing away, or ask for “no close-up faces”, since face detail is where these tools fail most.",
+    check:["Change 1: sharpen Style / Framing for faces","Change 2: widen the shot or avoid close-up faces","Reason: faces are the tools’ weak point"]},
+  ]
+ }
+};
+
+/* ---------------- state ---------------- */
+const q = new URLSearchParams(location.search);
+if (q.get("e") === "1" || q.has("embed")) document.body.classList.add("embed");
+const trackId = ["1","2","3","4"].includes(q.get("track")) ? q.get("track") : "1";
+const D = DATA[trackId];
+const TOTAL = D.mcq.length + D.written.length;   // 11
+let phase = "mcq", i = 0, score = 0, mcqScore = 0, wrScore = 0, answered = false, picked = -1;
+
+document.title = D.title + " — Assessment";
+$("#introTitle").textContent = D.title + " — Assessment";
+$("#passFact").textContent = "pass mark " + D.pass + " / " + TOTAL;
+$("#ringNum").textContent = "0 / " + TOTAL;
+
+/* ---------------- helpers ---------------- */
+function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* ---------------- flow ---------------- */
+$("#startBtn").onclick = () => { $("#intro").hidden = true; $("#quiz").hidden = false; render(); scrollTop(); };
+function scrollTop(){ try { window.scrollTo(0,0); } catch(e){} }
+
+function progress(){
+  const done = (phase === "mcq" ? i : D.mcq.length + i);
+  $("#pfill").style.width = (done / TOTAL * 100) + "%";
+  $("#pcount").textContent = "Question " + (done + 1) + " of " + TOTAL;
+  $("#pscore").textContent = "Score " + score;
+}
+
+function render(){
+  progress();
+  answered = false; picked = -1;
+  $("#checkBtn").hidden = false; $("#checkBtn").disabled = true;
+  $("#revealBtn").hidden = true; $("#nextBtn").hidden = true;
+  const body = $("#body"); body.innerHTML = "";
+
+  if (phase === "mcq"){
+    const item = D.mcq[i];
+    $("#qtag").textContent = "Part A · Multiple choice · " + (i+1) + " of " + D.mcq.length;
+    $("#qtext").textContent = item.q;
+    $("#checkBtn").hidden = false;
+    const opts = document.createElement("div"); opts.className = "opts"; opts.setAttribute("role","radiogroup");
+    item.a.forEach((text, idx) => {
+      const lab = document.createElement("label");
+      lab.className = "opt";
+      lab.innerHTML = '<input type="radio" name="opt" value="'+idx+'"><span class="t"></span>';
+      lab.querySelector(".t").textContent = String.fromCharCode(65+idx) + ".  " + text;
+      lab.querySelector("input").onchange = () => { picked = idx; $("#checkBtn").disabled = false; };
+      opts.appendChild(lab);
+    });
+    body.appendChild(opts);
+  } else {
+    const item = D.written[i];
+    $("#qtag").textContent = "Part B · Written · " + (i+1) + " of " + D.written.length + " · you mark this one";
+    $("#qtext").textContent = item.q;
+    $("#checkBtn").hidden = true;
+    $("#revealBtn").hidden = false;
+    const ta = document.createElement("textarea");
+    ta.id = "wr"; ta.placeholder = "Type your answer here, then reveal the model answer to mark it.";
+    body.appendChild(ta);
+  }
+}
+
+$("#checkBtn").onclick = () => {
+  if (picked < 0 || answered) return;
+  answered = true;
+  const item = D.mcq[i];
+  const ok = picked === item.correct;
+  if (ok){ score++; mcqScore++; }
+  [...$("#body .opt")].forEach((lab, idx) => {
+    lab.classList.add("locked");
+    lab.querySelector("input").disabled = true;
+    if (idx === item.correct) lab.classList.add("is-correct");
+    if (idx === picked && !ok) lab.classList.add("is-wrong");
+  });
+  const fb = document.createElement("div");
+  fb.className = "feedback " + (ok ? "ok" : "no");
+  fb.innerHTML = "<b>" + (ok ? "Correct" : "Not quite") + "</b>" + esc(item.fb);
+  $("#body").appendChild(fb);
+  $("#pscore").textContent = "Score " + score;
+  $("#checkBtn").hidden = true;
+  $("#nextBtn").hidden = false;
+  $("#nextBtn").textContent = nextLabel();
+  $("#nextBtn").focus();
+};
+
+$("#revealBtn").onclick = () => {
+  if (answered) return;
+  answered = true;
+  const item = D.written[i];
+  $("#revealBtn").hidden = true;
+  const fb = document.createElement("div");
+  fb.className = "feedback model";
+  fb.innerHTML = "<b>Model answer</b>" + esc(item.model)
+    + "<b style='margin-top:.7rem'>Mark yourself — did your answer cover these?</b><ul>"
+    + item.check.map(c => "<li>" + esc(c) + "</li>").join("") + "</ul>";
+  $("#body").appendChild(fb);
+  const sm = document.createElement("div");
+  sm.className = "selfmark";
+  sm.innerHTML = "<span class='q'>Be honest — this only helps if it&rsquo;s real.</span>"
+    + "<button class='btn btn-primary' data-v='1'>I covered the key points</button>"
+    + "<button class='btn btn-ghost' data-v='0'>Not yet — I&rsquo;ll review this</button>";
+  sm.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const v = +b.dataset.v;
+    if (v){ score++; wrScore++; }
+    sm.querySelectorAll("button").forEach(x => x.disabled = true);
+    b.style.outline = "2.5px solid var(--accent)";
+    $("#pscore").textContent = "Score " + score;
+    $("#nextBtn").hidden = false;
+    $("#nextBtn").textContent = nextLabel();
+    $("#nextBtn").focus();
+  });
+  $("#body").appendChild(sm);
+};
+
+function nextLabel(){
+  const last = (phase === "written" && i === D.written.length - 1);
+  if (last) return "See my result";
+  if (phase === "mcq" && i === D.mcq.length - 1) return "Start Part B (written)";
+  return "Next question";
+}
+
+$("#nextBtn").onclick = () => {
+  if (phase === "mcq"){
+    if (i === D.mcq.length - 1){ phase = "written"; i = 0; }
+    else i++;
+    render(); scrollTop(); return;
+  }
+  if (i === D.written.length - 1){ showResults(); return; }
+  i++; render(); scrollTop();
+};
+
+function showResults(){
+  $("#quiz").hidden = true; $("#results").hidden = false; scrollTop();
+  const pct = Math.round(score / TOTAL * 100);
+  $("#ringNum").textContent = score + " / " + TOTAL;
+  $("#ring").style.setProperty("--p", pct);
+
+  let bandK, bandMsg, ctaHead;
+  if (score >= D.pass && score >= TOTAL - 1){
+    bandK = "Strong pass"; ctaHead = "Strong pass — you&rsquo;ve got this track.";
+    bandMsg = "You cleared the pass mark comfortably. Move on to the next track.";
+  } else if (score >= D.pass){
+    bandK = "Pass"; ctaHead = "That&rsquo;s a pass.";
+    bandMsg = "You&rsquo;re over the line. Skim the parts you marked &ldquo;not yet&rdquo;, then move on.";
+  } else {
+    bandK = "Not yet — review and retake"; ctaHead = "Close. Re-read and take it again.";
+    bandMsg = "You&rsquo;re " + (D.pass - score) + " short of the pass mark. Re-read the track, then retake this — there&rsquo;s no limit.";
+  }
+  $("#bandTitle").textContent = bandK;
+  $("#bandMsg").innerHTML = bandMsg;
+  $("#ctaHead").innerHTML = ctaHead;
+
+  $("#parts").innerHTML =
+    "<div class='part'><b>Part A — Multiple choice</b><span class='sc'>" + mcqScore + " / " + D.mcq.length + "</span></div>" +
+    "<div class='part'><b>Part B — Written (self-marked)</b><span class='sc'>" + wrScore + " / " + D.written.length + "</span></div>";
+  $("#badge").innerHTML = D.badge;
+  $("#trackLink").href = D.url;
+}
+
+$("#retake").onclick = e => {
+  e.preventDefault();
+  phase = "mcq"; i = 0; score = 0; mcqScore = 0; wrScore = 0; answered = false; picked = -1;
+  $("#results").hidden = true; $("#quiz").hidden = false; render(); scrollTop();
+};
+</script>
+</body>
+</html>
