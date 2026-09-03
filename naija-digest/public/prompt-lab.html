@@ -94,6 +94,16 @@ textarea:focus,button:focus-visible,a:focus-visible{outline:2.5px solid var(--ac
 .note{margin-top:1.6rem;font-size:.85rem;color:var(--ink-3)}
 .foot{margin-top:1.4rem;font-size:.9rem;color:var(--ink-3)}
 .foot a{margin-right:1rem}
+
+/* embedded mode (?e=1) — dropped into a SharePoint Embed web part right under a prompt */
+body.embed{background:transparent}
+body.embed .top,body.embed .eyebrow,body.embed h1,body.embed .lede,body.embed .foot{display:none}
+body.embed main{padding:.2rem 0 .6rem}
+body.embed .wrap{padding:0}
+body.embed .lab{margin-top:0}
+body.embed .context{margin-top:0;margin-bottom:.9rem}
+body.embed .note{margin-top:1rem;font-size:.8rem}
+body.embed textarea{min-height:120px}
 </style>
 </head>
 <body>
@@ -166,11 +176,12 @@ let busy = false, ctl = null, lastText = "";
 /* ---- prefill from ?p= (prompt) and ?t= (lesson/context label) ---- */
 (function(){
   const q = new URLSearchParams(location.search);
+  if (q.get('e') === '1' || q.has('embed')) document.body.classList.add('embed');
   const p = q.get('p');
   if (p){ $("#prompt").value = p; }
   const t = q.get('t');
   if (t){ const c = $("#context"); c.textContent = 'From your course: ' + t; c.hidden = false; }
-  $("#prompt").focus();
+  if (!document.body.classList.contains('embed')) $("#prompt").focus();
 })();
 
 function esc(s){ return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
