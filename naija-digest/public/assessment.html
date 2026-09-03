@@ -427,7 +427,7 @@ $("#checkBtn").onclick = () => {
   const item = D.mcq[i];
   const ok = picked === item.correct;
   if (ok){ score++; mcqScore++; }
-  [...$("#body .opt")].forEach((lab, idx) => {
+  [...document.querySelectorAll("#body .opt")].forEach((lab, idx) => {
     lab.classList.add("locked");
     lab.querySelector("input").disabled = true;
     if (idx === item.correct) lab.classList.add("is-correct");
