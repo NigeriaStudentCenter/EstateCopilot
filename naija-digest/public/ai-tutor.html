@@ -154,6 +154,29 @@ details.facil pre{white-space:pre-wrap;font-family:"IBM Plex Mono",monospace;fon
 .send:disabled{opacity:.45;cursor:not-allowed}
 .stop{background:none;border:1px solid var(--flag);color:var(--flag);border-radius:9px;padding:.6rem .8rem;font-weight:600}
 .composer .hint{font-size:.72rem;color:var(--ink-soft);margin-top:.3rem}
+
+/* ---------- audio: read-aloud + dictation (accessibility) ---------- */
+.audiobar{display:flex;flex-wrap:wrap;gap:.5rem .9rem;align-items:center;
+  margin:.55rem 0 .1rem;padding:.55rem .75rem;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:10px;font-size:.82rem}
+.audiobar .switch{display:inline-flex;align-items:center;gap:.45rem;cursor:pointer;font-weight:600}
+.audiobar .switch input{width:1rem;height:1rem;accent-color:var(--jur)}
+.audiobar .a-sel{display:inline-flex;align-items:center;gap:.35rem;color:var(--ink-soft)}
+.audiobar select{font:inherit;font-size:.8rem;padding:.22rem .35rem;border:1px solid var(--line-strong);
+  border-radius:7px;background:var(--surface);color:var(--ink);max-width:12rem}
+.audiobar .a-stop{margin-left:auto;background:none;border:1px solid var(--flag);color:var(--flag);
+  border-radius:8px;padding:.32rem .65rem;font-weight:600;font-size:.78rem}
+.audiobar .a-note{flex-basis:100%;font-size:.72rem;color:var(--ink-soft);margin:0}
+.msg.tutor .who,.msg.err .who{display:flex;align-items:center;gap:.4rem}
+.speakbtn{background:none;border:1px solid var(--line-strong);color:var(--jur);border-radius:999px;
+  width:1.55rem;height:1.55rem;display:inline-grid;place-items:center;font-size:.72rem;padding:0;line-height:1}
+.speakbtn:hover{border-color:var(--jur)}
+.speakbtn.on{background:var(--jur);color:#fff;border-color:var(--jur)}
+.mic{background:none;border:1px solid var(--line-strong);color:var(--ink-soft);border-radius:9px;
+  padding:.55rem .6rem;display:grid;place-items:center;flex:none}
+.mic:hover{border-color:var(--jur);color:var(--jur)}
+.mic.on{background:var(--flag);border-color:var(--flag);color:#fff;animation:micpulse 1.1s infinite}
+@keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(169,59,50,.4)}50%{box-shadow:0 0 0 .4rem rgba(169,59,50,0)}}
 </style>
 </head>
 <body>
@@ -238,6 +261,27 @@ details.facil pre{white-space:pre-wrap;font-family:"IBM Plex Mono",monospace;fon
     <div class="pathbar">
       <div class="pathchips" id="pathChips"></div>
     </div>
+
+    <div class="audiobar" id="audioBar" hidden>
+      <label class="switch">
+        <input type="checkbox" id="autoSpeak">
+        <span>&#128266; Read the tutor&rsquo;s replies aloud</span>
+      </label>
+      <label class="a-sel">Voice
+        <select id="voiceSel" aria-label="Reading voice"></select>
+      </label>
+      <label class="a-sel">Speed
+        <select id="rateSel" aria-label="Reading speed">
+          <option value="0.8">Slower</option>
+          <option value="1" selected>Normal</option>
+          <option value="1.15">Faster</option>
+        </select>
+      </label>
+      <button class="a-stop" id="speakStop" type="button" hidden>&#9632; Stop audio</button>
+      <p class="a-note">Tap the small &#9654; on any reply to hear it. Turn the switch on to hear
+        every new reply automatically. Voice input: use the microphone in the box below.</p>
+    </div>
+
     <div class="tools">
       <a href="https://copilot.microsoft.com" target="_blank" rel="noopener noreferrer">Open Microsoft&nbsp;Copilot &#8599;</a>
       <a href="https://notebooklm.google.com" target="_blank" rel="noopener noreferrer">Open Google&nbsp;NotebookLM &#8599;</a>
@@ -249,12 +293,17 @@ details.facil pre{white-space:pre-wrap;font-family:"IBM Plex Mono",monospace;fon
 
     <div class="composer">
       <div class="row">
+        <button class="mic" id="micBtn" type="button" hidden aria-label="Speak your answer" title="Speak your answer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/>
+          </svg>
+        </button>
         <textarea id="input" rows="1" placeholder="Type your answer&hellip;" disabled></textarea>
         <button class="send" id="sendBtn" disabled>Send</button>
         <button class="stop" id="stopBtn" hidden>Stop</button>
       </div>
-      <p class="hint">Enter to send &middot; Shift+Enter for a new line. The tutor answers one
-        question at a time and waits for you.</p>
+      <p class="hint">Enter to send &middot; Shift+Enter for a new line &middot; tap the microphone
+        to speak instead of typing. The tutor answers one question at a time and waits for you.</p>
     </div>
   </div>
 </div>
@@ -507,13 +556,125 @@ function md(src){
   close(); return html;
 }
 
+/* ---------- audio: read-aloud (TTS) + dictation (STT), all in-browser ---------- */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('aitutor.' + k); return v === null ? d : v; } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem('aitutor.' + k, v); } catch(e){} }
+};
+
+const AUDIO = (() => {
+  const synth = window.speechSynthesis;
+  const ok = !!synth && typeof window.SpeechSynthesisUtterance !== 'undefined';
+  let voices = [], curBtn = null;
+
+  const clean = t => (t || '')
+    .replace(/```[\s\S]*?```/g, ' — code block — ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1$2')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^\s*[-*•]\s+/gm, '')
+    .replace(/^\s*([-*_])\1{2,}\s*$/gm, '. ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const rank = v => /en-NG/i.test(v.lang) ? 0 : /en-GB/i.test(v.lang) ? 1 : /en-US/i.test(v.lang) ? 2 : 3;
+
+  function loadVoices(){
+    if (!ok) return;
+    voices = synth.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang)).sort((a, b) => rank(a) - rank(b));
+    const sel = $('#voiceSel'); if (!sel) return;
+    const want = store.get('voice', '');
+    sel.innerHTML = '';
+    voices.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.voiceURI; o.textContent = v.name + ' — ' + v.lang;
+      sel.appendChild(o);
+    });
+    if (want && voices.some(v => v.voiceURI === want)) sel.value = want;
+    else if (voices[0]) sel.value = voices[0].voiceURI;
+  }
+  const chosenVoice = () => voices.find(v => v.voiceURI === ($('#voiceSel') && $('#voiceSel').value)) || null;
+
+  function resetBtn(){
+    if (curBtn){ curBtn.classList.remove('on'); curBtn.textContent = '▶'; curBtn = null; }
+    const s = $('#speakStop'); if (s) s.hidden = true;
+  }
+  function stop(){ if (ok) synth.cancel(); resetBtn(); }
+
+  function speak(text, btn){
+    if (!ok) return;
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(clean(text));
+    const v = chosenVoice(); if (v) u.voice = v;
+    u.lang = (v && v.lang) || (path.jur === 'ng' ? 'en-NG' : 'en-GB');
+    u.rate = parseFloat(($('#rateSel') && $('#rateSel').value) || '1') || 1;
+    u.onend = resetBtn; u.onerror = resetBtn;
+    resetBtn();
+    curBtn = btn || null;
+    if (curBtn){ curBtn.classList.add('on'); curBtn.textContent = '■'; }
+    const s = $('#speakStop'); if (s) s.hidden = false;
+    synth.speak(u);
+  }
+  const toggle = (text, btn) => (curBtn === btn && synth.speaking) ? stop() : speak(text, btn);
+
+  return { ok, loadVoices, speak, toggle, stop };
+})();
+
+if (AUDIO.ok){
+  window.speechSynthesis.onvoiceschanged = AUDIO.loadVoices;
+  AUDIO.loadVoices();
+  $('#autoSpeak').checked = store.get('autoSpeak', '0') === '1';
+  $('#autoSpeak').onchange = e => { store.set('autoSpeak', e.target.checked ? '1' : '0'); if (!e.target.checked) AUDIO.stop(); };
+  const r = store.get('rate', '1'); if ([...$('#rateSel').options].some(o => o.value === r)) $('#rateSel').value = r;
+  $('#rateSel').onchange = e => store.set('rate', e.target.value);
+  $('#voiceSel').onchange = e => store.set('voice', e.target.value);
+  $('#speakStop').onclick = () => AUDIO.stop();
+}
+
+/* speech-to-text: dictate an answer instead of typing */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+if (SR){
+  $('#micBtn').hidden = false;
+  $('#micBtn').onclick = () => {
+    if (listening){ try { rec.stop(); } catch(e){} return; }
+    const box = $('#input');
+    const base = box.value ? box.value.replace(/\s*$/, '') + ' ' : '';
+    rec = new SR();
+    rec.lang = (path.jur === 'ng') ? 'en-NG' : 'en-GB';
+    rec.interimResults = true; rec.continuous = false;
+    rec.onstart = () => { listening = true; $('#micBtn').classList.add('on'); $('#micBtn').setAttribute('aria-label', 'Stop dictation'); };
+    rec.onresult = e => {
+      let s = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) s += e.results[i][0].transcript;
+      box.value = base + s;
+      box.style.height = 'auto'; box.style.height = Math.min(box.scrollHeight, 144) + 'px';
+    };
+    rec.onerror = () => { listening = false; $('#micBtn').classList.remove('on'); };
+    rec.onend = () => {
+      listening = false; $('#micBtn').classList.remove('on');
+      $('#micBtn').setAttribute('aria-label', 'Speak your answer'); box.focus();
+    };
+    try { rec.start(); } catch(e){}
+  };
+}
+
 /* ---------- session ---------- */
 const transcript = () => $('#transcript');
 function addMsg(kind, whoLabel){
   const wrap = document.createElement('div');
   wrap.className = 'msg ' + kind;
-  const who = document.createElement('div'); who.className = 'who'; who.textContent = whoLabel;
+  const who = document.createElement('div'); who.className = 'who';
+  const label = document.createElement('span'); label.textContent = whoLabel; who.appendChild(label);
   const body = document.createElement('div'); body.className = 'body';
+  if (AUDIO.ok && (kind === 'tutor' || kind === 'err')){
+    const sb = document.createElement('button');
+    sb.type = 'button'; sb.className = 'speakbtn'; sb.textContent = '▶';
+    sb.setAttribute('aria-label', 'Read this message aloud');
+    sb.onclick = () => AUDIO.toggle(body.dataset.raw || body.textContent, sb);
+    who.appendChild(sb);
+  }
   wrap.append(who, body);
   transcript().appendChild(wrap);
   scroll();
@@ -552,6 +713,9 @@ async function callTutor(){
     thinking(false);
     const b = addMsg('tutor', 'Tutor');
     b.innerHTML = md(text || "…");
+    b.dataset.raw = text || "";
+    if (AUDIO.ok && $('#autoSpeak') && $('#autoSpeak').checked)
+      AUDIO.speak(text || "", b.parentElement.querySelector('.speakbtn'));
     turns.push({ role:'assistant', content: text });
   } catch (e){
     thinking(false);
@@ -606,6 +770,7 @@ function pathChips(){
   const edit = document.createElement('button');
   edit.className = 'editpath'; edit.textContent = 'Edit path';
   edit.onclick = () => {
+    if (AUDIO.ok) AUDIO.stop();
     $('#session').hidden = true; $('#setup').hidden = false;
     document.documentElement.scrollTop = 0;
   };
@@ -616,6 +781,7 @@ $('#startBtn').onclick = () => {
   path.topic = ($("#topic").value||"").trim();
   $('#setup').hidden = true; $('#session').hidden = false;
   document.documentElement.style.setProperty('--jur', path.jur === 'ng' ? 'var(--ng)' : 'var(--uk)');
+  if (AUDIO.ok){ $('#audioBar').hidden = false; AUDIO.stop(); }
   pathChips();
   transcript().innerHTML = "";
   turns = [{
