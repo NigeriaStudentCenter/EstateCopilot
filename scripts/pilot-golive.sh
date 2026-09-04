@@ -11,7 +11,9 @@ set -euo pipefail
 RG=estatecopilot-rg
 APP=estatecopilot-api
 PGSRV=estatecopilot-db
-LOC=westeurope
+# Postgres region. Some subscriptions (MSDN / Visual Studio Enterprise)
+# restrict Flexible Server in westeurope — override e.g. PG_LOCATION=northeurope
+LOC="${PG_LOCATION:-westeurope}"
 
 : "${PG_ADMIN_PASSWORD:?set PG_ADMIN_PASSWORD to a strong password}"
 : "${ADMIN_API_KEY:?set ADMIN_API_KEY to a strong random string}"
