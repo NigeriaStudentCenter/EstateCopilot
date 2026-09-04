@@ -38,10 +38,13 @@ export const api = {
   ) => request(`/api/public/legal-requests/${requestId}/quote`, { method: 'POST', body: JSON.stringify(data) }),
 
   landlordSignup: (data: { name: string; email: string; phone: string; password: string; state: string }) =>
-    request<{ landlordId: string; reference: string; authorizationUrl: string | null; monthlyAmountKobo: number }>(
-      '/api/landlord-auth/signup',
-      { method: 'POST', body: JSON.stringify(data) },
-    ),
+    request<{
+      landlordId: string;
+      reference: string;
+      authorizationUrl: string | null;
+      hostedPageUrl: string | null;
+      monthlyAmountKobo: number;
+    }>('/api/landlord-auth/signup', { method: 'POST', body: JSON.stringify(data) }),
   landlordConfirm: (reference: string, landlordId?: string) =>
     request<{ token: string }>('/api/landlord-auth/confirm', { method: 'POST', body: JSON.stringify({ reference, landlordId }) }),
 };

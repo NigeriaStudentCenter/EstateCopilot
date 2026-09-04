@@ -10,7 +10,7 @@ import AiInboxPage from './pages/AiInboxPage';
 import PropertiesPage from './pages/PropertiesPage';
 import BookingsPage from './pages/BookingsPage';
 import SettingsPage from './pages/SettingsPage';
-import PlaceholderPage from './pages/PlaceholderPage';
+import FinanceLeviesPage from './pages/FinanceLeviesPage';
 
 interface DashboardProps {
   landlord: { name: string; email: string; subscriptionStatus: string };
@@ -34,7 +34,7 @@ const Dashboard: React.FC<DashboardProps> = ({ landlord, onLogout }) => {
           {view === 'Properties' && <PropertiesPage />}
           {view === 'Bookings' && <BookingsPage />}
           {view === 'Tenant Vetting' && <TenantVettingPage />}
-          {view === 'Finance & Levies' && <PlaceholderPage title="Finance & Levies" />}
+          {view === 'Finance & Levies' && <FinanceLeviesPage />}
           {view === 'Settings' && <SettingsPage />}
         </main>
       </div>

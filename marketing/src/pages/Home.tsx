@@ -132,7 +132,7 @@ const Home: React.FC = () => {
         <h2 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 text-center mb-8 text-balance">
           From "my tap is leaking" to a paid artisan — no phone calls
         </h2>
-        <VideoEmbed />
+        <VideoEmbed src={import.meta.env.VITE_WALKTHROUGH_VIDEO_URL} />
         <p className="text-sm text-gray-500 text-center mt-4">
           This is the exact flow that runs behind every repair reported on your properties.
         </p>

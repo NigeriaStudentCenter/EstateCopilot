@@ -40,14 +40,24 @@ export const env = {
     // in mock mode for this specific flow even if PAYSTACK_SECRET_KEY is set.
     paystackPlanCode: process.env.PAYSTACK_LANDLORD_PLAN_CODE,
     signupCallbackUrl: process.env.MARKETING_SIGNUP_CALLBACK_URL ?? 'http://localhost:5175/signup/callback',
+    // Pilot billing: landlords pay on this Paystack-hosted page, then an
+    // operator activates the account with the admin endpoint below. No
+    // secret key or Paystack Plan needed for this path.
+    hostedPageUrl: process.env.PAYSTACK_HOSTED_PAGE_URL ?? 'https://paystack.shop/pay/estatecopilot',
+  },
+  admin: {
+    // Guards POST /api/landlord-auth/admin/* (manual subscription activation).
+    // Unset => the admin endpoints are disabled entirely.
+    apiKey: process.env.ADMIN_API_KEY,
   },
   ai: {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     landlordDisplayName: process.env.LANDLORD_DISPLAY_NAME ?? 'Aliko Hassan',
   },
   email: {
-    provider: process.env.EMAIL_PROVIDER, // e.g. "resend" — unset means mock/log-only
+    provider: process.env.EMAIL_PROVIDER, // "resend" — unset means mock/log-only
     apiKey: process.env.EMAIL_API_KEY,
+    from: process.env.EMAIL_FROM ?? 'EstateCopilot <ops@estatecopilot.org>',
   },
   ops: {
     // Where "someone booked a viewing / a handyman wants to visit" alerts go.

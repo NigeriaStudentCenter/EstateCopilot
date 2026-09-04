@@ -148,4 +148,30 @@ export const api = {
     }),
   getLegalQuotes: (requestId: string) => request<any[]>(`/api/legal-requests/${requestId}/quotes`),
   acceptLegalQuote: (quoteId: string) => request(`/api/legal-quotes/${quoteId}/accept`, { method: 'PATCH', body: JSON.stringify({}) }),
+
+  getLevies: (propertyId: string) => request<any[]>(`/api/levies/${propertyId}`),
+  addLevy: (
+    propertyId: string,
+    data: { type: string; authority: string; amountDue: number; periodLabel: string; status?: 'CLEARED' | 'ARREARS' },
+  ) => request<any>(`/api/levies/${propertyId}`, { method: 'POST', body: JSON.stringify(data) }),
+  setLevyStatus: (propertyId: string, levyId: string, status: 'CLEARED' | 'ARREARS') =>
+    request<any>(`/api/levies/${propertyId}/${levyId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  getExitAudit: (propertyId: string) =>
+    request<{ clearToRelease: boolean; blockingItems: any[] }>(`/api/levies/${propertyId}/exit-audit`),
+
+  getPayments: () =>
+    request<
+      {
+        id: string;
+        tenancyId: string;
+        purpose: string;
+        amount: number;
+        status: string;
+        provider: string;
+        providerRef?: string;
+        createdAt: string;
+        tenantName?: string;
+        propertyTitle?: string;
+      }[]
+    >('/api/payments'),
 };

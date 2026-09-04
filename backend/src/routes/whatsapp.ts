@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
+import { classifyInbound } from '../services/whatsappIntent.js';
 
 export const whatsappRouter = Router();
 
@@ -53,27 +54,34 @@ whatsappRouter.post('/webhooks/whatsapp', async (req, res) => {
     const from = message.from as string;
     const body = message.text?.body ?? `[${message.type}]`;
     const waMessageId = message.id as string;
+    const displayNumber = change?.metadata?.display_phone_number ?? '';
 
     console.log(`[whatsapp:inbound] ${from}: ${body}`);
 
+    // First hop of the engine: bucket the message so the right pillar can act
+    // on it (NIN/BVN submission, guarantor YES/STOP, maintenance report,
+    // rent reply). The classifier only ever returns an acknowledgement — no
+    // irreversible action is taken here.
+    const { intent, confidence, autoReply } = await classifyInbound(body);
+    console.log(`[whatsapp:intent] ${from}: ${intent} (${confidence})`);
+
     if (env.mockMode) {
-      // In mock mode we just log — no DB required to see the flow work.
+      // In mock mode we just log — no DB, no outbound send — so the flow is
+      // visible end to end without credentials.
+      console.log(`[whatsapp:mock-autoreply] -> ${from}: ${autoReply}`);
       return;
     }
 
     await prisma.whatsAppMessage.create({
-      data: {
-        direction: 'INBOUND',
-        fromNumber: from,
-        toNumber: change?.metadata?.display_phone_number ?? '',
-        body,
-        waMessageId,
-      },
+      data: { direction: 'INBOUND', fromNumber: from, toNumber: displayNumber, body, waMessageId },
     });
 
-    // TODO: route `body` through the intent classifier described in the
-    // Nigeria roadmap — NIN/BVN submission, guarantor YES/STOP, maintenance
-    // report, rent-reminder reply — and dispatch to the matching pillar.
+    const sent = await sendWhatsAppMessage(from, autoReply);
+    if (sent.sent) {
+      await prisma.whatsAppMessage.create({
+        data: { direction: 'OUTBOUND', fromNumber: displayNumber, toNumber: from, body: autoReply, waMessageId: sent.id },
+      });
+    }
   } catch (err) {
     console.error('Failed to process WhatsApp webhook payload', err);
   }
@@ -85,9 +93,15 @@ whatsappRouter.post('/webhooks/whatsapp', async (req, res) => {
 // Docs: https://www.twilio.com/docs/whatsapp/api
 whatsappRouter.post('/webhooks/whatsapp/twilio', async (req, res) => {
   const from = (req.body?.From as string)?.replace('whatsapp:', '');
-  const body = req.body?.Body as string;
+  const body = (req.body?.Body as string) ?? '';
   console.log(`[whatsapp:twilio:inbound] ${from}: ${body}`);
-  res.type('text/xml').send('<Response></Response>');
+
+  const { intent, confidence, autoReply } = await classifyInbound(body);
+  console.log(`[whatsapp:twilio:intent] ${from}: ${intent} (${confidence})`);
+
+  // Twilio replies inline via TwiML — no separate outbound API call needed.
+  const escaped = autoReply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  res.type('text/xml').send(`<Response><Message>${escaped}</Message></Response>`);
 });
 
 // Manual send endpoint, useful for testing the outbound path without

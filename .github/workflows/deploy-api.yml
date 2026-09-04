@@ -1,0 +1,55 @@
+name: Deploy backend API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+# Requires this repo secret:
+#   AZURE_WEBAPP_PUBLISH_PROFILE_API  — App Service -> "Get publish profile"
+# Target: the existing Azure Web App below (Linux, NODE|22-lts, resource group
+# estatecopilot-rg). Set these App Service settings once:
+#   SCM_DO_BUILD_DURING_DEPLOYMENT=false   (CI ships the prebuilt dist/ + node_modules)
+#   startup command:  npm run start
+# Database migrations are NOT run here — see GO-LIVE.md (run prisma:deploy
+# against the real DB once it exists; the app stays in MOCK_MODE until then).
+env:
+  AZURE_WEBAPP_NAME: estatecopilot-api
+  NODE_VERSION: '22'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+      # Ships node_modules + the compiled dist/ as-is. Set the App Service
+      # setting SCM_DO_BUILD_DURING_DEPLOYMENT=false and startup command
+      # "npm run start" so Azure runs the prebuilt output without rebuilding.
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
+          package: backend

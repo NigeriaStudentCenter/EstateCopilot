@@ -15,6 +15,7 @@ const Signup: React.FC = () => {
   const [password, setPassword] = useState('');
   const [state, setState] = useState('');
   const [reference, setReference] = useState<string | null>(null);
+  const [hostedPageUrl, setHostedPageUrl] = useState<string | null>(null);
   const [amountKobo, setAmountKobo] = useState(1_000_000);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,11 +28,12 @@ const Signup: React.FC = () => {
       const res = await api.landlordSignup({ name: name.trim(), email: email.trim(), phone: phone.trim(), password, state });
       setAmountKobo(res.monthlyAmountKobo);
       if (res.authorizationUrl) {
-        // Real Paystack mode: hand off to their hosted checkout entirely.
+        // Real Paystack subscription mode: hand off to their hosted checkout entirely.
         window.location.href = res.authorizationUrl;
         return;
       }
       setReference(res.reference);
+      setHostedPageUrl(res.hostedPageUrl);
       setStep('pay');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed — please try again');
@@ -104,18 +106,41 @@ const Signup: React.FC = () => {
               <div className="border border-gray-200 rounded-lg p-5">
                 <p className="text-xs text-gray-500 uppercase font-medium mb-1">Subscription</p>
                 <p className="text-2xl font-bold text-gray-900">{currencyFormatter.format(amountKobo / 100)}<span className="text-sm font-normal text-gray-500">/month</span></p>
-                <p className="text-xs text-gray-400 mt-1">Reference: {reference}</p>
+                <p className="text-xs text-gray-400 mt-1">Account created for {email}</p>
               </div>
-              <button
-                onClick={handleConfirmPayment}
-                disabled={submitting}
-                className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-800 disabled:opacity-50"
-              >
-                {submitting ? 'Confirming…' : 'Pay with Paystack (test mode)'}
-              </button>
-              <p className="text-xs text-gray-400">
-                This is a sandbox confirmation — no real card details are collected in this demo environment.
-              </p>
+
+              {hostedPageUrl && (
+                <>
+                  <a
+                    href={hostedPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-700"
+                  >
+                    Pay {currencyFormatter.format(amountKobo / 100)}/month on Paystack ↗
+                  </a>
+                  <p className="text-xs text-gray-500">
+                    Pay on Paystack&rsquo;s secure page, then come back. We activate your account once the payment
+                    clears — usually within a few hours — and email you when the portal is ready.
+                  </p>
+                  <a
+                    href={`${LANDLORD_PORTAL_URL}/`}
+                    className="block w-full border border-gray-300 text-gray-700 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-50"
+                  >
+                    I&rsquo;ve paid — go to the login page
+                  </a>
+                </>
+              )}
+
+              {reference && (
+                <button
+                  onClick={handleConfirmPayment}
+                  disabled={submitting}
+                  className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-xs font-semibold hover:bg-gray-800 disabled:opacity-50"
+                >
+                  {submitting ? 'Confirming…' : 'Sandbox: confirm mock payment now'}
+                </button>
+              )}
             </div>
           )}
 

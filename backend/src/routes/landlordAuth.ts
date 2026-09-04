@@ -49,7 +49,13 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
     const landlord = createMockLandlord({ name, email, phone, state, passwordHash: hashPassword(password) });
     const { reference, authorizationUrl } = await initializeSubscription({ email, name });
     landlord.pendingReference = reference;
-    return res.status(201).json({ landlordId: landlord.id, reference, authorizationUrl, monthlyAmountKobo: env.subscription.monthlyAmountKobo });
+    return res.status(201).json({
+      landlordId: landlord.id,
+      reference,
+      authorizationUrl,
+      hostedPageUrl: env.subscription.hostedPageUrl,
+      monthlyAmountKobo: env.subscription.monthlyAmountKobo,
+    });
   }
 
   const landlord = await prisma.landlord.create({
@@ -62,7 +68,84 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
     name,
     callbackUrl: `${env.subscription.signupCallbackUrl}?landlordId=${landlord.id}`,
   });
-  res.status(201).json({ landlordId: landlord.id, reference, authorizationUrl, monthlyAmountKobo: env.subscription.monthlyAmountKobo });
+  res.status(201).json({
+    landlordId: landlord.id,
+    reference,
+    authorizationUrl,
+    hostedPageUrl: env.subscription.hostedPageUrl,
+    monthlyAmountKobo: env.subscription.monthlyAmountKobo,
+  });
+});
+
+// --- Operator activation (pilot billing) -----------------------------
+// Landlords pay ₦10,000/month on the Paystack-hosted page, then an operator
+// flips their account to ACTIVE here. Guarded by a shared ADMIN_API_KEY —
+// if that env var is unset, these endpoints 404 (feature off).
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!env.admin.apiKey) return res.sendStatus(404);
+  if (req.get('x-admin-key') !== env.admin.apiKey) return res.status(401).json({ error: 'Bad admin key' });
+  next();
+}
+
+landlordAuthRouter.get('/landlord-auth/admin/pending', requireAdmin, async (_req, res) => {
+  if (env.mockMode) {
+    const pending = [...mockLandlords.values()]
+      .filter((l) => l.subscriptionStatus !== 'ACTIVE')
+      .map((l) => ({ id: l.id, name: l.name, email: l.email, phone: l.phone, state: l.state, subscriptionStatus: l.subscriptionStatus }));
+    return res.json(pending);
+  }
+  const pending = await prisma.landlord.findMany({
+    where: { subscriptionStatus: { not: 'ACTIVE' } },
+    select: { id: true, name: true, email: true, phone: true, state: true, subscriptionStatus: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json(pending);
+});
+
+const activateSchema = z.object({ email: z.string().email() });
+
+landlordAuthRouter.post('/landlord-auth/admin/activate', requireAdmin, async (req, res) => {
+  const parsed = activateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { email } = parsed.data; // matched exactly, same as signup/login store the address
+
+  if (env.mockMode) {
+    const id = mockLandlordsByEmail.get(email);
+    const landlord = id ? mockLandlords.get(id) : undefined;
+    if (!landlord) return res.status(404).json({ error: 'No landlord with that email' });
+    landlord.subscriptionStatus = 'ACTIVE';
+    landlord.currentPeriodEnd = new Date(Date.now() + 30 * 864e5).toISOString();
+    landlord.pendingReference = undefined;
+    void pushSubscribedLandlord({
+      landlordName: landlord.name,
+      email: landlord.email,
+      phone: landlord.phone,
+      state: landlord.state,
+      subscriptionStatus: landlord.subscriptionStatus,
+      monthlyAmountNaira: env.subscription.monthlyAmountKobo / 100,
+      bankAccountName: landlord.bankAccountName,
+      paystackConnected: !!landlord.paystackSubaccountCode,
+    });
+    return res.json({ id: landlord.id, email: landlord.email, subscriptionStatus: landlord.subscriptionStatus });
+  }
+
+  const landlord = await prisma.landlord.findUnique({ where: { email } });
+  if (!landlord) return res.status(404).json({ error: 'No landlord with that email' });
+  const updated = await prisma.landlord.update({
+    where: { email },
+    data: { subscriptionStatus: 'ACTIVE', currentPeriodEnd: new Date(Date.now() + 30 * 864e5) },
+  });
+  void pushSubscribedLandlord({
+    landlordName: updated.name,
+    email: updated.email,
+    phone: updated.phone ?? undefined,
+    state: updated.state,
+    subscriptionStatus: updated.subscriptionStatus,
+    monthlyAmountNaira: env.subscription.monthlyAmountKobo / 100,
+    bankAccountName: updated.bankAccountName ?? undefined,
+    paystackConnected: !!updated.paystackSubaccountCode,
+  });
+  res.json({ id: updated.id, email: updated.email, subscriptionStatus: updated.subscriptionStatus });
 });
 
 const confirmSchema = z.object({ reference: z.string().min(1), landlordId: z.string().optional() });
