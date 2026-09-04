@@ -37,8 +37,9 @@ echo "    host: $PGHOST"
 echo "==> 2/6  Open the DB firewall to this machine (for the migration)"
 MYIP=$(curl -fsS https://api.ipify.org 2>/dev/null || curl -fsS https://ifconfig.me 2>/dev/null)
 if [ -n "${MYIP:-}" ]; then
-  az postgres flexible-server firewall-rule create -g "$RG" -n "$PGSRV" \
-    --rule-name "migrate-client" --start-ip-address "$MYIP" --end-ip-address "$MYIP" -o none
+  az postgres flexible-server firewall-rule create -g "$RG" --server-name "$PGSRV" \
+    --name migrate-client --start-ip-address "$MYIP" --end-ip-address "$MYIP" -o none \
+    || echo "    (rule may already exist — continuing)"
   echo "    allowed $MYIP"
 else
   echo "    !! could not detect this machine's public IP — if the migration"
