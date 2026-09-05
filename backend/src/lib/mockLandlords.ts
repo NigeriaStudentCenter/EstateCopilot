@@ -10,6 +10,7 @@ export interface MockLandlord {
   phone: string;
   state: string; // Nigeria state name selected at signup — ties the landlord's page/listings to that state
   passwordHash: string;
+  referralCode?: string; // affiliate ?ref= captured at signup, reported to Kolo on activation
   subscriptionStatus: 'PENDING_PAYMENT' | 'ACTIVE' | 'PAST_DUE' | 'CANCELLED';
   pendingReference?: string;
   paystackCustomerCode?: string;

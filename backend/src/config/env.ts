@@ -50,6 +50,15 @@ export const env = {
     // Unset => the admin endpoints are disabled entirely.
     apiKey: process.env.ADMIN_API_KEY,
   },
+  kolo: {
+    // Kolo affiliate platform. When a landlord who arrived via an affiliate
+    // link (?ref=CODE) goes ACTIVE, we report that conversion to Kolo so the
+    // referrer earns their commission. Both unset => no-op, exactly like the
+    // SharePoint mirror: never a hard dependency of the signup flow.
+    baseUrl: process.env.KOLO_BASE_URL, // e.g. https://api.kolo.ng
+    apiKey: process.env.KOLO_API_KEY, // the X-Kolo-Key issued to EstateCopilot's tenant
+    programId: process.env.KOLO_PROGRAM_ID ?? 'program_ec_landlord',
+  },
   ai: {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     landlordDisplayName: process.env.LANDLORD_DISPLAY_NAME ?? 'Aliko Hassan',

@@ -8,6 +8,7 @@ import { hashPassword, verifyPassword, signLandlordToken, verifyLandlordToken, t
 import { initializeSubscription, verifySubscriptionTransaction } from '../services/paystackSubscription.js';
 import { resolveBankAccount, createLandlordSubaccount } from '../services/paystackSubaccount.js';
 import { pushSubscribedLandlord } from '../services/sharepoint.js';
+import { reportLandlordConversion } from '../services/koloAffiliate.js';
 
 export const landlordAuthRouter = Router();
 
@@ -26,6 +27,15 @@ const signupSchema = z.object({
     }
     return resolved.name;
   }),
+  // Affiliate referral code from ?ref= on the marketing site, forwarded by the
+  // signup form. Optional — most signups are organic. Normalised to uppercase
+  // to match how Kolo stores referral codes.
+  ref: z
+    .string()
+    .trim()
+    .max(24)
+    .optional()
+    .transform((v) => (v ? v.toUpperCase() : undefined)),
 });
 
 // Step 1: create the account (unpaid) and start a ₦10,000/month Paystack
@@ -36,7 +46,7 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
-  const { name, email, phone, password, state } = parsed.data;
+  const { name, email, phone, password, state, ref } = parsed.data;
 
   const existing = env.mockMode
     ? mockLandlordsByEmail.has(email)
@@ -46,7 +56,7 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
   }
 
   if (env.mockMode) {
-    const landlord = createMockLandlord({ name, email, phone, state, passwordHash: hashPassword(password) });
+    const landlord = createMockLandlord({ name, email, phone, state, referralCode: ref, passwordHash: hashPassword(password) });
     const { reference, authorizationUrl } = await initializeSubscription({ email, name });
     landlord.pendingReference = reference;
     return res.status(201).json({
@@ -59,7 +69,7 @@ landlordAuthRouter.post('/landlord-auth/signup', async (req, res) => {
   }
 
   const landlord = await prisma.landlord.create({
-    data: { name, email, phone, state, passwordHash: hashPassword(password) },
+    data: { name, email, phone, state, referralCode: ref, passwordHash: hashPassword(password) },
   });
   // landlordId is embedded in the callback URL (not just the Paystack
   // reference) so /signup/callback can confirm without a lookup table.
@@ -126,6 +136,11 @@ landlordAuthRouter.post('/landlord-auth/admin/activate', requireAdmin, async (re
       bankAccountName: landlord.bankAccountName,
       paystackConnected: !!landlord.paystackSubaccountCode,
     });
+    void reportLandlordConversion({
+      referralCode: landlord.referralCode,
+      landlordId: landlord.id,
+      amountKobo: env.subscription.monthlyAmountKobo,
+    });
     return res.json({ id: landlord.id, email: landlord.email, subscriptionStatus: landlord.subscriptionStatus });
   }
 
@@ -144,6 +159,11 @@ landlordAuthRouter.post('/landlord-auth/admin/activate', requireAdmin, async (re
     monthlyAmountNaira: env.subscription.monthlyAmountKobo / 100,
     bankAccountName: updated.bankAccountName ?? undefined,
     paystackConnected: !!updated.paystackSubaccountCode,
+  });
+  void reportLandlordConversion({
+    referralCode: updated.referralCode ?? undefined,
+    landlordId: updated.id,
+    amountKobo: env.subscription.monthlyAmountKobo,
   });
   res.json({ id: updated.id, email: updated.email, subscriptionStatus: updated.subscriptionStatus });
 });
@@ -173,6 +193,11 @@ landlordAuthRouter.post('/landlord-auth/confirm', async (req, res) => {
     landlord.paystackSubscriptionCode = verification.subscriptionCode;
     landlord.currentPeriodEnd = verification.currentPeriodEnd?.toISOString();
     landlord.pendingReference = undefined;
+    void reportLandlordConversion({
+      referralCode: landlord.referralCode,
+      landlordId: landlord.id,
+      amountKobo: env.subscription.monthlyAmountKobo,
+    });
     const token = signLandlordToken({ landlordId: landlord.id, name: landlord.name, email: landlord.email });
     void pushSubscribedLandlord({
       landlordName: landlord.name,
@@ -209,6 +234,11 @@ landlordAuthRouter.post('/landlord-auth/confirm', async (req, res) => {
     monthlyAmountNaira: env.subscription.monthlyAmountKobo / 100,
     bankAccountName: landlord.bankAccountName ?? undefined,
     paystackConnected: !!landlord.paystackSubaccountCode,
+  });
+  void reportLandlordConversion({
+    referralCode: landlord.referralCode ?? undefined,
+    landlordId: landlord.id,
+    amountKobo: env.subscription.monthlyAmountKobo,
   });
   res.json({ token });
 });

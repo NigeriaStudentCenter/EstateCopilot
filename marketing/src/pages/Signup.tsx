@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../lib/api';
+import { getStoredRef } from '../lib/referral';
 import { LANDLORD_PORTAL_URL } from '../lib/links';
 import StateSelect from '../components/StateSelect';
 
@@ -25,7 +26,7 @@ const Signup: React.FC = () => {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await api.landlordSignup({ name: name.trim(), email: email.trim(), phone: phone.trim(), password, state });
+      const res = await api.landlordSignup({ name: name.trim(), email: email.trim(), phone: phone.trim(), password, state, ref: getStoredRef() });
       setAmountKobo(res.monthlyAmountKobo);
       if (res.authorizationUrl) {
         // Real Paystack subscription mode: hand off to their hosted checkout entirely.

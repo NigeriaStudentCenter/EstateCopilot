@@ -120,6 +120,7 @@ model Landlord {
   email        String     @unique
   state        String     @default("Lagos") // Nigeria state selected at signup — ties the landlord's listings to that state's page
   passwordHash String?
+  referralCode String?    // affiliate ?ref= captured at signup; reported to the Kolo affiliate platform on activation
   properties   Property[]
   createdAt    DateTime   @default(now())
 
