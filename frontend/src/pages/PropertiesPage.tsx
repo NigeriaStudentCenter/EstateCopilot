@@ -3,6 +3,8 @@ import { api } from '../lib/api';
 import { Property } from '../types';
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL ?? 'http://localhost:5175';
+const TENANT_GUIDE_URL = `${MARKETING_URL}/guides/tenant-guide.html`;
 
 const emptyNewProperty = {
   title: '',
@@ -337,18 +339,31 @@ const PropertiesPage: React.FC = () => {
                 </button>
               </div>
               {inviteLinks[p.id] && (
-                <div className="mt-2 flex gap-2">
-                  <input
-                    readOnly
-                    value={inviteLinks[p.id]}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-600"
-                  />
-                  <button
-                    onClick={() => navigator.clipboard.writeText(inviteLinks[p.id])}
-                    className="text-sm font-medium border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50"
-                  >
-                    Copy link
-                  </button>
+                <div className="mt-2 space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={inviteLinks[p.id]}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-600"
+                    />
+                    <button
+                      onClick={() => navigator.clipboard.writeText(inviteLinks[p.id])}
+                      className="text-sm font-medium border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+                    >
+                      Copy link
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Send this link to your tenant, and{' '}
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(TENANT_GUIDE_URL)}
+                      className="font-medium text-emerald-700 hover:underline"
+                    >
+                      copy the Tenant Guide
+                    </button>{' '}
+                    along with it — it walks them through everything, step by step.
+                  </p>
                 </div>
               )}
               {inviteOpenFor === p.id && (

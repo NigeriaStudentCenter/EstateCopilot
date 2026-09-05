@@ -1,5 +1,7 @@
 import React from 'react';
 
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL ?? 'http://localhost:5175';
+
 export type TenantView = 'Overview' | 'Correspondence' | 'Maintenance' | 'Agreement';
 
 const links: TenantView[] = ['Overview', 'Correspondence', 'Maintenance', 'Agreement'];
@@ -28,9 +30,19 @@ const Nav: React.FC<{ active: TenantView; onNavigate: (v: TenantView) => void; o
           </button>
         ))}
       </nav>
-      <button onClick={onLogout} className="text-sm text-gray-500 hover:text-gray-800">
-        Log out
-      </button>
+      <div className="flex items-center gap-4">
+        <a
+          href={`${MARKETING_URL}/guides/tenant-guide.html`}
+          target="_blank"
+          rel="noreferrer"
+          className="hidden sm:inline text-sm text-gray-500 hover:text-gray-800"
+        >
+          Guide
+        </a>
+        <button onClick={onLogout} className="text-sm text-gray-500 hover:text-gray-800">
+          Log out
+        </button>
+      </div>
     </div>
   </header>
 );

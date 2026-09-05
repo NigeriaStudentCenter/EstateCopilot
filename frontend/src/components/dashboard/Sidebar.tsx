@@ -1,5 +1,7 @@
 import React from 'react';
 
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL ?? 'http://localhost:5175';
+
 export type NavView = 'Dashboard' | 'Properties' | 'Tenancies' | 'Tenant Vetting' | 'Finance & Levies' | 'Maintenance' | 'Legal' | 'Bookings' | 'AI Inbox' | 'Settings';
 
 interface SidebarProps {
@@ -49,6 +51,26 @@ const Sidebar: React.FC<SidebarProps> = ({ active, onNavigate }) => {
           </button>
         ))}
       </nav>
+
+      <div className="mt-10 pt-6 border-t border-emerald-900">
+        <p className="px-4 text-xs font-semibold uppercase tracking-wide text-emerald-500 mb-2">Guides</p>
+        <a
+          href={`${MARKETING_URL}/guides/landlord-guide.html`}
+          target="_blank"
+          rel="noreferrer"
+          className="block px-4 py-2 rounded-lg text-sm text-emerald-200 hover:bg-emerald-900 hover:text-white"
+        >
+          Landlord guide ↗
+        </a>
+        <a
+          href={`${MARKETING_URL}/guides/vacancies-repairs-guide.html`}
+          target="_blank"
+          rel="noreferrer"
+          className="block px-4 py-2 rounded-lg text-sm text-emerald-200 hover:bg-emerald-900 hover:text-white"
+        >
+          Vacancies &amp; repairs ↗
+        </a>
+      </div>
     </aside>
   );
 };

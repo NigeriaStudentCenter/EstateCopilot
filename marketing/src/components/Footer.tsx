@@ -29,6 +29,12 @@ const Footer: React.FC = () => (
           <li><a href={LANDLORD_PORTAL_URL} className="hover:text-white">Landlord portal</a></li>
           <li><a href={TENANT_PORTAL_URL} className="hover:text-white">Tenant portal</a></li>
         </ul>
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-3 mt-6">Guides</p>
+        <ul className="space-y-2 text-sm">
+          <li><a href="/guides/landlord-guide.html" className="hover:text-white">Landlord guide</a></li>
+          <li><a href="/guides/tenant-guide.html" className="hover:text-white">Tenant guide</a></li>
+          <li><a href="/guides/vacancies-repairs-guide.html" className="hover:text-white">Vacancies &amp; repairs</a></li>
+        </ul>
       </div>
     </div>
     <div className="border-t border-emerald-900 py-5 text-center text-xs text-emerald-400">
