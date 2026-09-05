@@ -81,6 +81,19 @@ a{color:var(--em-dark)}
 .shot .tag{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;margin-bottom:4px}
 .shot .desc{color:#475569;font-style:italic}
 
+/* real screenshots — solid card, image, plain caption underneath */
+.shot.real{
+  display:block; border:1px solid var(--line); background:var(--card);
+  padding:10px; box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.shot.real .frame{border-radius:8px;overflow:hidden;border:1px solid var(--line);background:#f1f5f9}
+.shot.real img{display:block;width:100%;height:auto}
+.shot.real figcaption{margin-top:10px;font-size:13.5px;color:var(--ink-2);line-height:1.5}
+.shot.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.shot.two .frame{grid-column:span 1}
+.shot.two figcaption{grid-column:1 / -1}
+@media (max-width:640px){.shot.two{grid-template-columns:1fr}}
+
 /* ---------- callouts ---------- */
 .callout{border-radius:12px;padding:16px 18px;margin:16px 0;font-size:15px;display:flex;gap:12px}
 .callout svg{flex:none;margin-top:2px}
