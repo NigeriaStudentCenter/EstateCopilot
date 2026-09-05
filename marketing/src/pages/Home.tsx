@@ -128,11 +128,11 @@ const Home: React.FC = () => {
 
       {/* Video */}
       <section id="video" className="max-w-4xl mx-auto px-4 sm:px-6 py-16 md:py-20">
-        <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2 text-center">60 seconds</p>
+        <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2 text-center">3 minutes</p>
         <h2 className="font-serif text-2xl md:text-3xl font-bold text-gray-900 text-center mb-8 text-balance">
           From "my tap is leaking" to a paid artisan — no phone calls
         </h2>
-        <VideoEmbed src={import.meta.env.VITE_WALKTHROUGH_VIDEO_URL} />
+        <VideoEmbed src={import.meta.env.VITE_WALKTHROUGH_VIDEO_URL} posterUrl="/videos/walkthrough-poster.jpg" />
         <p className="text-sm text-gray-500 text-center mt-4">
           This is the exact flow that runs behind every repair reported on your properties.
         </p>

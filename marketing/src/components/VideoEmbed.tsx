@@ -25,7 +25,7 @@ const VideoEmbed: React.FC<VideoEmbedProps> = ({ src, posterUrl }) => {
         </div>
         <p className="text-white font-medium">Platform walkthrough — video coming soon</p>
         <p className="text-emerald-300 text-sm mt-1 max-w-sm">
-          A 90-second look at a repair going from tenant report to a paid, verified artisan.
+          A real look at a repair going from tenant report to a paid, verified artisan.
         </p>
       </div>
     );
@@ -65,7 +65,7 @@ const VideoEmbed: React.FC<VideoEmbedProps> = ({ src, posterUrl }) => {
           title="EstateCopilot walkthrough"
         />
       ) : (
-        <video src={src} className="w-full h-full" controls autoPlay />
+        <video src={src} className="w-full h-full" controls autoPlay playsInline />
       )}
     </div>
   );
