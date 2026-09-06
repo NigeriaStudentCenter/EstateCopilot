@@ -734,6 +734,37 @@ footer a{color:var(--on-deep)}
 </footer>
 
 <script>
+/* ---------- affiliate attribution (Kolo) ----------
+   A visitor from an affiliate link lands here with ?ref=CODE (Kolo's redirect
+   service appends it). Stash it first-touch for 30 days, then carry it onto the
+   hosted checkout links so it comes back in the payment webhook:
+     Paystack Payment Page  -> ?ref=CODE       (read from charge.success metadata)
+     Stripe Payment Link    -> ?client_reference_id=CODE
+   Kolo's /api/webhooks/{paystack,stripe}/<programId> does the rest. */
+(function(){
+  var KEY = 'aiacademy_ref', MAX_AGE = 30*24*60*60*1000;
+  try {
+    var code = new URLSearchParams(location.search).get('ref');
+    if (code && !localStorage.getItem(KEY)) {
+      localStorage.setItem(KEY, JSON.stringify({ code: code.toUpperCase().slice(0,24), at: Date.now() }));
+    }
+  } catch (e) {}
+  function ref(){
+    try {
+      var r = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (!r || Date.now() - r.at > MAX_AGE) return null;
+      return r.code;
+    } catch (e) { return null; }
+  }
+  var code = ref();
+  if (code) {
+    var ng = document.getElementById('ctaNG');
+    if (ng) { var u = new URL(ng.href); u.searchParams.set('ref', code); ng.href = u.toString(); }
+    var uk = document.getElementById('ctaUK');
+    if (uk) { var s = new URL(uk.href); s.searchParams.set('client_reference_id', code); uk.href = s.toString(); }
+  }
+})();
+
 /* ---------- scroll reveal (with guaranteed fallback) ---------- */
 (function(){
   const els = [...document.querySelectorAll('.reveal')];
