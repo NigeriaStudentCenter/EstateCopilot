@@ -715,7 +715,7 @@ footer a{color:var(--on-deep)}
         45-minute diagnostic &mdash; we&rsquo;ll show you exactly how your child is using AI today,
         and the three habits that change everything.</p>
       <div class="cta">
-        <a class="btn btn-primary btn-lg" href="https://paystack.shop/pay/teensaiacademy" id="ctaNG" rel="noopener" target="_blank">Enrol &mdash; Nigeria (&#8358;)</a>
+        <a class="btn btn-primary btn-lg" href="https://kolo-api.azurewebsites.net/api/checkout/paystack/start?programId=program_aa_family" id="ctaNG" rel="noopener">Enrol &mdash; Nigeria (&#8358;)</a>
         <a class="btn btn-gold-fill btn-lg" href="https://buy.stripe.com/bJe5kFckscrfdtI9KLbbG02" id="ctaUK" rel="noopener" target="_blank">Enrol &mdash; UK (&pound;)</a>
       </div>
       <div class="cta" style="margin-top:.7rem">
@@ -737,10 +737,11 @@ footer a{color:var(--on-deep)}
 /* ---------- affiliate attribution (Kolo) ----------
    A visitor from an affiliate link lands here with ?ref=CODE (Kolo's redirect
    service appends it). Stash it first-touch for 30 days, then carry it onto the
-   hosted checkout links so it comes back in the payment webhook:
-     Paystack Payment Page  -> ?ref=CODE       (read from charge.success metadata)
-     Stripe Payment Link    -> ?client_reference_id=CODE
-   Kolo's /api/webhooks/{paystack,stripe}/<programId> does the rest. */
+   checkout links so Kolo can attribute the enrolment:
+     Nigeria (Paystack) -> &ref=CODE on Kolo's /api/checkout/paystack/start,
+                           which initializes the charge and verifies it after
+     UK (Stripe)        -> ?client_reference_id=CODE on the Payment Link,
+                           read from the checkout.session.completed webhook */
 (function(){
   var KEY = 'aiacademy_ref', MAX_AGE = 30*24*60*60*1000;
   try {
