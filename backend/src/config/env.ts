@@ -33,6 +33,12 @@ export const env = {
   landlordAuth: {
     jwtSecret: process.env.LANDLORD_JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
   },
+  artisanAuth: {
+    jwtSecret: process.env.ARTISAN_JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
+    // No SMS provider wired yet — when OTP_PROVIDER is unset the code is a fixed
+    // 000000 and returned in the request so the flow is usable end-to-end.
+    otpProvider: process.env.OTP_PROVIDER,
+  },
   subscription: {
     monthlyAmountKobo: Number(process.env.LANDLORD_SUBSCRIPTION_AMOUNT_KOBO ?? 1_000_000), // ₦10,000
     // A pre-created Paystack Plan code (required to go live — Paystack has no

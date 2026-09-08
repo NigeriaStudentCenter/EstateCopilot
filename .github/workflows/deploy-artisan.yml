@@ -1,0 +1,30 @@
+name: Deploy artisan portal
+
+# One-time setup:
+#   az staticwebapp create -g estatecopilot-rg -n estatecopilot-artisan -l westeurope --sku Free
+#   gh secret set AZURE_SWA_TOKEN_ARTISAN --body "$(az staticwebapp secrets list \
+#     -g estatecopilot-rg -n estatecopilot-artisan --query properties.apiKey -o tsv)"
+# The prod API base is baked in from artisan-portal/.env.production at build time.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'artisan-portal/**'
+      - '.github/workflows/deploy-artisan.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN_ARTISAN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: 'artisan-portal'
+          output_location: 'dist'
+          skip_api_build: true

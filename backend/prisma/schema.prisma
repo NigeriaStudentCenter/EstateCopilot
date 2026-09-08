@@ -337,6 +337,127 @@ model RepairQuote {
   message             String?
   status              QuoteStatus       @default(SUBMITTED)
   createdAt           DateTime          @default(now())
+  // Artisan Network (Phase 1): a quote from a registered artisan links to their
+  // account; the free-text fields above stay populated as a display fallback
+  // and for legacy / walk-in quotes.
+  artisanId           String?
+  artisan             Artisan?          @relation(fields: [artisanId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Artisan Network — a registered, classified pool of tradespeople. Phase 1:
+// accounts, the five-axis classification, work photos, tier 0/1 verification.
+// Routing, JobAssignment, ratings and payouts are later phases.
+
+enum Trade {
+  BRICKLAYER
+  ROOFER
+  POP_CEILING
+  TILER
+  ALUMINIUM_GLAZING
+  WELDER_FABRICATOR
+  BOREHOLE_WATER
+  DRAINAGE_SOAKAWAY
+  PAINTER
+  ELECTRICIAN
+  PLUMBER
+  AC_TECHNICIAN
+  GENERATOR_TECHNICIAN
+  SOLAR_INVERTER
+  CARPENTER_FURNITURE
+  APPLIANCE_REPAIR
+  LOCKSMITH
+  DSTV_CCTV
+  FUMIGATION_PEST
+  CLEANING_POST_CONSTRUCTION
+  GARDENER_LANDSCAPING
+  INTERLOCKING_PAVING
+  UPHOLSTERY
+}
+
+enum ArtisanSkillLevel {
+  HAND
+  TRADESMAN
+  MASTER
+}
+
+enum ArtisanAvailability {
+  OPEN
+  BUSY
+  AWAY
+}
+
+enum ArtisanCredentialKind {
+  NIN
+  BVN
+  REFERENCE
+  SITE_VISIT
+}
+
+enum ArtisanCredentialStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+model Artisan {
+  id                String              @id @default(cuid())
+  phone             String              @unique
+  name              String
+  businessName      String?
+  bio               String?
+  photoUrl          String?
+  baseState         String
+  baseLga           String
+  coverageLgas      String[] // additional LGAs they'll travel to; baseLga is always covered
+  skillLevel        ArtisanSkillLevel   @default(TRADESMAN)
+  availability      ArtisanAvailability @default(OPEN)
+  verificationTier  Int                 @default(0) // 0 self-listed · 1 ID-verified · 2 reference · 3 certified
+  isListed          Boolean             @default(false) // shown in the public directory (needs tier >= 1)
+  score             Int                 @default(0)
+  ratingAvg         Float               @default(0)
+  ratingCount       Int                 @default(0)
+  jobsCompleted     Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  lastActiveAt      DateTime            @default(now())
+
+  trades            ArtisanTrade[]
+  credentials       ArtisanCredential[]
+  workSamples       WorkSample[]
+  quotes            RepairQuote[]
+}
+
+model ArtisanTrade {
+  id              String   @id @default(cuid())
+  artisanId       String
+  artisan         Artisan  @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  trade           Trade
+  yearsExperience Int      @default(0)
+  isPrimary       Boolean  @default(false)
+
+  @@unique([artisanId, trade])
+}
+
+model ArtisanCredential {
+  id           String                  @id @default(cuid())
+  artisanId    String
+  artisan      Artisan                 @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  kind         ArtisanCredentialKind
+  status       ArtisanCredentialStatus @default(PENDING)
+  resolvedName String? // display-safe name returned by the ID check — never the raw ID number
+  evidenceUrl  String? // reference contact note / site-visit photo, for tiers 2-3
+  verifiedAt   DateTime?
+  createdAt    DateTime                @default(now())
+}
+
+model WorkSample {
+  id        String   @id @default(cuid())
+  artisanId String
+  artisan   Artisan  @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  caption   String?
+  trade     Trade?
+  createdAt DateTime @default(now())
 }
 
 // One shared scheduling model for both public booking flows — a prospective

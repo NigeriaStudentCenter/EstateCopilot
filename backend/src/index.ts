@@ -21,10 +21,13 @@ import { bookingsRouter } from './routes/bookings.js';
 import { legalRouter } from './routes/legal.js';
 import { whatsappRouter } from './routes/whatsapp.js';
 import { seedDemoLandlord } from './lib/mockLandlords.js';
+import { seedDemoArtisan } from './lib/mockArtisans.js';
 import { localUploadsMount } from './lib/blobStorage.js';
+import { artisanRouter } from './routes/artisan.js';
 
 if (env.mockMode) {
   seedDemoLandlord();
+  seedDemoArtisan();
 }
 
 const app = express();
@@ -63,6 +66,7 @@ app.use('/api', landlordAuthRouter);
 app.use('/api', publicRouter);
 app.use('/api', bookingsRouter);
 app.use('/api', legalRouter);
+app.use('/api', artisanRouter);
 app.use(whatsappRouter); // mounted at root: /webhooks/whatsapp*
 
 app.use(errorHandler);

@@ -14,8 +14,9 @@ on:
 # estatecopilot-rg). Set these App Service settings once:
 #   SCM_DO_BUILD_DURING_DEPLOYMENT=false   (CI ships the prebuilt dist/ + node_modules)
 #   startup command:  npm run start
-# Database migrations are NOT run here — see GO-LIVE.md (run prisma:deploy
-# against the real DB once it exists; the app stays in MOCK_MODE until then).
+# After the deploy, a step runs `prisma migrate deploy` over the Kudu command
+# API and restarts the worker — so a commit that adds prisma/migrations/* is
+# applied to the prod DB with no manual step. (Same pattern as the Kolo repo.)
 env:
   AZURE_WEBAPP_NAME: estatecopilot-api
   NODE_VERSION: '22'
@@ -53,3 +54,40 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
           package: backend
+
+      - name: Migrate database & restart worker (Kudu)
+        shell: bash
+        env:
+          PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
+        run: |
+          set -euo pipefail
+          scm="https://${AZURE_WEBAPP_NAME}.scm.azurewebsites.net"
+          health="https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health"
+
+          read -r KUSER KPASS < <(python3 - <<'PY'
+          import os, xml.etree.ElementTree as ET
+          root = ET.fromstring(os.environ["PUBLISH_PROFILE"])
+          p = next(e for e in root.iter("publishProfile") if e.get("publishMethod") == "MSDeploy")
+          print(p.get("userName"), p.get("userPWD"))
+          PY
+          )
+
+          echo "::group::prisma migrate deploy"
+          http=$(curl -sS -u "$KUSER:$KPASS" -m 280 -o migrate.json -w '%{http_code}' \
+            -X POST "$scm/api/command" -H 'content-type: application/json' \
+            -d '{"command":"bash -lc \"[ -x node_modules/.bin/prisma ] && node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma || npx --yes prisma@5 migrate deploy --schema prisma/schema.prisma\"","dir":"site/wwwroot"}')
+          cat migrate.json; echo
+          echo "::endgroup::"
+          [ "$http" = "200" ] || { echo "Kudu command HTTP $http"; exit 1; }
+          python3 -c 'import json,sys; d=json.load(open("migrate.json")); print(d.get("Output","") or d.get("Error","")); sys.exit(int(d.get("ExitCode",1) or 0))'
+
+          echo "Restarting the worker (kill pid 0 -> App Service respawns it)…"
+          curl -sS -u "$KUSER:$KPASS" -m 60 -X DELETE "$scm/api/processes/0" || true
+          sleep 20
+
+          echo "Waiting for $health …"
+          for i in $(seq 1 40); do
+            if curl -fsS -m 10 "$health" >/dev/null; then echo "healthy after ~$((20 + i*6))s"; exit 0; fi
+            sleep 6
+          done
+          echo "health check did not pass within 4 min"; exit 1
