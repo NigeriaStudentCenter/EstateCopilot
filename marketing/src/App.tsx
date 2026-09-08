@@ -6,6 +6,8 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Properties from './pages/Properties';
 import Handymen from './pages/Handymen';
+import Artisans from './pages/Artisans';
+import ArtisanProfile from './pages/ArtisanProfile';
 import LegalTeam from './pages/LegalTeam';
 import Signup from './pages/Signup';
 import SignupCallback from './pages/SignupCallback';
@@ -26,6 +28,9 @@ const App: React.FC = () => {
           <Route path="/properties/:stateSlug" element={<Properties />} />
           <Route path="/handymen" element={<Handymen />} />
           <Route path="/handymen/:stateSlug" element={<Handymen />} />
+          <Route path="/artisans" element={<Artisans />} />
+          <Route path="/artisans/:stateSlug" element={<Artisans />} />
+          <Route path="/artisan/:id" element={<ArtisanProfile />} />
           <Route path="/legal-team" element={<LegalTeam />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/signup/callback" element={<SignupCallback />} />

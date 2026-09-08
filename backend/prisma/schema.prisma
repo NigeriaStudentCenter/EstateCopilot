@@ -425,6 +425,7 @@ model Artisan {
   credentials       ArtisanCredential[]
   workSamples       WorkSample[]
   quotes            RepairQuote[]
+  leads             ArtisanLead[]
 }
 
 model ArtisanTrade {
@@ -458,6 +459,30 @@ model WorkSample {
   caption   String?
   trade     Trade?
   createdAt DateTime @default(now())
+}
+
+enum ArtisanLeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+// Phase 2: a "Request a quote" from the public directory — a landlord or tenant
+// picking an artisan directly, without opening a marketplace job. It lands in
+// the artisan's portal and pings ops. If it turns into work, the artisan and
+// requester take it from there (Phase 3 adds in-app messaging + booking).
+model ArtisanLead {
+  id             String            @id @default(cuid())
+  artisanId      String
+  artisan        Artisan           @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  requesterName  String
+  requesterPhone String
+  requesterRole  String? // "landlord" | "tenant" | "other" — self-declared, untrusted
+  lga            String?
+  trade          Trade?
+  message        String
+  status         ArtisanLeadStatus @default(NEW)
+  createdAt      DateTime          @default(now())
 }
 
 // One shared scheduling model for both public booking flows — a prospective

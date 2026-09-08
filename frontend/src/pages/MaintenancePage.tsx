@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { MaintenanceTicket, Property, RepairQuote, ResponsibilityChecklist } from '../types';
 
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL ?? 'http://localhost:5175';
+
 const statusStyles: Record<string, string> = {
   OPEN: 'bg-amber-100 text-amber-900',
   DISPATCHED: 'bg-blue-100 text-blue-800',
@@ -140,6 +142,18 @@ const MaintenancePage: React.FC = () => {
         <p className="text-sm text-gray-600 mt-1">
           Every complaint a tenant reports — over WhatsApp or logged here directly — becomes a ticket. A repair only
           closes once the tenant signs off that it's actually done.
+        </p>
+        <p className="text-sm text-gray-600 mt-2">
+          Prefer to line up a tradesperson yourself?{' '}
+          <a
+            href={`${MARKETING_URL}/artisans`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-emerald-700 hover:underline"
+          >
+            Browse verified artisans by trade and area →
+          </a>{' '}
+          Listing a ticket on the marketplace instead lets any artisan quote.
         </p>
       </div>
 

@@ -1,23 +1,76 @@
 import React from 'react';
-import { api, ApiError, type Job, type Me } from '../lib/api';
+import { api, ApiError, type Job, type Lead, type LeadStatus, type Me } from '../lib/api';
 import { Button, Card, Screen, input } from '../lib/ui';
 
 const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
+const shortDate = (s: string) => new Date(s).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 
 export default function Jobs({ me, flash }: { me: Me; flash: (t: string) => void }) {
   const [jobs, setJobs] = React.useState<Job[] | null>(null);
+  const [leads, setLeads] = React.useState<Lead[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   function load() {
     api.jobs().then(setJobs).catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load jobs'));
+    api.leads().then(setLeads).catch(() => setLeads([]));
   }
   React.useEffect(load, []);
 
+  async function setLeadStatus(id: string, status: LeadStatus) {
+    try {
+      const updated = await api.updateLead(id, status);
+      setLeads((prev) => (prev ? prev.map((l) => (l.id === id ? updated : l)) : prev));
+      flash(status === 'CONTACTED' ? 'Marked as contacted' : status === 'CLOSED' ? 'Request closed' : 'Reopened');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not update');
+    }
+  }
+
   const covered = Array.from(new Set([me.baseLga, ...me.coverageLgas])).join(', ');
+  const openLeads = (leads ?? []).filter((l) => l.status !== 'CLOSED');
 
   return (
     <Screen title="Open jobs">
+      {openLeads.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ochre-700">
+            Direct requests · {openLeads.length}
+          </p>
+          <div className="space-y-3">
+            {openLeads.map((l) => (
+              <Card key={l.id} className={`p-4 ${l.status === 'NEW' ? 'border-ochre-300 bg-ochre-50/60' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-[#16241d]">{l.requesterName}</p>
+                    <p className="text-xs text-[#8a948d]">
+                      {[l.requesterRole, l.tradeLabel, l.lga].filter(Boolean).join(' · ')} · {shortDate(l.createdAt)}
+                    </p>
+                  </div>
+                  {l.status === 'NEW' && (
+                    <span className="rounded-full bg-ochre-500 px-2 py-0.5 text-[11px] font-semibold text-white">New</span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm text-[#3a463f]">{l.message}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <a
+                    href={`tel:${l.requesterPhone}`}
+                    className="flex min-h-[44px] items-center justify-center rounded-xl bg-moss-600 px-3 text-sm font-semibold text-white"
+                  >
+                    Call {l.requesterPhone}
+                  </a>
+                  {l.status === 'NEW' ? (
+                    <Button variant="ghost" onClick={() => setLeadStatus(l.id, 'CONTACTED')}>Mark contacted</Button>
+                  ) : (
+                    <Button variant="ghost" onClick={() => setLeadStatus(l.id, 'CLOSED')}>Close request</Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <p className="mb-3 text-sm text-[#6d7a73]">
         Repair jobs on the marketplace in <b className="text-[#16241d]">{covered}</b>.
       </p>

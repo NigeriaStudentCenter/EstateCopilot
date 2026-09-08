@@ -45,6 +45,12 @@ export interface Job {
   id: string; description: string; categoryLabel: string | null;
   responsibility: string; lga: string | null; state: string | null; createdAt: string; alreadyQuoted: boolean;
 }
+export type LeadStatus = 'NEW' | 'CONTACTED' | 'CLOSED';
+export interface Lead {
+  id: string; requesterName: string; requesterPhone: string; requesterRole: string | null;
+  lga: string | null; trade: string | null; tradeLabel: string | null;
+  message: string; status: LeadStatus; createdAt: string;
+}
 
 export const api = {
   trades: () => request<TradeDef[]>('/api/artisan-meta/trades'),
@@ -88,4 +94,8 @@ export const api = {
   jobs: () => request<Job[]>('/api/artisan/jobs'),
   quote: (ticketId: string, amount: number, message?: string) =>
     request<unknown>(`/api/artisan/jobs/${ticketId}/quote`, { method: 'POST', body: JSON.stringify({ amount, message }) }),
+
+  leads: () => request<Lead[]>('/api/artisan/leads'),
+  updateLead: (id: string, status: LeadStatus) =>
+    request<Lead>(`/api/artisan/leads/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 };

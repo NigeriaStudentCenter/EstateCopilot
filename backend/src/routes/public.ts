@@ -9,6 +9,10 @@ import { mockLegalRequests, createMockLegalQuote } from '../lib/mockLegal.js';
 import { NIGERIA_STATES, stateBySlug } from '../lib/nigeriaStates.js';
 import { notifyOps } from '../lib/notifyOps.js';
 import { pushQuotation, pushHandymanVisitBooking, pushPropertyViewingBooking } from '../services/sharepoint.js';
+import { TRADES, isTradeId, tradeLabel, type TradeId } from '../lib/trades.js';
+import { computeArtisanScore, bayesianRating } from '../lib/artisanScore.js';
+import { mockArtisans } from '../lib/mockArtisans.js';
+import { createMockLead } from '../lib/mockArtisanLeads.js';
 
 // Everything in this file is unauthenticated — it's what the public
 // marketing site (properties page, handyman marketplace page) talks to.
@@ -351,4 +355,214 @@ publicRouter.post('/public/legal-requests/:id/quote', async (req, res) => {
   );
 
   res.status(201).json(quote);
+});
+
+// ---- Artisan directory (Phase 2) -------------------------------------
+//
+// The public, browse-anywhere face of the Artisan Network. Landlords and
+// tenants find a verified tradesperson by trade + area, see the score, and
+// either call directly or drop a quote request — without ever opening a
+// marketplace job. Only listed, tier>=1 artisans appear.
+
+interface DirectoryArtisan {
+  id: string;
+  name: string;
+  businessName?: string | null;
+  bio?: string | null;
+  photoUrl?: string | null;
+  phone: string;
+  baseState: string;
+  baseLga: string;
+  coverageLgas: string[];
+  skillLevel: 'HAND' | 'TRADESMAN' | 'MASTER';
+  availability: 'OPEN' | 'BUSY' | 'AWAY';
+  verificationTier: number;
+  ratingAvg: number;
+  ratingCount: number;
+  jobsCompleted: number;
+  createdAt: string | Date;
+  lastActiveAt: string | Date;
+  trades: { trade: string; yearsExperience: number; isPrimary: boolean }[];
+  workSamples: { id: string; imageUrl: string; caption?: string | null }[];
+  credentials: { kind: string; status: string }[];
+}
+
+const SORTS = new Set(['score', 'rating', 'jobs', 'recent']);
+
+async function loadListedArtisans(): Promise<DirectoryArtisan[]> {
+  if (env.mockMode) {
+    return [...mockArtisans.values()]
+      .filter((a) => a.isListed && a.verificationTier >= 1)
+      .map((a) => ({
+        ...a,
+        trades: a.trades.map((t) => ({ trade: t.trade, yearsExperience: t.yearsExperience, isPrimary: t.isPrimary })),
+        workSamples: a.workSamples.map((w) => ({ id: w.id, imageUrl: w.imageUrl, caption: w.caption ?? null })),
+        credentials: a.credentials.map((c) => ({ kind: c.kind, status: c.status })),
+      }));
+  }
+  const rows = await prisma.artisan.findMany({
+    where: { isListed: true, verificationTier: { gte: 1 } },
+    include: {
+      trades: { select: { trade: true, yearsExperience: true, isPrimary: true } },
+      workSamples: { select: { id: true, imageUrl: true, caption: true }, orderBy: { createdAt: 'asc' } },
+      credentials: { select: { kind: true, status: true } },
+    },
+  });
+  return rows as unknown as DirectoryArtisan[];
+}
+
+const scoreOf = (a: DirectoryArtisan) =>
+  computeArtisanScore({
+    ratingAvg: a.ratingAvg,
+    ratingCount: a.ratingCount,
+    jobsCompleted: a.jobsCompleted,
+    verificationTier: a.verificationTier,
+    lastActiveAt: a.lastActiveAt,
+  });
+
+function toDirectoryCard(a: DirectoryArtisan) {
+  const primary = a.trades.find((t) => t.isPrimary) ?? a.trades[0];
+  const hero = a.workSamples[0]?.imageUrl ?? null;
+  return {
+    id: a.id,
+    name: a.name,
+    businessName: a.businessName ?? null,
+    photoUrl: a.photoUrl ?? null,
+    primaryTrade: primary ? { id: primary.trade, label: tradeLabel(primary.trade) } : null,
+    tradeLabels: a.trades.map((t) => tradeLabel(t.trade)),
+    baseState: a.baseState,
+    baseLga: a.baseLga,
+    coverageLgas: a.coverageLgas,
+    skillLevel: a.skillLevel,
+    availability: a.availability,
+    verificationTier: a.verificationTier,
+    ratingAvg: Math.round(a.ratingAvg * 10) / 10,
+    ratingCount: a.ratingCount,
+    jobsCompleted: a.jobsCompleted,
+    score: scoreOf(a),
+    heroPhoto: hero,
+    photoCount: a.workSamples.length,
+  };
+}
+
+publicRouter.get('/public/artisans/meta', (_req, res) => {
+  res.json({ trades: TRADES });
+});
+
+publicRouter.get('/public/artisans', async (req, res) => {
+  const tradeQ = typeof req.query.trade === 'string' && isTradeId(req.query.trade) ? (req.query.trade as TradeId) : undefined;
+  const lgaQ = typeof req.query.lga === 'string' ? req.query.lga : undefined;
+  const st = stateBySlug(req.query.state as string | undefined);
+  const sort = typeof req.query.sort === 'string' && SORTS.has(req.query.sort) ? req.query.sort : 'score';
+
+  let list = await loadListedArtisans();
+
+  if (tradeQ) list = list.filter((a) => a.trades.some((t) => t.trade === tradeQ));
+  if (lgaQ) list = list.filter((a) => a.baseLga === lgaQ || a.coverageLgas.includes(lgaQ));
+  else if (st) {
+    const inState = new Set(st.lgas);
+    list = list.filter((a) => a.baseState === st.name || a.coverageLgas.some((l) => inState.has(l)));
+  }
+
+  const byId = new Map(list.map((a) => [a.id, a]));
+  const cards = list.map(toDirectoryCard);
+  cards.sort((a, b) => {
+    if (sort === 'jobs') return b.jobsCompleted - a.jobsCompleted || b.score - a.score;
+    if (sort === 'rating') {
+      const ra = bayesianRating(a.ratingAvg, a.ratingCount);
+      const rb = bayesianRating(b.ratingAvg, b.ratingCount);
+      return rb - ra || b.score - a.score;
+    }
+    if (sort === 'recent') {
+      const la = byId.get(a.id)!.lastActiveAt;
+      const lb = byId.get(b.id)!.lastActiveAt;
+      return new Date(lb).getTime() - new Date(la).getTime() || b.score - a.score;
+    }
+    return b.score - a.score || b.jobsCompleted - a.jobsCompleted;
+  });
+
+  res.json({ artisans: cards, total: cards.length });
+});
+
+publicRouter.get('/public/artisans/:id', async (req, res) => {
+  const list = await loadListedArtisans();
+  const a = list.find((x) => x.id === req.params.id);
+  if (!a) return res.status(404).json({ error: 'Artisan not found' });
+
+  const tradeDefById = new Map(TRADES.map((t) => [t.id, t]));
+  res.json({
+    ...toDirectoryCard(a),
+    bio: a.bio ?? null,
+    phone: a.phone.startsWith('234') ? `+${a.phone}` : a.phone,
+    memberSince: a.createdAt,
+    trades: [...a.trades]
+      .sort((x, y) => Number(y.isPrimary) - Number(x.isPrimary))
+      .map((t) => {
+        const def = tradeDefById.get(t.trade as TradeId);
+        return {
+          id: t.trade,
+          label: tradeLabel(t.trade),
+          group: def?.group ?? null,
+          blurb: def?.blurb ?? null,
+          yearsExperience: t.yearsExperience,
+          isPrimary: t.isPrimary,
+        };
+      }),
+    workSamples: a.workSamples.map((w) => ({ id: w.id, imageUrl: w.imageUrl, caption: w.caption ?? null })),
+    verifiedCredentials: a.credentials.filter((c) => c.status === 'VERIFIED').map((c) => c.kind),
+  });
+});
+
+const leadSchema = z.object({
+  name: z.string().min(2).max(80),
+  phone: z.string().min(7).max(20),
+  role: z.enum(['landlord', 'tenant', 'other']).optional(),
+  lga: z.string().max(60).optional(),
+  trade: z.string().optional(),
+  message: z.string().min(3).max(800),
+});
+
+publicRouter.post('/public/artisans/:id/request-quote', async (req, res) => {
+  const parsed = leadSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const d = parsed.data;
+  const trade = d.trade && isTradeId(d.trade) ? (d.trade as TradeId) : undefined;
+
+  const list = await loadListedArtisans();
+  const a = list.find((x) => x.id === req.params.id);
+  if (!a) return res.status(404).json({ error: 'Artisan not found' });
+
+  if (env.mockMode) {
+    createMockLead({
+      artisanId: a.id,
+      requesterName: d.name,
+      requesterPhone: d.phone,
+      requesterRole: d.role,
+      lga: d.lga,
+      trade,
+      message: d.message,
+    });
+  } else {
+    await prisma.artisanLead.create({
+      data: {
+        artisanId: a.id,
+        requesterName: d.name,
+        requesterPhone: d.phone,
+        requesterRole: d.role ?? null,
+        lga: d.lga ?? null,
+        trade: trade ?? null,
+        message: d.message,
+      },
+    });
+    await prisma.artisan.update({ where: { id: a.id }, data: { lastActiveAt: new Date() } }).catch(() => {});
+  }
+
+  await notifyOps(
+    `Artisan quote request — ${a.name}`,
+    `${d.name} (${d.phone})${d.role ? `, a ${d.role},` : ''} wants a quote from ${a.name}` +
+      `${a.businessName ? ` / ${a.businessName}` : ''} (${a.phone}).` +
+      `${trade ? `\nTrade: ${tradeLabel(trade)}` : ''}${d.lga ? `\nArea: ${d.lga}` : ''}\n\n"${d.message}"`,
+  );
+
+  res.status(201).json({ ok: true, artisanName: a.name });
 });

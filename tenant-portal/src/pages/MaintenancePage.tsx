@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { MaintenanceTicket, ResponsibilityChecklist } from '../types';
 
+const MARKETING_URL = import.meta.env.VITE_MARKETING_URL ?? 'http://localhost:5175';
+
 const statusStyles: Record<string, string> = {
   OPEN: 'bg-amber-100 text-amber-900',
   DISPATCHED: 'bg-blue-100 text-blue-800',
@@ -70,6 +72,17 @@ const MaintenancePage: React.FC = () => {
         <p className="text-sm text-gray-600 mt-1">
           Tick what best matches the issue — it tells you (and your landlord) upfront whether it's typically covered
           by the landlord or something tenants usually handle themselves.
+        </p>
+        <p className="text-sm text-gray-600 mt-2">
+          For something that falls to you,{' '}
+          <a
+            href={`${MARKETING_URL}/artisans`}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-emerald-700 hover:underline"
+          >
+            find a verified artisan yourself →
+          </a>
         </p>
       </div>
 

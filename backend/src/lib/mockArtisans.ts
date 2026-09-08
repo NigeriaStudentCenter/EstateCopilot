@@ -96,4 +96,25 @@ export function seedDemoArtisan(): void {
   a.credentials = [
     { id: 'c1', kind: 'NIN', status: 'VERIFIED', resolvedName: 'Emeka Obi', verifiedAt: a.createdAt, createdAt: a.createdAt },
   ];
+
+  // A tiler in Surulere — the Phase 2 "definition of done" persona.
+  const t = createMockArtisan({ phone: '2348030002222', name: 'Bisi Adeyemi', baseState: 'Lagos', baseLga: 'Surulere' });
+  t.businessName = 'Adeyemi Tiles & Marble';
+  t.bio = 'Floor & wall tiling, terrazzo and epoxy finishes. Surulere-based, 9 years.';
+  t.coverageLgas = ['Surulere', 'Eti-Osa'];
+  t.verificationTier = 2;
+  t.isListed = true;
+  t.ratingAvg = 4.8;
+  t.ratingCount = 11;
+  t.jobsCompleted = 14;
+  t.availability = 'BUSY';
+  t.trades = [
+    { id: 't3', trade: 'TILER', yearsExperience: 9, isPrimary: true },
+    { id: 't4', trade: 'BRICKLAYER', yearsExperience: 6, isPrimary: false },
+  ];
+  t.credentials = [
+    { id: 'c2', kind: 'NIN', status: 'VERIFIED', resolvedName: 'Bisi Adeyemi', verifiedAt: t.createdAt, createdAt: t.createdAt },
+    { id: 'c3', kind: 'REFERENCE', status: 'VERIFIED', verifiedAt: t.createdAt, createdAt: t.createdAt },
+  ];
+  t.score = 74;
 }

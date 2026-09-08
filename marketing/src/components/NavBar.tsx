@@ -19,6 +19,7 @@ const NavBar: React.FC = () => {
         <nav className="hidden md:flex items-center gap-8">
           <NavLink to="/" end className={navLinkClass}>Home</NavLink>
           <NavLink to="/properties" className={navLinkClass}>Vacant Properties</NavLink>
+          <NavLink to="/artisans" className={navLinkClass}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className={navLinkClass}>For Artisans</NavLink>
           <NavLink to="/legal-team" className={navLinkClass}>For Lawyers</NavLink>
         </nav>
@@ -45,6 +46,7 @@ const NavBar: React.FC = () => {
         <div className="md:hidden border-t border-gray-100 px-4 py-4 space-y-3 bg-white">
           <NavLink to="/" end className={navLinkClass} onClick={() => setOpen(false)}>Home</NavLink>
           <NavLink to="/properties" className="block" onClick={() => setOpen(false)}>Vacant Properties</NavLink>
+          <NavLink to="/artisans" className="block" onClick={() => setOpen(false)}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className="block" onClick={() => setOpen(false)}>For Artisans</NavLink>
           <NavLink to="/legal-team" className="block" onClick={() => setOpen(false)}>For Lawyers</NavLink>
           <a href={TENANT_PORTAL_URL} className="block text-sm text-gray-600">Tenant login</a>

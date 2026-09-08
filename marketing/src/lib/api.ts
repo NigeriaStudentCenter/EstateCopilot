@@ -21,6 +21,23 @@ export const api = {
     data: { name: string; phone: string; email?: string; scheduledFor: string; notes?: string },
   ) => request(`/api/public/properties/${propertyId}/book-viewing`, { method: 'POST', body: JSON.stringify(data) }),
 
+  // ---- Artisan directory (Phase 2) ----
+  getArtisanTrades: () =>
+    request<{ trades: { id: string; label: string; group: string; blurb: string }[] }>('/api/public/artisans/meta').then(
+      (r) => r.trades,
+    ),
+  getArtisans: (params: { trade?: string; state?: string; lga?: string; sort?: string }) => {
+    const q = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v) as [string, string][],
+    ).toString();
+    return request<{ artisans: any[]; total: number }>(`/api/public/artisans${q ? `?${q}` : ''}`);
+  },
+  getArtisan: (id: string) => request<any>(`/api/public/artisans/${id}`),
+  requestArtisanQuote: (
+    id: string,
+    data: { name: string; phone: string; role?: string; lga?: string; trade?: string; message: string },
+  ) => request<{ ok: true; artisanName: string }>(`/api/public/artisans/${id}/request-quote`, { method: 'POST', body: JSON.stringify(data) }),
+
   getRepairJobs: (state?: string) => request<any[]>(`/api/public/repair-jobs${state ? `?state=${state}` : ''}`),
   submitQuote: (
     jobId: string,

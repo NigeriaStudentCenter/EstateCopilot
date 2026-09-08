@@ -8,8 +8,9 @@ import sharp from 'sharp';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { NIGERIA_STATES, stateByName } from '../lib/nigeriaStates.js';
-import { TRADES, isTradeId, type TradeId } from '../lib/trades.js';
+import { TRADES, isTradeId, tradeLabel, type TradeId } from '../lib/trades.js';
 import { putPropertyImage, deletePropertyImage } from '../lib/blobStorage.js';
+import { computeArtisanScore } from '../lib/artisanScore.js';
 import { signArtisanToken, verifyArtisanToken, normalizePhone, issueOtp, checkOtp } from '../services/artisanAuth.js';
 import { verifyNinBvn } from '../services/smileId.js';
 import {
@@ -18,6 +19,7 @@ import {
   createMockArtisan,
   type MockArtisan,
 } from '../lib/mockArtisans.js';
+import { mockArtisanLeads } from '../lib/mockArtisanLeads.js';
 import { mockTickets } from '../lib/mockMaintenance.js';
 import { createMockQuote } from '../lib/mockBookings.js';
 
@@ -304,6 +306,7 @@ artisanRouter.post('/artisan/me/verify', requireArtisanAuth, async (req: Artisan
       m.verificationTier = 1;
       m.isListed = true;
     }
+    m.score = computeArtisanScore(m);
     return res.json({ status, verificationTier: m.verificationTier, isListed: m.isListed, resolvedName: check.matchedName });
   }
 
@@ -321,8 +324,15 @@ artisanRouter.post('/artisan/me/verify', requireArtisanAuth, async (req: Artisan
   if (status === 'VERIFIED' && tier < 1) {
     tier = 1;
     listed = true;
-    await prisma.artisan.update({ where: { id: a.id }, data: { verificationTier: 1, isListed: true } });
   }
+  const score = computeArtisanScore({
+    ratingAvg: a.ratingAvg,
+    ratingCount: a.ratingCount,
+    jobsCompleted: a.jobsCompleted,
+    verificationTier: tier,
+    lastActiveAt: a.lastActiveAt,
+  });
+  await prisma.artisan.update({ where: { id: a.id }, data: { verificationTier: tier, isListed: listed, score } });
   res.json({ status, verificationTier: tier, isListed: listed, resolvedName: check.matchedName });
 });
 
@@ -414,4 +424,61 @@ artisanRouter.post('/artisan/jobs/:ticketId/quote', requireArtisanAuth, async (r
   });
   await touchLastActive(a.id);
   res.status(201).json(quote);
+});
+
+// ---- direct quote requests from the public directory (Phase 2) ------
+// These are ArtisanLeads — a landlord/tenant picked this artisan by name in
+// the directory, no marketplace job involved.
+function leadShape(l: {
+  id: string;
+  requesterName: string;
+  requesterPhone: string;
+  requesterRole?: string | null;
+  lga?: string | null;
+  trade?: string | null;
+  message: string;
+  status: string;
+  createdAt: string | Date;
+}) {
+  return {
+    id: l.id,
+    requesterName: l.requesterName,
+    requesterPhone: l.requesterPhone,
+    requesterRole: l.requesterRole ?? null,
+    lga: l.lga ?? null,
+    trade: l.trade ?? null,
+    tradeLabel: l.trade ? tradeLabel(l.trade) : null,
+    message: l.message,
+    status: l.status,
+    createdAt: l.createdAt,
+  };
+}
+
+artisanRouter.get('/artisan/leads', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const id = req.artisan!.artisanId;
+  if (env.mockMode) {
+    const rows = mockArtisanLeads
+      .filter((l) => l.artisanId === id)
+      .sort((x, y) => +new Date(y.createdAt) - +new Date(x.createdAt));
+    return res.json(rows.map(leadShape));
+  }
+  const rows = await prisma.artisanLead.findMany({ where: { artisanId: id }, orderBy: { createdAt: 'desc' } });
+  res.json(rows.map(leadShape));
+});
+
+artisanRouter.patch('/artisan/leads/:id', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const parsed = z.object({ status: z.enum(['NEW', 'CONTACTED', 'CLOSED']) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'status must be NEW, CONTACTED or CLOSED' });
+  const artisanId = req.artisan!.artisanId;
+
+  if (env.mockMode) {
+    const lead = mockArtisanLeads.find((l) => l.id === req.params.id && l.artisanId === artisanId);
+    if (!lead) return res.status(404).json({ error: 'Request not found' });
+    lead.status = parsed.data.status;
+    return res.json(leadShape(lead));
+  }
+  const lead = await prisma.artisanLead.findFirst({ where: { id: req.params.id, artisanId } });
+  if (!lead) return res.status(404).json({ error: 'Request not found' });
+  const updated = await prisma.artisanLead.update({ where: { id: lead.id }, data: { status: parsed.data.status } });
+  res.json(leadShape(updated));
 });
