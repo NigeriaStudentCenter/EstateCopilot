@@ -6,6 +6,10 @@ export interface NinBvnCheckResult {
   matchedName?: string;
   reason?: string;
   provider: 'smileid' | 'mock';
+  // true only when the check couldn't be completed (network / HTTP / parse
+  // error) — as opposed to a genuine "ID invalid" or "name mismatch". Callers
+  // that persist a KYC verdict should treat this as retryable, not a fail.
+  errored?: boolean;
 }
 
 // Smile ID Identity Verification ("id_verification", synchronous Basic KYC).
@@ -88,16 +92,24 @@ export async function verifyNinBvn(params: {
     if (!response.ok) {
       // eslint-disable-next-line no-console
       console.error(`[smileId] ${idType} check HTTP ${response.status}: ${data?.ResultText ?? text.slice(0, 200)}`);
+      // 4xx auth/type problems and 5xx outages alike mean "we don't know" —
+      // not "this person failed KYC".
       return {
         status: 'FAILED',
         reason: data?.ResultText ?? `Smile ID error ${response.status}`,
         provider: 'smileid',
+        errored: true,
       };
     }
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[smileId] request failed:', err);
-    return { status: 'FAILED', reason: 'Could not reach the ID verification service', provider: 'smileid' };
+    return {
+      status: 'FAILED',
+      reason: 'Could not reach the ID verification service',
+      provider: 'smileid',
+      errored: true,
+    };
   }
 
   const idVerified = data.Actions?.Verify_ID_Number === 'Verified';

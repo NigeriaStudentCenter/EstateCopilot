@@ -47,7 +47,7 @@ const verifyBvnSchema = z.object({
   bvn: z.string().regex(/^\d{11}$/, 'BVN must be exactly 11 digits'),
 });
 
-// Resolves the BVN via Paystack, compares the returned name against the
+// Resolves the BVN via Smile ID, compares the returned name against the
 // tenant's name on file, and sets kycStatus accordingly. The BVN itself is
 // never stored — see services/bvnVerification.ts for why.
 tenanciesRouter.post('/tenancies/:id/verify-bvn', async (req: LandlordAuthedRequest, res) => {
