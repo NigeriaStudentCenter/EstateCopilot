@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL } from '../lib/links';
+import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL, ARTISAN_PORTAL_URL, PARTNER_PORTAL_URL } from '../lib/links';
 
 const Footer: React.FC = () => (
   <footer className="bg-emerald-950 text-emerald-100">
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
-      <div className="md:col-span-2">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+      <div className="md:col-span-2 lg:col-span-1">
         <div className="flex items-center gap-2.5 mb-4">
           <div className="w-8 h-8 bg-white rounded-full"></div>
           <span className="text-lg font-bold text-white">EstateCopilot</span>
@@ -15,14 +15,35 @@ const Footer: React.FC = () => (
           collects itself, and repairs handled by real local artisans. Lagos · Abuja · Port Harcourt.
         </p>
       </div>
+
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-3">Platform</p>
         <ul className="space-y-2 text-sm">
           <li><Link to="/" className="hover:text-white">How it works</Link></li>
           <li><Link to="/properties" className="hover:text-white">Vacant properties</Link></li>
+          <li><Link to="/artisans" className="hover:text-white">Find an artisan</Link></li>
           <li><Link to="/handymen" className="hover:text-white">Repair jobs for artisans</Link></li>
         </ul>
       </div>
+
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-3">Earn &amp; join</p>
+        <ul className="space-y-3 text-sm">
+          <li>
+            <a href={PARTNER_PORTAL_URL} className="hover:text-white font-medium">Refer &amp; earn (Kolo)</a>
+            <a href="/guides/referral-guide.html" className="block text-emerald-300/80 hover:text-white text-xs mt-0.5">
+              Referral programme guide →
+            </a>
+          </li>
+          <li>
+            <a href={ARTISAN_PORTAL_URL} className="hover:text-white font-medium">Join as an artisan</a>
+            <a href="/guides/artisan-guide.html" className="block text-emerald-300/80 hover:text-white text-xs mt-0.5">
+              Artisan network guide →
+            </a>
+          </li>
+        </ul>
+      </div>
+
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-3">Sign in</p>
         <ul className="space-y-2 text-sm">
