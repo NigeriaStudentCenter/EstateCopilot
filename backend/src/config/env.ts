@@ -76,6 +76,19 @@ export const env = {
   tenantPortal: {
     baseUrl: process.env.TENANT_PORTAL_URL ?? 'http://localhost:5174',
   },
+  storage: {
+    // Property photos. With a connection string set, uploads go to Azure Blob
+    // Storage; without one (local dev / mock) they're written under backend/uploads
+    // and served by express.static. `publicApiUrl` is how a browser reaches this
+    // API, used to build the URL for locally-stored images.
+    connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
+    container: process.env.AZURE_STORAGE_CONTAINER ?? 'property-images',
+    publicApiUrl: (process.env.PUBLIC_API_URL ?? `http://localhost:${Number(process.env.PORT ?? 4000)}`).replace(/\/$/, ''),
+    // Per-image cap on the *raw* upload (a phone photo is ~2-6 MB); the server
+    // re-encodes each one down to ~200-400 KB before storing.
+    maxImageBytes: Number(process.env.MAX_PROPERTY_IMAGE_BYTES ?? 8 * 1024 * 1024),
+    maxImagesPerProperty: Number(process.env.MAX_IMAGES_PER_PROPERTY ?? 10),
+  },
   sharepoint: {
     // Mirrors bookings/quotes/subscriptions into dedicated SharePoint lists
     // via Microsoft Graph (app-only, client credentials). Each list ID is

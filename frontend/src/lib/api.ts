@@ -76,6 +76,29 @@ export const api = {
   }) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(data) }),
   updateProperty: (propertyId: string, data: { isAdvertised?: boolean; listingDescription?: string; imageUrls?: string[] }) =>
     request(`/api/properties/${propertyId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  uploadPropertyImages: async (propertyId: string, files: File[]) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('images', f, f.name));
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/properties/${propertyId}/images`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {}, // no Content-Type — browser sets the multipart boundary
+      body: form,
+    });
+    if (!res.ok) {
+      let message = `Upload failed: ${res.status}`;
+      try {
+        message = (await res.json()).error ?? message;
+      } catch {
+        /* keep generic */
+      }
+      if (res.status === 401) clearToken();
+      throw new ApiError(res.status, message);
+    }
+    return res.json() as Promise<any>;
+  },
+  deletePropertyImage: (propertyId: string, url: string) =>
+    request(`/api/properties/${propertyId}/images`, { method: 'DELETE', body: JSON.stringify({ url }) }),
   inviteTenant: (
     propertyId: string,
     data: { tenantName?: string; tenantPhone: string; rentAmount?: number; leaseStart?: string; leaseEnd?: string },

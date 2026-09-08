@@ -36,3 +36,10 @@ npm-debug.log*
 
 # Azure zip-deploy artifacts
 deploy.zip
+
+# Exported Power Automate package — contains client secrets, do not commit
+nsa-onboarding/flowpkg/
+nsa-onboarding/*.zip
+
+# Property photos written locally when no blob store is configured
+backend/uploads/

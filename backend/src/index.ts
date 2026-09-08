@@ -21,6 +21,7 @@ import { bookingsRouter } from './routes/bookings.js';
 import { legalRouter } from './routes/legal.js';
 import { whatsappRouter } from './routes/whatsapp.js';
 import { seedDemoLandlord } from './lib/mockLandlords.js';
+import { localUploadsMount } from './lib/blobStorage.js';
 
 if (env.mockMode) {
   seedDemoLandlord();
@@ -39,6 +40,13 @@ app.use(
   }),
 );
 app.use(express.urlencoded({ extended: true })); // Twilio webhook body
+
+// Property photos when no blob store is configured (local dev / mock) are
+// written under backend/uploads and served from here. In production they go to
+// Azure Blob Storage and this mount is unused.
+if (!env.storage.connectionString) {
+  app.use(localUploadsMount.route, express.static(localUploadsMount.dir, { maxAge: '7d', fallthrough: false }));
+}
 
 app.use(healthRouter);
 app.use('/api', propertiesRouter);

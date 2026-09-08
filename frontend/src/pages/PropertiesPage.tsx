@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { Property } from '../types';
+import { compressImage } from '../lib/compressImage';
+
+const MAX_IMAGES_PER_PROPERTY = 10;
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 const MARKETING_URL = import.meta.env.VITE_MARKETING_URL ?? 'http://localhost:5175';
@@ -24,6 +27,8 @@ const PropertiesPage: React.FC = () => {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [newImageUrl, setNewImageUrl] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [showAddProperty, setShowAddProperty] = useState(false);
   const [newProperty, setNewProperty] = useState(emptyNewProperty);
@@ -98,11 +103,39 @@ const PropertiesPage: React.FC = () => {
     }
   }
 
+  async function handleUploadImages(property: Property, fileList: FileList | null) {
+    const files = Array.from(fileList ?? []);
+    if (files.length === 0) return;
+    const already = property.imageUrls?.length ?? 0;
+    const room = MAX_IMAGES_PER_PROPERTY - already;
+    if (room <= 0) {
+      setError(`This property already has ${MAX_IMAGES_PER_PROPERTY} photos — remove one to add another.`);
+      return;
+    }
+    setError(null);
+    setUploadingId(property.id);
+    try {
+      const toSend = await Promise.all(files.slice(0, room).map(compressImage));
+      await api.uploadPropertyImages(property.id, toSend);
+      if (files.length > room) {
+        setError(`Added ${room} photo${room === 1 ? '' : 's'} — that's the ${MAX_IMAGES_PER_PROPERTY} limit for this property.`);
+      }
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed — try a smaller or different photo.');
+    } finally {
+      setUploadingId(null);
+      const input = fileInputs.current[property.id];
+      if (input) input.value = '';
+    }
+  }
+
   async function handleRemoveImage(property: Property, index: number) {
+    const url = (property.imageUrls ?? [])[index];
+    if (!url) return;
     setSavingId(property.id);
     try {
-      const updated = (property.imageUrls ?? []).filter((_, i) => i !== index);
-      await api.updateProperty(property.id, { imageUrls: updated });
+      await api.deletePropertyImage(property.id, url);
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove photo');
@@ -276,7 +309,7 @@ const PropertiesPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-medium text-gray-500 uppercase mb-1">
-                Photos {p.imageUrls?.length ? `(${p.imageUrls.length})` : ''}
+                Photos ({p.imageUrls?.length ?? 0}/{MAX_IMAGES_PER_PROPERTY})
               </label>
               {!p.imageUrls?.length && (
                 <p className="text-xs text-gray-400 mb-2">
@@ -287,9 +320,10 @@ const PropertiesPage: React.FC = () => {
                 <div className="flex gap-2 flex-wrap mb-2">
                   {p.imageUrls.map((url, i) => (
                     <div key={i} className="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                      <img src={url} alt={`${p.title} ${i + 1}`} className="w-full h-full object-cover" />
+                      <img src={url} alt={`${p.title} ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
                       <button
                         onClick={() => handleRemoveImage(p, i)}
+                        disabled={savingId === p.id}
                         className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold"
                         aria-label="Remove photo"
                       >
@@ -299,21 +333,58 @@ const PropertiesPage: React.FC = () => {
                   ))}
                 </div>
               )}
-              <div className="flex gap-2">
-                <input
-                  value={newImageUrl[p.id] ?? ''}
-                  onChange={(e) => setNewImageUrl((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                  placeholder="Paste an image URL…"
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-                />
-                <button
-                  onClick={() => handleAddImage(p)}
-                  disabled={savingId === p.id || !newImageUrl[p.id]?.trim()}
-                  className="text-sm font-medium border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
+
+              <input
+                ref={(el) => (fileInputs.current[p.id] = el)}
+                type="file"
+                accept="image/*"
+                multiple
+                capture="environment"
+                className="hidden"
+                onChange={(e) => handleUploadImages(p, e.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputs.current[p.id]?.click()}
+                disabled={
+                  uploadingId === p.id || (p.imageUrls?.length ?? 0) >= MAX_IMAGES_PER_PROPERTY
+                }
+                className="w-full text-sm font-medium border-2 border-dashed border-gray-300 text-gray-600 px-3 py-3 rounded-lg hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 disabled:hover:border-gray-300"
+              >
+                {uploadingId === p.id
+                  ? 'Uploading…'
+                  : (p.imageUrls?.length ?? 0) >= MAX_IMAGES_PER_PROPERTY
+                    ? `Photo limit reached (${MAX_IMAGES_PER_PROPERTY})`
+                    : '📷 Take or choose photos'}
+              </button>
+              <p className="text-[11px] text-gray-400 mt-1">
+                JPG, PNG, WebP or HEIC · up to 8&nbsp;MB each · they're resized automatically.
+              </p>
+
+              <details className="mt-2">
+                <summary className="text-[11px] text-gray-400 cursor-pointer select-none">
+                  or add by image URL
+                </summary>
+                <div className="flex gap-2 mt-1.5">
+                  <input
+                    value={newImageUrl[p.id] ?? ''}
+                    onChange={(e) => setNewImageUrl((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                    placeholder="https://…"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={() => handleAddImage(p)}
+                    disabled={
+                      savingId === p.id ||
+                      !newImageUrl[p.id]?.trim() ||
+                      (p.imageUrls?.length ?? 0) >= MAX_IMAGES_PER_PROPERTY
+                    }
+                    className="text-sm font-medium border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
+              </details>
             </div>
 
             <div>
