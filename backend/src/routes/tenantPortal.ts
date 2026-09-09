@@ -9,6 +9,7 @@ import { mockTickets } from '../lib/mockMaintenance.js';
 import { resolveCategory } from '../lib/repairChecklist.js';
 import { draftReply, type DraftReplyParams } from '../services/aiReply.js';
 import { mockAgreements } from '../lib/mockAgreements.js';
+import { toTenancyDto, toInstallmentDto } from '../lib/dto.js';
 
 export const tenantPortalRouter = Router();
 // Scoped to /tenant/* only — an unscoped `.use(requireTenantAuth)` here would
@@ -25,7 +26,7 @@ tenantPortalRouter.get('/tenant/me', async (req: AuthedRequest, res) => {
   if (env.mockMode) {
     const tenancy = MOCK_TENANCIES.find((t) => t.id === tenancyId);
     if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
-    return res.json({ ...tenancy, name, email });
+    return res.json({ ...toTenancyDto(tenancy), name, email });
   }
   const tenancy = await prisma.tenancy.findUnique({
     where: { id: tenancyId },
@@ -33,26 +34,14 @@ tenantPortalRouter.get('/tenant/me', async (req: AuthedRequest, res) => {
   });
   if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
 
-  // The portal renders a flat shape (mirrors MockTenancy). Map the Prisma
-  // row + relations onto it — a raw findUnique result has `tenant.name`,
-  // `property.title` and `leaseEnd`, which the frontend does not expect.
   const levyArrears = await prisma.levy.count({
     where: { propertyId: tenancy.propertyId, status: 'ARREARS' },
   });
   res.json({
-    id: tenancy.id,
-    propertyId: tenancy.propertyId,
-    propertyTitle: tenancy.property.title,
-    tenantName: tenancy.tenant.name,
+    ...toTenancyDto(tenancy, { lgLevyStatus: levyArrears > 0 ? 'ARREARS' : 'CLEARED' }),
+    // The tenant portal also shows the signed-in tenant's own name/email.
     name: tenancy.tenant.name,
     email: tenancy.tenant.email ?? email ?? '',
-    leaseEndDate: tenancy.leaseEnd.toISOString(),
-    paymentStatus: tenancy.paymentStatus,
-    rentAmount: tenancy.rentAmount,
-    // No per-tenancy electricity-arrears source yet — shown as a balance of 0.
-    discoArrears: 0,
-    lgLevyStatus: levyArrears > 0 ? 'ARREARS' : 'CLEARED',
-    kycStatus: tenancy.tenant.kycStatus,
   });
 });
 
@@ -157,18 +146,14 @@ tenantPortalRouter.get('/tenant/payment-plan', async (req: AuthedRequest, res) =
   const { tenancyId } = req.tenant!;
   if (env.mockMode) {
     const existing = mockPaymentPlans.get(tenancyId);
-    return res.json(existing ?? { plan: 'FULL', installments: [] });
+    return res.json({
+      plan: existing?.plan ?? 'FULL',
+      installments: (existing?.installments ?? []).map(toInstallmentDto),
+    });
   }
   const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId } });
   const rows = await prisma.rentInstallment.findMany({ where: { tenancyId }, orderBy: { sequence: 'asc' } });
-  const installments = rows.map((i) => ({
-    sequence: i.sequence,
-    amount: i.amount,
-    dueDate: i.dueDate.toISOString(),
-    status: i.status,
-    paymentLink: i.paymentLink ?? '',
-  }));
-  res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments });
+  res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments: rows.map(toInstallmentDto) });
 });
 
 tenantPortalRouter.get('/tenant/maintenance', async (req: AuthedRequest, res) => {

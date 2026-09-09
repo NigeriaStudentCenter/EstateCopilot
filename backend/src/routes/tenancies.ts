@@ -11,6 +11,7 @@ import { MOCK_PROPERTIES } from '../lib/mockProperties.js';
 import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.js';
 import { mockAgreements, generateAgreementContent } from '../lib/mockAgreements.js';
 import { tenancyLandlordId } from '../lib/ownership.js';
+import { toTenancyDto, toInstallmentDto, type LevyStatus } from '../lib/dto.js';
 
 async function logReminderCorrespondence(tenancyId: string, body: string) {
   if (env.mockMode) {
@@ -34,13 +35,28 @@ tenanciesRouter.use('/tenancies', requireLandlordAuth);
 tenanciesRouter.get('/tenancies', async (req: LandlordAuthedRequest, res) => {
   const landlordId = req.landlord!.landlordId;
   if (env.mockMode) {
-    return res.json(MOCK_TENANCIES.filter((t) => tenancyLandlordId(t.id) === landlordId));
+    return res.json(
+      MOCK_TENANCIES.filter((t) => tenancyLandlordId(t.id) === landlordId).map((t) => toTenancyDto(t)),
+    );
   }
   const tenancies = await prisma.tenancy.findMany({
     where: { property: { landlordId } },
     include: { tenant: true, property: true },
   });
-  res.json(tenancies);
+  // Per-property levy-arrears flag, resolved in one query rather than N.
+  const arrearProps = new Set(
+    (
+      await prisma.levy.findMany({
+        where: { property: { landlordId }, status: 'ARREARS' },
+        select: { propertyId: true },
+      })
+    ).map((l) => l.propertyId),
+  );
+  res.json(
+    tenancies.map((t) =>
+      toTenancyDto(t, { lgLevyStatus: (arrearProps.has(t.propertyId) ? 'ARREARS' : 'CLEARED') as LevyStatus }),
+    ),
+  );
 });
 
 const verifyBvnSchema = z.object({
@@ -235,14 +251,17 @@ tenanciesRouter.get('/tenancies/:id/payment-plan', async (req: LandlordAuthedReq
 
   if (env.mockMode) {
     const existing = mockPaymentPlans.get(req.params.id);
-    return res.json(existing ?? { plan: 'FULL', installments: [] });
+    return res.json({
+      plan: existing?.plan ?? 'FULL',
+      installments: (existing?.installments ?? []).map(toInstallmentDto),
+    });
   }
   const tenancy = await prisma.tenancy.findUnique({ where: { id: req.params.id } });
   const installments = await prisma.rentInstallment.findMany({
     where: { tenancyId: req.params.id },
     orderBy: { sequence: 'asc' },
   });
-  res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments });
+  res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments: installments.map(toInstallmentDto) });
 });
 
 // Landlord-initiated tenancy agreement. The Tenant signs it from their own
