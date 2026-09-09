@@ -46,12 +46,19 @@ anything financial, legal, or contractual.
   to AI, close. Admin-key guarded in real mode. Conversation read/act
   helpers live in `conversationStore.ts`.
 - `backend/src/services/whatsapp/campaigns.ts` + `sendWhatsAppTemplate()` —
-  outbound campaign engine. Audience segments (`phones`, `consented` by
-  brand, `artisan_leads` with age/status filters); every send gated on
-  `hasMarketingConsent` + a `WA_CAMPAIGN_MIN_GAP_DAYS` frequency cap;
-  throttled sender (`WA_CAMPAIGN_THROTTLE_PER_MIN`). Endpoints (admin-key
-  guarded in real mode): `POST/GET /api/whatsapp/campaigns`, `GET /:id`,
-  `POST /:id/preview` (dry run), `POST /:id/send`.
+  outbound campaign engine. Audience segments: `phones`, `consented` (by
+  brand), `artisan_leads` (age/status), `tenancies_expiring` (`withinDays`,
+  default 60), `landlords_no_listing` (ACTIVE landlords, 0 advertised
+  properties). Every send gated on `hasMarketingConsent` + a
+  `WA_CAMPAIGN_MIN_GAP_DAYS` frequency cap; throttled sender
+  (`WA_CAMPAIGN_THROTTLE_PER_MIN`). Endpoints (admin-key guarded in real
+  mode): `POST/GET /api/whatsapp/campaigns`, `GET /:id`, `POST /:id/preview`
+  (dry run), `POST /:id/send`, `POST /:id/schedule` / `/unschedule`.
+- `backend/src/services/whatsapp/campaignScheduler.ts` — in-process poller
+  (`startCampaignScheduler`, started from `index.ts` when
+  `WA_AGENT_ENABLED=true`) that fires `SCHEDULED` campaigns once
+  `scheduleAt` passes. Single-instance only — a multi-instance deploy needs
+  a WebJob / DB lock.
 - Prisma models: `WaContact`, `WaConsent`, `WaConversation`, `WaCampaign`
   + `WaBrand`/`WaConversationState`/`WaCampaignStatus` enums; run
   `npm run prisma:migrate` to create the migration.
@@ -59,10 +66,12 @@ anything financial, legal, or contractual.
 
 **Not built yet:**
 
-- Campaign worker — `runCampaign` streams from the API process (capped at
-  500/run); a large audience needs a dedicated WebJob. `scheduleAt` is
-  stored but nothing acts on it yet.
-- More audience segments (leases expiring, landlords with no listing).
+- Campaign worker at scale — `runCampaign` streams from the API process
+  (capped at 500/run) and the scheduler is single-instance; a large
+  audience / multi-instance deploy needs a dedicated WebJob.
+- Per-recipient template body params — `runCampaign` sends templates with
+  no variables, so the `{{n}}` templates in `whatsapp-templates.md` can't
+  be used yet.
 - Template library + Meta submission.
 - `wa_optin_confirmation` template send right after the checkbox opt-in.
 - Splitting ops vs marketing on the one number (per keyword / per campaign).

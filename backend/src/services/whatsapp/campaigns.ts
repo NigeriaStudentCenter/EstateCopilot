@@ -15,6 +15,9 @@ import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsAppTemplate } from '../whatsapp.js';
 import { mockArtisanLeads } from '../../lib/mockArtisanLeads.js';
+import { MOCK_TENANCIES } from '../../lib/mockTenancies.js';
+import { mockLandlords } from '../../lib/mockLandlords.js';
+import { MOCK_PROPERTIES } from '../../lib/mockProperties.js';
 import { hasMarketingConsent, normalizePhone } from './consent.js';
 import type { WaBrand } from './brands.js';
 
@@ -25,13 +28,15 @@ const MAX_PER_RUN = 500; // safety ceiling for the in-process sender
 export interface AudienceQuery {
   /** Explicit numbers (any format — normalised here). */
   phones?: string[];
-  segment?: 'consented' | 'artisan_leads';
+  segment?: 'consented' | 'artisan_leads' | 'tenancies_expiring' | 'landlords_no_listing';
   /** For 'consented': restrict to a brand. */
   brand?: WaBrand;
   /** For 'artisan_leads': lead status filter, e.g. "NEW". */
   status?: string;
   /** For 'artisan_leads': only leads older than N days (nudge stale ones). */
   olderThanDays?: number;
+  /** For 'tenancies_expiring': lease ends within N days (default 60). */
+  withinDays?: number;
 }
 
 export type CampaignStatus = 'DRAFT' | 'SCHEDULED' | 'RUNNING' | 'PAUSED' | 'DONE';
@@ -97,6 +102,30 @@ async function patchCampaign(id: string, patch: Partial<Campaign>): Promise<void
   await prisma.waCampaign.update({ where: { id }, data: patch as any }).catch(() => {});
 }
 
+// Move a DRAFT/PAUSED campaign to SCHEDULED — the scheduler fires it once
+// `scheduleAt` passes. Rejects a campaign that has already run.
+export async function scheduleCampaign(id: string, scheduleAt: string): Promise<Campaign | null> {
+  const c = await getCampaign(id);
+  if (!c) return null;
+  if (c.status === 'RUNNING' || c.status === 'DONE') return c;
+  await patchCampaign(id, { status: 'SCHEDULED', scheduleAt });
+  return getCampaign(id);
+}
+
+export async function cancelSchedule(id: string): Promise<Campaign | null> {
+  const c = await getCampaign(id);
+  if (!c) return null;
+  if (c.status === 'SCHEDULED') await patchCampaign(id, { status: 'DRAFT', scheduleAt: null });
+  return getCampaign(id);
+}
+
+// Campaigns that are due to fire now — polled by the scheduler.
+export async function dueCampaigns(now = Date.now()): Promise<Campaign[]> {
+  return (await listCampaigns()).filter(
+    (c) => c.status === 'SCHEDULED' && !!c.scheduleAt && new Date(c.scheduleAt).getTime() <= now,
+  );
+}
+
 // ---- audience ----------------------------------------------------
 
 async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
@@ -133,6 +162,42 @@ async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
         select: { requesterPhone: true },
       });
       for (const r of rows) out.add(normalizePhone(r.requesterPhone));
+    }
+  }
+
+  // Tenants whose lease ends soon — renewal nudge (a UTILITY template).
+  if (q.segment === 'tenancies_expiring') {
+    const now = Date.now();
+    const horizon = now + (q.withinDays ?? 60) * 86_400_000;
+    if (env.mockMode) {
+      for (const t of MOCK_TENANCIES) {
+        if (t.paymentStatus === 'TERMINATED') continue;
+        const end = new Date(t.leaseEndDate).getTime();
+        if (end >= now && end <= horizon) out.add(normalizePhone(t.tenantPhone));
+      }
+    } else {
+      const rows = await prisma.tenancy.findMany({
+        where: { leaseEnd: { gte: new Date(now), lte: new Date(horizon) }, paymentStatus: { not: 'TERMINATED' as any } },
+        select: { tenant: { select: { phone: true } } },
+      });
+      for (const r of rows) if (r.tenant?.phone) out.add(normalizePhone(r.tenant.phone));
+    }
+  }
+
+  // Landlords who have paid but never advertised a property — activation nudge.
+  if (q.segment === 'landlords_no_listing') {
+    if (env.mockMode) {
+      for (const l of mockLandlords.values()) {
+        if (l.subscriptionStatus !== 'ACTIVE') continue;
+        if (MOCK_PROPERTIES.some((p) => p.landlordId === l.id && p.isAdvertised)) continue;
+        out.add(normalizePhone(l.phone));
+      }
+    } else {
+      const rows = await prisma.landlord.findMany({
+        where: { subscriptionStatus: 'ACTIVE' as any, properties: { none: { isAdvertised: true } } },
+        select: { phone: true },
+      });
+      for (const r of rows) out.add(normalizePhone(r.phone));
     }
   }
 

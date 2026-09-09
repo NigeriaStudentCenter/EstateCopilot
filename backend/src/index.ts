@@ -20,6 +20,7 @@ import { publicRouter } from './routes/public.js';
 import { bookingsRouter } from './routes/bookings.js';
 import { legalRouter } from './routes/legal.js';
 import { whatsappRouter } from './routes/whatsapp.js';
+import { startCampaignScheduler } from './services/whatsapp/campaignScheduler.js';
 import { seedDemoLandlord } from './lib/mockLandlords.js';
 import { seedDemoArtisan } from './lib/mockArtisans.js';
 import { localUploadsMount } from './lib/blobStorage.js';
@@ -73,4 +74,9 @@ app.use(errorHandler);
 
 app.listen(env.port, () => {
   console.log(`EstateCopilot backend listening on :${env.port} (MOCK_MODE=${env.mockMode})`);
+  // Fires SCHEDULED WhatsApp campaigns when their time passes. Only when the
+  // marketing agent is enabled — otherwise the campaign engine is dormant.
+  if (env.whatsapp.agentEnabled) {
+    startCampaignScheduler(Number(process.env.WA_SCHEDULER_INTERVAL_MS) || 60_000);
+  }
 });

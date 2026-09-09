@@ -15,6 +15,8 @@ import {
   getCampaign,
   previewCampaign,
   runCampaign,
+  scheduleCampaign,
+  cancelSchedule,
 } from '../services/whatsapp/campaigns.js';
 import {
   listConversations,
@@ -186,10 +188,11 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 
 const audienceQuerySchema = z.object({
   phones: z.array(z.string()).optional(),
-  segment: z.enum(['consented', 'artisan_leads']).optional(),
+  segment: z.enum(['consented', 'artisan_leads', 'tenancies_expiring', 'landlords_no_listing']).optional(),
   brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'UNKNOWN']).optional(),
   status: z.string().optional(),
   olderThanDays: z.number().int().positive().optional(),
+  withinDays: z.number().int().positive().optional(),
 });
 
 const campaignSchema = z.object({
@@ -226,6 +229,19 @@ whatsappRouter.post('/api/whatsapp/campaigns/:id/send', requireAdmin, async (req
   const result = await runCampaign(req.params.id);
   if (!result.started) return res.status(409).json(result);
   res.status(202).json(result);
+});
+
+// Queue for a future send — the scheduler fires it when scheduleAt passes.
+whatsappRouter.post('/api/whatsapp/campaigns/:id/schedule', requireAdmin, async (req, res) => {
+  const at = z.string().datetime().safeParse(req.body?.scheduleAt);
+  if (!at.success) return res.status(400).json({ error: 'scheduleAt must be an ISO datetime' });
+  const c = await scheduleCampaign(req.params.id, at.data);
+  return c ? res.json(c) : res.sendStatus(404);
+});
+
+whatsappRouter.post('/api/whatsapp/campaigns/:id/unschedule', requireAdmin, async (req, res) => {
+  const c = await cancelSchedule(req.params.id);
+  return c ? res.json(c) : res.sendStatus(404);
 });
 
 // --- Ops console ----------------------------------------------------
