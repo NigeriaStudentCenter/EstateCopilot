@@ -33,6 +33,16 @@ export const api = {
     return request<{ artisans: any[]; total: number }>(`/api/public/artisans${q ? `?${q}` : ''}`);
   },
   getArtisan: (id: string) => request<any>(`/api/public/artisans/${id}`),
+
+  // Marketing WhatsApp opt-in (the checkbox on the lead forms). Best-effort —
+  // callers fire this without blocking the main submission.
+  captureWhatsAppConsent: (data: {
+    phone: string;
+    brand?: string;
+    source: string;
+    optInText?: string;
+    marketingOptIn?: boolean;
+  }) => request('/api/whatsapp/consent', { method: 'POST', body: JSON.stringify(data) }),
   requestArtisanQuote: (
     id: string,
     data: { name: string; phone: string; role?: string; lga?: string; trade?: string; message: string },

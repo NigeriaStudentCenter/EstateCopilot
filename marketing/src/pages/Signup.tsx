@@ -3,6 +3,7 @@ import { api } from '../lib/api';
 import { getStoredRef } from '../lib/referral';
 import { LANDLORD_PORTAL_URL } from '../lib/links';
 import StateSelect from '../components/StateSelect';
+import WhatsAppOptIn, { WHATSAPP_OPT_IN_TEXT } from '../components/WhatsAppOptIn';
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 
@@ -15,6 +16,7 @@ const Signup: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [state, setState] = useState('');
+  const [waOptIn, setWaOptIn] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
   const [hostedPageUrl, setHostedPageUrl] = useState<string | null>(null);
   const [amountKobo, setAmountKobo] = useState(1_000_000);
@@ -27,6 +29,17 @@ const Signup: React.FC = () => {
     setError(null);
     try {
       const res = await api.landlordSignup({ name: name.trim(), email: email.trim(), phone: phone.trim(), password, state, ref: getStoredRef() });
+      if (waOptIn) {
+        api
+          .captureWhatsAppConsent({
+            phone: phone.trim(),
+            brand: 'ESTATECOPILOT',
+            source: 'landlord_signup',
+            optInText: WHATSAPP_OPT_IN_TEXT,
+            marketingOptIn: true,
+          })
+          .catch(() => {});
+      }
       setAmountKobo(res.monthlyAmountKobo);
       if (res.authorizationUrl) {
         // Real Paystack subscription mode: hand off to their hosted checkout entirely.
@@ -95,6 +108,7 @@ const Signup: React.FC = () => {
                 <StateSelect value={state} onChange={setState} includeAll={false} required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
                 <p className="text-xs text-gray-400 mt-1">Your properties will be listed on this state's page by default.</p>
               </div>
+              <WhatsAppOptIn checked={waOptIn} onChange={setWaOptIn} />
               <button type="submit" disabled={submitting} className="w-full bg-emerald-600 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50">
                 {submitting ? 'Please wait…' : `Continue to payment — ${currencyFormatter.format(amountKobo / 100)}/mo`}
               </button>

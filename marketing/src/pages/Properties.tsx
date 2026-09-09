@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import PropertyGallery from '../components/PropertyGallery';
 import StateSelect from '../components/StateSelect';
+import WhatsAppOptIn, { WHATSAPP_OPT_IN_TEXT } from '../components/WhatsAppOptIn';
 
 interface Property {
   id: string;
@@ -25,6 +26,7 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00');
   const [notes, setNotes] = useState('');
+  const [waOptIn, setWaOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +39,17 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
     try {
       const scheduledFor = new Date(`${date}T${time}:00`).toISOString();
       await api.bookPropertyViewing(property.id, { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined, scheduledFor, notes: notes.trim() || undefined });
+      if (waOptIn) {
+        api
+          .captureWhatsAppConsent({
+            phone: phone.trim(),
+            brand: 'ESTATECOPILOT',
+            source: 'listing_form',
+            optInText: WHATSAPP_OPT_IN_TEXT,
+            marketingOptIn: true,
+          })
+          .catch(() => {});
+      }
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to book — please try again');
@@ -69,6 +82,7 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
                 <input value={time} onChange={(e) => setTime(e.target.value)} type="time" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               </div>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything else the landlord should know? (optional)" rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <WhatsAppOptIn checked={waOptIn} onChange={setWaOptIn} />
             </div>
             <div className="flex gap-3 mt-5">
               <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium">Cancel</button>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { ScoreChip, Stars, TIER_META } from './Artisans';
+import WhatsAppOptIn, { WHATSAPP_OPT_IN_TEXT } from '../components/WhatsAppOptIn';
 
 interface TradeRow {
   id: string;
@@ -55,6 +56,7 @@ const QuoteModal: React.FC<{ artisan: ArtisanProfileData; onClose: () => void }>
   const [role, setRole] = useState('landlord');
   const [lga, setLga] = useState(artisan.baseLga);
   const [message, setMessage] = useState('');
+  const [waOptIn, setWaOptIn] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,17 @@ const QuoteModal: React.FC<{ artisan: ArtisanProfileData; onClose: () => void }>
         trade: artisan.primaryTrade?.id,
         message: message.trim(),
       });
+      if (waOptIn) {
+        api
+          .captureWhatsAppConsent({
+            phone: phone.trim(),
+            brand: 'ESTATECOPILOT',
+            source: 'artisan_form',
+            optInText: WHATSAPP_OPT_IN_TEXT,
+            marketingOptIn: true,
+          })
+          .catch(() => {});
+      }
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong — please try again');
@@ -125,6 +138,7 @@ const QuoteModal: React.FC<{ artisan: ArtisanProfileData; onClose: () => void }>
                 required
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
               />
+              <WhatsAppOptIn checked={waOptIn} onChange={setWaOptIn} />
             </div>
             <div className="flex gap-3 mt-5">
               <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium">Cancel</button>
