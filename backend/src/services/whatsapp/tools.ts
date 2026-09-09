@@ -21,11 +21,16 @@ import type { WaBrand } from './brands.js';
 import { brandProfile } from './brands.js';
 import { setState, type Conversation } from './conversationStore.js';
 import {
-  LANDLORD_ONBOARDING,
+  ONBOARDING,
+  ONBOARDING_AUDIENCES,
+  isOnboardingAudience,
+  audienceMenu,
   onboardingOverview,
+  onboardingStep,
   imageUrl,
   videoUrl,
-  landlordGuideUrl,
+  guideUrl,
+  type OnboardingAudience,
 } from './onboarding.js';
 
 export interface MediaAttachment {
@@ -339,37 +344,48 @@ async function requestArtisanQuote(
   return `Quote request sent to ${a.name}. Tell the user ${a.name} will contact them on this number.`;
 }
 
-// Walks a landlord through onboarding one step at a time. Omitting `step`
-// returns the overview; a step number returns that step and queues its
-// illustration (and, for the intro, the walkthrough video) to be sent.
-async function getLandlordOnboarding(input: { step?: number }, ctx: ToolContext): Promise<string> {
-  const steps = LANDLORD_ONBOARDING;
+// Walks a user through getting started, one step at a time, for whichever
+// track fits them: landlord, tenant, artisan or referral (Kolo) partner.
+// The agent categorises the audience from the conversation. Omitting `step`
+// returns that track's overview; a step number returns that step and queues
+// its illustration (and, for the landlord intro, the walkthrough video).
+async function getOnboarding(input: { audience?: string; step?: number }, ctx: ToolContext): Promise<string> {
+  if (!isOnboardingAudience(input.audience)) {
+    return (
+      `Pick which onboarding track fits this person, then call get_onboarding again with that audience:\n${audienceMenu()}\n` +
+      `Valid audience values: ${ONBOARDING_AUDIENCES.join(', ')}.`
+    );
+  }
+  const audience = input.audience as OnboardingAudience;
+  const track = ONBOARDING[audience];
 
   if (!input.step) {
-    ctx.media.push({
-      kind: 'video',
-      link: videoUrl('walkthrough.mp4'),
-      caption: 'EstateCopilot for landlords — quick walkthrough',
-    });
+    if (audience === 'landlord') {
+      ctx.media.push({
+        kind: 'video',
+        link: videoUrl('walkthrough.mp4'),
+        caption: 'EstateCopilot for landlords — quick walkthrough',
+      });
+    }
     return (
-      `${onboardingOverview()}\n\n` +
+      `${onboardingOverview(audience)}\n\n` +
       `Tell the user you can walk them through it here, one step at a time — they say "next" or give a step number. ` +
-      `Full illustrated guide: ${landlordGuideUrl()}`
+      `Full illustrated guide: ${guideUrl(audience)}`
     );
   }
 
-  const s = steps.find((x) => x.n === input.step);
-  if (!s) return `There are ${steps.length} onboarding steps (1–${steps.length}). Ask the user which one.`;
+  const s = onboardingStep(audience, input.step);
+  if (!s) return `The ${audience} track has ${track.steps.length} steps (1–${track.steps.length}). Ask the user which one.`;
 
   if (s.image) ctx.media.push({ kind: 'image', link: imageUrl(s.image), caption: `Step ${s.n}: ${s.title}` });
   if (s.video) ctx.media.push({ kind: 'video', link: videoUrl(s.video) });
 
-  const next = steps.find((x) => x.n === s.n + 1);
+  const next = onboardingStep(audience, s.n + 1);
   return (
-    `Give the user step ${s.n} of ${steps.length} — "${s.title}":\n${s.body}\n\n` +
+    `Give the user ${audience} step ${s.n} of ${track.steps.length} — "${s.title}":\n${s.body}\n\n` +
     (next
       ? `Then offer step ${next.n} ("${next.title}") — they can say "next".`
-      : `That is the final step. Point them to the full guide: ${landlordGuideUrl()}`)
+      : `That is the final step. Point them to the full guide: ${guideUrl(audience)}`)
   );
 }
 
@@ -503,12 +519,13 @@ const ARTISAN_TOOLS: ToolDef[] = [
 ];
 
 const ONBOARDING_TOOL: ToolDef = {
-  name: 'get_landlord_onboarding',
+  name: 'get_onboarding',
   description:
-    'Walk a prospective or new landlord through signing up and using EstateCopilot, one step at a time. Omit `step` for the overview + walkthrough video; pass a step number for that step (its illustration is sent automatically).',
+    'Walk a user through getting started, one step at a time. First decide which track fits them — landlord (owns property), tenant (renting, has an invite), artisan (tradesperson), or partner (Kolo referral programme) — and pass it as `audience`. Omit `step` for that track\'s overview; pass a step number for that step (its illustration, if any, is sent automatically). Call with no audience to get the list of tracks and their descriptions.',
   input_schema: {
     type: 'object',
     properties: {
+      audience: { type: 'string', enum: ['landlord', 'tenant', 'artisan', 'partner'] },
       step: { type: 'number', description: '1-based step number; omit for the overview' },
     },
   },
@@ -594,8 +611,8 @@ export async function runTool(
         return await searchArtisans(input as any);
       case 'request_artisan_quote':
         return await requestArtisanQuote(input as any, ctx);
-      case 'get_landlord_onboarding':
-        return await getLandlordOnboarding(input as any, ctx);
+      case 'get_onboarding':
+        return await getOnboarding(input as any, ctx);
       case 'capture_lead':
         return await captureLead(input as any, ctx, brand);
       case 'get_academy_info':

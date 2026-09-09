@@ -18,18 +18,21 @@ anything financial, legal, or contractual.
   (`WaContact`/`WaConversation`/`WhatsAppMessage`) otherwise.
 - `backend/src/services/whatsapp/tools.ts` — agent tools:
   - EstateCopilot: `search_listings`, `get_listing_details`, `book_viewing`,
-    `search_artisans`, `request_artisan_quote`, `get_landlord_onboarding`,
+    `search_artisans`, `request_artisan_quote`, `get_onboarding`,
     `capture_lead`
   - AI Academy: `get_academy_info`, `capture_academy_lead`
   - shared: `escalate_to_human` (sets conversation `HUMAN_ACTIVE`, agent
     then stays silent)
-- `backend/src/services/whatsapp/onboarding.ts` — landlord onboarding as 11
-  small steps (short copy + an illustration each; intro also has the
-  walkthrough video). Images/video are the marketing site's guide assets
-  (`/guides/images/landlord-NN-*.webp`, `/videos/walkthrough.mp4`), base URL
-  `WA_ONBOARDING_MEDIA_BASE`. The agent serves one step at a time via
-  `get_landlord_onboarding({ step? })`; the step's picture is pushed to
-  `ctx.media` and sent after the text (`sendWhatsAppMedia`).
+- `backend/src/services/whatsapp/onboarding.ts` — step-by-step walkthroughs
+  for four tracks: **landlord** (11 steps, illustrated + intro walkthrough
+  video), **tenant** (8, illustrated), **artisan** (7, text), **partner**
+  (Kolo referral, 6, text). Copy + images are the public illustrated guides'
+  assets (`/guides/images/*.webp`, `/videos/walkthrough.mp4`), base URL
+  `WA_ONBOARDING_MEDIA_BASE`. The agent categorises the track from the
+  conversation, then serves one step at a time via
+  `get_onboarding({ audience, step? })` — no `audience` returns the track
+  menu; each step's picture (if any) is pushed to `ctx.media` and sent after
+  the text (`sendWhatsAppMedia`).
 - `backend/src/services/whatsapp/agent.ts` — the Claude tool-use loop.
   Haiku by default; escalates the model for unknown brand / long messages /
   complaints / legal topics. Never throws — degrades to an acknowledgement
