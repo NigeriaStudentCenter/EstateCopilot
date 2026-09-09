@@ -20,9 +20,11 @@ import {
   recordInbound,
   recordOutbound,
   setBrand,
+  setState,
   type Conversation,
 } from './conversationStore.js';
 import { toolsForBrand, runTool, type ToolContext } from './tools.js';
+import { isOptOut, recordOptOut } from './consent.js';
 
 const MAX_STEPS = 4; // model <-> tool round trips before we send whatever we have
 const REPLY_MAX_TOKENS = 700;
@@ -128,6 +130,24 @@ export async function runMarketingAgent(params: {
 }): Promise<AgentResult> {
   const convo: Conversation = await loadConversation(params.from);
   const rawText = (params.text ?? '').trim();
+
+  // Opt-out is honoured first, unconditionally — before the human-handoff
+  // check and before the LLM ever sees the message.
+  if (isOptOut(rawText)) {
+    await recordOptOut(params.from);
+    await recordInbound(convo, {
+      body: rawText,
+      from: params.from,
+      to: params.displayNumber ?? '',
+      waMessageId: params.waMessageId,
+    });
+    await setState(convo, 'CLOSED');
+    const reply =
+      "You've been unsubscribed — you won't get marketing messages from us. You can still message this number any time if you need help.";
+    if (params.deliver) await params.deliver(reply).catch(() => {});
+    await recordOutbound(convo, { body: reply, from: params.displayNumber ?? '', to: params.from });
+    return { handled: true, reply, brand: convo.brand, escalated: false };
+  }
 
   // A human has taken this conversation over — record the inbound so they see
   // it in the console, but the agent must not reply.

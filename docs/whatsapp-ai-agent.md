@@ -30,6 +30,11 @@ anything financial, legal, or contractual.
   (default **false** — existing tenant/guarantor-ops classifier untouched).
 - `POST /webhooks/whatsapp/simulate` (mock only) — drive the agent with a
   fake inbound message, no Meta.
+- `backend/src/services/whatsapp/consent.ts` + `POST /api/whatsapp/consent`
+  and `POST /api/whatsapp/opt-out` — logged marketing opt-in/out
+  (`WaConsent`). Inbound `STOP` / `UNSUBSCRIBE` is caught in the agent
+  before the LLM: records the opt-out, closes the conversation, sends a
+  confirmation. `hasMarketingConsent(phone)` is the gate campaigns will use.
 - Prisma models: `WaContact`, `WaConsent`, `WaConversation`, `WaCampaign`
   + `WaBrand`/`WaConversationState`/`WaCampaignStatus` enums; run
   `npm run prisma:migrate` to create the migration.
@@ -39,7 +44,8 @@ anything financial, legal, or contractual.
 
 - Campaign engine (audience builder + throttled template sender) — `WaCampaign`
   model exists, no worker.
-- Consent-capture endpoint + the marketing-site checkbox.
+- The marketing-site checkbox that calls `POST /api/whatsapp/consent`
+  (backend endpoint is done; the `marketing/` form change is not).
 - Ops console (human takeover UI).
 - Splitting ops vs marketing on the one number (per keyword / per campaign).
 - Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` covers three

@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { classifyInbound } from '../services/whatsappIntent.js';
 import { runMarketingAgent } from '../services/whatsapp/agent.js';
+import { recordConsent, recordOptOut } from '../services/whatsapp/consent.js';
 
 export const whatsappRouter = Router();
 
@@ -128,6 +129,27 @@ whatsappRouter.post('/webhooks/whatsapp/send-test', async (req, res) => {
   if (!to || !body) return res.status(400).json({ error: 'to and body are required' });
   const result = await sendWhatsAppMessage(to, body);
   res.json(result);
+});
+
+// --- Marketing consent ------------------------------------------------
+// The marketing site's lead forms POST here when the "message me on
+// WhatsApp" checkbox is ticked. A logged opt-in is required before any
+// campaign (business-initiated) message.
+whatsappRouter.post('/api/whatsapp/consent', async (req, res) => {
+  const { phone, brand, source, optInText, marketingOptIn } = req.body ?? {};
+  if (!phone || !source) return res.status(400).json({ error: 'phone and source are required' });
+  const fwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim();
+  await recordConsent({ phone, brand, source, optInText, marketingOptIn, ip: fwd || req.ip });
+  res.status(201).json({ ok: true });
+});
+
+// Explicit opt-out (e.g. an "unsubscribe" link). Inbound STOP replies are
+// handled inside the agent.
+whatsappRouter.post('/api/whatsapp/opt-out', async (req, res) => {
+  const { phone } = req.body ?? {};
+  if (!phone) return res.status(400).json({ error: 'phone is required' });
+  await recordOptOut(phone);
+  res.json({ ok: true });
 });
 
 // MOCK_MODE only — drive the marketing agent with a fake inbound message and
