@@ -69,10 +69,9 @@ anything financial, legal, or contractual.
 - Campaign worker at scale — `runCampaign` streams from the API process
   (capped at 500/run) and the scheduler is single-instance; a large
   audience / multi-instance deploy needs a dedicated WebJob.
-- Per-recipient template body params — `runCampaign` sends templates with
-  no variables, so the `{{n}}` templates in `whatsapp-templates.md` can't
-  be used yet.
-- Template library + Meta submission.
+- Template library + Meta submission (the `{{n}}` templates in
+  `whatsapp-templates.md` are ready — campaigns pass per-recipient params
+  via `audienceQuery.paramFields`).
 - `wa_optin_confirmation` template send right after the checkbox opt-in.
 - Splitting ops vs marketing on the one number (per keyword / per campaign).
 - Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` covers three

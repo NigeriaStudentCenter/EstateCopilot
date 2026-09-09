@@ -8,9 +8,20 @@ low — Meta rejects templates with unexplained variables or thin content.
 `templateLang` must match the approved language (`en` here).
 
 Body variables are filled positionally by `sendWhatsAppTemplate(to, name,
-lang, [param1, param2, …])`. The campaign engine currently sends **no**
-params — templates below that use `{{n}}` need the engine extended to pass
-per-recipient values before they're used.
+lang, [param1, param2, …])`. A campaign resolves them per recipient from
+`audienceQuery.paramFields` — an ordered list of segment field names that
+map to `{{1}}, {{2}}, …`. Fields by segment: all → `phone`; `artisan_leads`
+→ `name`; `tenancies_expiring` → `name`, `propertyTitle`, `leaseEnd`;
+`landlords_no_listing` → `name`; `consented` → `brand`. A missing field
+resolves to "".
+
+Example — the lease-renewal campaign:
+`{ "segment": "tenancies_expiring", "withinDays": 60,
+   "paramFields": ["name", "propertyTitle", "leaseEnd"] }`
+fills a template whose body is `Hi {{1}}, your lease at {{2}} ends {{3}} …`.
+
+Templates below that use `{{n}}` no longer need engine changes — just a
+segment that exposes the right fields.
 
 ---
 
@@ -31,7 +42,6 @@ New listing in an area a contact asked about.
   `New on EstateCopilot in {{1}}: {{2}}, {{3}}/year. Verified landlord. Reply here to see photos or book a viewing.`
 - **Footer:** `Reply STOP to unsubscribe`
 - Variables: `{{1}}` area, `{{2}}` short title, `{{3}}` rent (e.g. "₦6,500,000").
-- Needs the engine to pass params.
 
 ### `ec_viewing_confirmation_v1` — UTILITY
 Confirm a viewing slot ops has set.
@@ -39,7 +49,6 @@ Confirm a viewing slot ops has set.
 - **Body:**
   `Your viewing is confirmed: {{1}} on {{2}}. The agent's contact is {{3}}. Reply here if you need to change it.`
 - Variables: `{{1}}` listing, `{{2}}` date/time, `{{3}}` phone.
-- Needs the engine to pass params.
 
 ---
 
@@ -51,8 +60,7 @@ Follow up an enrolment enquiry that didn't complete onboarding.
 - **Body:**
   `Hi, it's AI Academy. You asked about our online AI classes. To reserve a place, complete the short onboarding form: {{1}} — the team then confirms the schedule. Fees are ₦20,000/month (Nigeria) or £10/month (UK).`
 - **Footer:** `Reply STOP to unsubscribe`
-- Variables: `{{1}}` onboarding URL.
-- Needs the engine to pass params.
+- Variables: `{{1}}` onboarding URL (pass as a static per-campaign paramField, or hardcode in the approved template).
 
 ### `aia_class_reminder_v1` — UTILITY
 Remind an enrolled family of the next class.
@@ -60,7 +68,6 @@ Remind an enrolled family of the next class.
 - **Body:**
   `Reminder: {{1}}'s AI Academy class is on {{2}}. Join link: {{3}}.`
 - Variables: `{{1}}` student first name, `{{2}}` date/time, `{{3}}` join link.
-- Needs the engine to pass params.
 
 ---
 
@@ -72,7 +79,6 @@ Sent right after someone ticks the WhatsApp opt-in box on a form.
 - **Body:**
   `Thanks — you'll now get updates from {{1}} on WhatsApp. Reply STOP any time to unsubscribe.`
 - Variables: `{{1}}` "EstateCopilot" or "AI Academy".
-- Needs the engine to pass params.
 
 ---
 

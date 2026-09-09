@@ -193,6 +193,7 @@ const audienceQuerySchema = z.object({
   status: z.string().optional(),
   olderThanDays: z.number().int().positive().optional(),
   withinDays: z.number().int().positive().optional(),
+  paramFields: z.array(z.string()).max(10).optional(),
 });
 
 const campaignSchema = z.object({

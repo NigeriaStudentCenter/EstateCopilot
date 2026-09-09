@@ -37,6 +37,14 @@ export interface AudienceQuery {
   olderThanDays?: number;
   /** For 'tenancies_expiring': lease ends within N days (default 60). */
   withinDays?: number;
+  /**
+   * Ordered segment field names that become the template's {{1}}, {{2}} …
+   * Available fields by segment: all → `phone`; artisan_leads →
+   * `name`; tenancies_expiring → `name`, `propertyTitle`, `leaseEnd`;
+   * landlords_no_listing → `name`; consented → `brand`. A missing field
+   * resolves to "".
+   */
+  paramFields?: string[];
 }
 
 export type CampaignStatus = 'DRAFT' | 'SCHEDULED' | 'RUNNING' | 'PAUSED' | 'DONE';
@@ -128,22 +136,39 @@ export async function dueCampaigns(now = Date.now()): Promise<Campaign[]> {
 
 // ---- audience ----------------------------------------------------
 
-async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
-  const out = new Set<string>();
+// Each candidate carries a `row` of named fields the segment knows about;
+// a campaign's `paramFields` picks which of them become the template's
+// {{1}}, {{2}} … (in order). `phone` is always present.
+export interface Candidate {
+  phone: string;
+  row: Record<string, string>;
+}
+export interface Recipient {
+  phone: string;
+  params: string[];
+}
 
-  for (const p of q.phones ?? []) out.add(normalizePhone(p));
+const ymd = (d: Date | string) => new Date(d).toISOString().slice(0, 10);
 
-  if (q.segment === 'consented') {
-    if (!env.mockMode) {
-      const rows = await prisma.waConsent.findMany({
-        where: { marketingOptIn: true, optOutAt: null, ...(q.brand ? { brand: q.brand } : {}) },
-        include: { contact: true },
-      });
-      for (const r of rows) if (r.contact?.phone) out.add(r.contact.phone);
-    }
-    // mock: the consent store is in-memory in consent.ts and not enumerable
-    // from here — use an explicit `phones` list in mock mode.
+async function resolveCandidates(q: AudienceQuery): Promise<Candidate[]> {
+  const byPhone = new Map<string, Candidate>();
+  const add = (rawPhone: string, row: Record<string, string> = {}) => {
+    const phone = normalizePhone(rawPhone);
+    if (!phone || byPhone.has(phone)) return;
+    byPhone.set(phone, { phone, row: { phone, ...row } });
+  };
+
+  for (const p of q.phones ?? []) add(p);
+
+  if (q.segment === 'consented' && !env.mockMode) {
+    const rows = await prisma.waConsent.findMany({
+      where: { marketingOptIn: true, optOutAt: null, ...(q.brand ? { brand: q.brand } : {}) },
+      include: { contact: true },
+    });
+    for (const r of rows) if (r.contact?.phone) add(r.contact.phone, { brand: String(r.brand) });
   }
+  // mock 'consented': the consent store in consent.ts isn't enumerable from
+  // here — use an explicit `phones` list in mock mode.
 
   if (q.segment === 'artisan_leads') {
     const cutoff = q.olderThanDays ? Date.now() - q.olderThanDays * 86_400_000 : null;
@@ -151,7 +176,7 @@ async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
       for (const l of mockArtisanLeads) {
         if (q.status && l.status !== q.status) continue;
         if (cutoff && new Date(l.createdAt).getTime() > cutoff) continue;
-        out.add(normalizePhone(l.requesterPhone));
+        add(l.requesterPhone, { name: l.requesterName });
       }
     } else {
       const rows = await prisma.artisanLead.findMany({
@@ -159,9 +184,9 @@ async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
           ...(q.status ? { status: q.status as any } : {}),
           ...(cutoff ? { createdAt: { lt: new Date(cutoff) } } : {}),
         },
-        select: { requesterPhone: true },
+        select: { requesterPhone: true, requesterName: true },
       });
-      for (const r of rows) out.add(normalizePhone(r.requesterPhone));
+      for (const r of rows) add(r.requesterPhone, { name: r.requesterName });
     }
   }
 
@@ -173,14 +198,20 @@ async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
       for (const t of MOCK_TENANCIES) {
         if (t.paymentStatus === 'TERMINATED') continue;
         const end = new Date(t.leaseEndDate).getTime();
-        if (end >= now && end <= horizon) out.add(normalizePhone(t.tenantPhone));
+        if (end >= now && end <= horizon) {
+          add(t.tenantPhone, { name: t.tenantName, propertyTitle: t.propertyTitle, leaseEnd: ymd(t.leaseEndDate) });
+        }
       }
     } else {
       const rows = await prisma.tenancy.findMany({
         where: { leaseEnd: { gte: new Date(now), lte: new Date(horizon) }, paymentStatus: { not: 'TERMINATED' as any } },
-        select: { tenant: { select: { phone: true } } },
+        select: { leaseEnd: true, tenant: { select: { phone: true, name: true } }, property: { select: { title: true } } },
       });
-      for (const r of rows) if (r.tenant?.phone) out.add(normalizePhone(r.tenant.phone));
+      for (const r of rows) {
+        if (r.tenant?.phone) {
+          add(r.tenant.phone, { name: r.tenant.name, propertyTitle: r.property?.title ?? '', leaseEnd: ymd(r.leaseEnd) });
+        }
+      }
     }
   }
 
@@ -190,18 +221,18 @@ async function resolveCandidates(q: AudienceQuery): Promise<string[]> {
       for (const l of mockLandlords.values()) {
         if (l.subscriptionStatus !== 'ACTIVE') continue;
         if (MOCK_PROPERTIES.some((p) => p.landlordId === l.id && p.isAdvertised)) continue;
-        out.add(normalizePhone(l.phone));
+        add(l.phone, { name: l.name });
       }
     } else {
       const rows = await prisma.landlord.findMany({
         where: { subscriptionStatus: 'ACTIVE' as any, properties: { none: { isAdvertised: true } } },
-        select: { phone: true },
+        select: { phone: true, name: true },
       });
-      for (const r of rows) out.add(normalizePhone(r.phone));
+      for (const r of rows) add(r.phone, { name: r.name });
     }
   }
 
-  return [...out];
+  return [...byPhone.values()];
 }
 
 async function recentlyMessaged(phones: string[]): Promise<Set<string>> {
@@ -219,15 +250,17 @@ async function recentlyMessaged(phones: string[]): Promise<Set<string>> {
   return new Set(rows.map((r) => r.toNumber));
 }
 
-// Consented, not recently campaigned, deduped.
-export async function resolveAudience(q: AudienceQuery): Promise<string[]> {
+// Consented, not recently campaigned, deduped — with each recipient's
+// template params resolved from `paramFields`.
+export async function resolveAudience(q: AudienceQuery): Promise<Recipient[]> {
   const candidates = await resolveCandidates(q);
-  const recent = await recentlyMessaged(candidates);
-  const eligible: string[] = [];
-  for (const phone of candidates) {
-    if (recent.has(phone)) continue;
-    if (!(await hasMarketingConsent(phone))) continue;
-    eligible.push(phone);
+  const recent = await recentlyMessaged(candidates.map((c) => c.phone));
+  const fields = q.paramFields ?? [];
+  const eligible: Recipient[] = [];
+  for (const c of candidates) {
+    if (recent.has(c.phone)) continue;
+    if (!(await hasMarketingConsent(c.phone))) continue;
+    eligible.push({ phone: c.phone, params: fields.map((f) => c.row[f] ?? '') });
   }
   return eligible;
 }
@@ -236,7 +269,9 @@ export async function resolveAudience(q: AudienceQuery): Promise<string[]> {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function previewCampaign(id: string): Promise<{ audienceSize: number; sample: string[] } | null> {
+export async function previewCampaign(
+  id: string,
+): Promise<{ audienceSize: number; sample: { phone: string; params: string[] }[] } | null> {
   const c = await getCampaign(id);
   if (!c) return null;
   const audience = await resolveAudience(c.audienceQuery);
@@ -256,8 +291,8 @@ export async function runCampaign(id: string): Promise<{ started: boolean; reaso
   void (async () => {
     let sent = 0;
     let failed = 0;
-    for (const phone of audience) {
-      const r = await sendWhatsAppTemplate(phone, c.templateName, c.templateLang);
+    for (const { phone, params } of audience) {
+      const r = await sendWhatsAppTemplate(phone, c.templateName, c.templateLang, params);
       if (r.sent) {
         sent++;
         if (!env.mockMode) {
@@ -267,7 +302,7 @@ export async function runCampaign(id: string): Promise<{ started: boolean; reaso
                 direction: 'OUTBOUND',
                 fromNumber: '',
                 toNumber: phone,
-                body: `[template:${c.templateName}]`,
+                body: `[template:${c.templateName}${params.length ? ' ' + params.join(' | ') : ''}]`,
                 waMessageId: r.id,
                 templateName: c.templateName,
                 brand: c.brand === 'UNKNOWN' ? null : c.brand,
