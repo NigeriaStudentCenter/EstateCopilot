@@ -506,11 +506,103 @@ model Booking {
 
 // Every inbound/outbound WhatsApp message, for audit + the commitment/reminder engine
 model WhatsAppMessage {
-  id          String   @id @default(cuid())
-  direction   String // INBOUND | OUTBOUND
-  fromNumber  String
-  toNumber    String
-  body        String
-  waMessageId String?
-  createdAt   DateTime @default(now())
+  id             String          @id @default(cuid())
+  direction      String // INBOUND | OUTBOUND
+  fromNumber     String
+  toNumber       String
+  body           String
+  waMessageId    String?
+  // Marketing-agent fields (null for the older tenant/guarantor-ops rows).
+  brand          WaBrand?
+  templateName   String? // set when this was a template send (campaigns)
+  conversationId String?
+  conversation   WaConversation? @relation(fields: [conversationId], references: [id])
+  createdAt      DateTime        @default(now())
+
+  @@index([conversationId])
+}
+
+// ---- Marketing WhatsApp agent (EstateCopilot + AI Academy) -------------
+//
+// One WhatsApp number fronts both brands. Every conversation is tagged with
+// a brand, carries a state (AI vs human owned), and links to a consented
+// contact. Campaigns send approved templates to a queried audience.
+
+enum WaBrand {
+  ESTATECOPILOT
+  AI_ACADEMY
+  UNKNOWN
+}
+
+enum WaConversationState {
+  AI_ACTIVE // the agent replies
+  HUMAN_ACTIVE // a person took over; the agent stays silent
+  AWAITING_OPT_IN // waiting on marketing consent before proceeding
+  CLOSED
+}
+
+enum WaCampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  DONE
+}
+
+model WaContact {
+  id            String           @id @default(cuid())
+  phone         String           @unique // E.164 without '+', e.g. 2348030001111
+  displayName   String?
+  linkedUserId  String? // FK to a Landlord/Tenant/Artisan when known — not enforced
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  consent       WaConsent?
+  conversations WaConversation[]
+}
+
+// Explicit, logged marketing opt-in per contact. Required before any
+// business-initiated (campaign) message. Opt-out sets optOutAt and suppresses
+// the contact from every audience.
+model WaConsent {
+  id             String    @id @default(cuid())
+  contactId      String    @unique
+  contact        WaContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  marketingOptIn Boolean   @default(false)
+  brand          WaBrand   @default(UNKNOWN)
+  source         String // "listing_form" | "artisan_form" | "click_to_chat" | "import" ...
+  optInText      String? // the exact wording the user agreed to
+  ip             String?
+  optInAt        DateTime?
+  optOutAt       DateTime?
+  updatedAt      DateTime  @updatedAt
+}
+
+model WaConversation {
+  id            String              @id @default(cuid())
+  contactId     String
+  contact       WaContact           @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  brand         WaBrand             @default(UNKNOWN)
+  state         WaConversationState @default(AI_ACTIVE)
+  assignedOps   String? // who took it over, when HUMAN_ACTIVE
+  summary       String? // rolling summary once the thread gets long
+  lastInboundAt DateTime? // drives the 24-hour customer-service window
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  messages      WhatsAppMessage[]
+
+  @@index([contactId, state])
+}
+
+model WaCampaign {
+  id            String           @id @default(cuid())
+  name          String
+  brand         WaBrand          @default(ESTATECOPILOT)
+  templateName  String
+  templateLang  String           @default("en")
+  audienceQuery Json // segment definition, compiled to a query at send time
+  scheduleAt    DateTime?
+  status        WaCampaignStatus @default(DRAFT)
+  stats         Json? // { sent, delivered, read, replied, converted }
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 }
