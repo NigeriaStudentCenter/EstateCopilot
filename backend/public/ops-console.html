@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WhatsApp ops console</title>
+<style>
+  :root { --line:#e3e3e0; --ink:#1f2420; --soft:#6b7280; --ec:#047857; --aia:#7c3aed; --bg:#f7f6f3; }
+  * { box-sizing: border-box; }
+  [hidden] { display:none !important; }
+  body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
+  header { display:flex; align-items:center; gap:12px; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; margin:0; font-weight:650; }
+  header .sp { flex:1; }
+  input, select, textarea, button { font:inherit; }
+  input[type=text], input[type=password], select, textarea {
+    border:1px solid var(--line); border-radius:8px; padding:7px 9px; background:#fff; color:inherit;
+  }
+  button { border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 12px; cursor:pointer; }
+  button.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+  button:disabled { opacity:.45; cursor:default; }
+  .wrap { display:grid; grid-template-columns:340px 1fr; height:calc(100vh - 49px); }
+  .list { border-right:1px solid var(--line); overflow-y:auto; background:#fff; }
+  .filters { display:flex; gap:8px; padding:10px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; }
+  .filters select { flex:1; }
+  .row { padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .row:hover { background:var(--bg); }
+  .row.active { background:#eef2ff; }
+  .row .top { display:flex; align-items:center; gap:6px; }
+  .row .phone { font-weight:600; }
+  .row .snip { color:var(--soft); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+  .badge { font-size:11px; padding:1px 6px; border-radius:999px; border:1px solid var(--line); color:var(--soft); }
+  .badge.ec { color:var(--ec); border-color:#a7f3d0; background:#ecfdf5; }
+  .badge.aia { color:var(--aia); border-color:#ddd6fe; background:#f5f3ff; }
+  .badge.human { color:#b45309; border-color:#fde68a; background:#fffbeb; }
+  .badge.ai { color:#1d4ed8; border-color:#bfdbfe; background:#eff6ff; }
+  .badge.closed { color:#6b7280; }
+  .pane { display:flex; flex-direction:column; overflow:hidden; }
+  .pane .phead { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--line); background:#fff; flex-wrap:wrap; }
+  .pane .phead .sp { flex:1; }
+  .thread { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:70%; padding:8px 11px; border-radius:12px; white-space:pre-wrap; word-break:break-word; }
+  .msg.in { align-self:flex-start; background:#fff; border:1px solid var(--line); }
+  .msg.out { align-self:flex-end; background:#d1fae5; }
+  .msg .meta { font-size:11px; color:var(--soft); margin-top:3px; }
+  .composer { display:flex; gap:8px; padding:12px 14px; border-top:1px solid var(--line); background:#fff; }
+  .composer textarea { flex:1; resize:none; height:38px; }
+  .empty { color:var(--soft); padding:40px; text-align:center; }
+  .keybar { padding:10px 16px; background:#fff8e1; border-bottom:1px solid #fde68a; display:flex; gap:8px; align-items:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>WhatsApp ops console</h1>
+  <span class="sp"></span>
+  <span id="status" style="color:var(--soft);font-size:12px"></span>
+</header>
+
+<div class="keybar" id="keybar" hidden>
+  <span>Admin key:</span>
+  <input type="password" id="keyInput" placeholder="ADMIN_API_KEY" style="width:260px" />
+  <button id="keySave" class="primary">Save</button>
+  <span style="color:var(--soft);font-size:12px">Stored in this browser tab only.</span>
+</div>
+
+<div class="wrap">
+  <div class="list">
+    <div class="filters">
+      <select id="fState">
+        <option value="">All states</option>
+        <option value="AI_ACTIVE">AI active</option>
+        <option value="HUMAN_ACTIVE">Human active</option>
+        <option value="AWAITING_OPT_IN">Awaiting opt-in</option>
+        <option value="CLOSED">Closed</option>
+      </select>
+      <select id="fBrand">
+        <option value="">All brands</option>
+        <option value="ESTATECOPILOT">EstateCopilot</option>
+        <option value="AI_ACADEMY">AI Academy</option>
+        <option value="UNKNOWN">Unknown</option>
+      </select>
+    </div>
+    <div id="rows"></div>
+  </div>
+
+  <div class="pane">
+    <div id="pane"><div class="empty">Select a conversation.</div></div>
+  </div>
+</div>
+
+<script>
+const KEY = 'wa_ops_admin_key';
+let adminKey = sessionStorage.getItem(KEY) || '';
+let selectedId = null;
+let listTimer = null, threadTimer = null;
+
+function h(k, v) { return v ? { [k]: v } : {}; }
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...h('x-admin-key', adminKey), ...(opts.headers || {}) },
+  });
+  if (res.status === 401 || res.status === 404 && path === '/api/whatsapp/ops/conversations') {
+    showKeybar(true);
+  }
+  if (!res.ok) throw new Error(await res.text());
+  return res.status === 204 ? null : res.json();
+}
+
+function showKeybar(show) { document.getElementById('keybar').hidden = !show; }
+document.getElementById('keySave').onclick = () => {
+  adminKey = document.getElementById('keyInput').value.trim();
+  sessionStorage.setItem(KEY, adminKey);
+  showKeybar(false);
+  refreshList();
+};
+
+const brandBadge = (b) => b === 'ESTATECOPILOT' ? '<span class="badge ec">EC</span>'
+  : b === 'AI_ACADEMY' ? '<span class="badge aia">AIA</span>' : '<span class="badge">?</span>';
+const stateBadge = (s) => s === 'HUMAN_ACTIVE' ? '<span class="badge human">human</span>'
+  : s === 'AI_ACTIVE' ? '<span class="badge ai">AI</span>'
+  : s === 'CLOSED' ? '<span class="badge closed">closed</span>'
+  : '<span class="badge">' + s.toLowerCase().replace('_', ' ') + '</span>';
+const esc = (t) => (t || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const time = (iso) => { try { return new Date(iso).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }); } catch { return ''; } };
+
+async function refreshList() {
+  const st = document.getElementById('fState').value;
+  const br = document.getElementById('fBrand').value;
+  let rows;
+  try {
+    rows = await api('/api/whatsapp/ops/conversations?' + new URLSearchParams({ ...h('state', st), ...h('brand', br) }));
+  } catch (e) { document.getElementById('status').textContent = 'list error'; return; }
+  document.getElementById('status').textContent = rows.length + ' conversations · ' + time(new Date().toISOString());
+  document.getElementById('rows').innerHTML = rows.map((c) => `
+    <div class="row ${c.id === selectedId ? 'active' : ''}" data-id="${c.id}">
+      <div class="top">
+        <span class="phone">+${esc(c.phone)}</span>
+        ${brandBadge(c.brand)} ${stateBadge(c.state)}
+        ${c.assignedOps ? '<span class="badge">' + esc(c.assignedOps) + '</span>' : ''}
+      </div>
+      <div class="snip">${c.lastMessage ? (c.lastMessage.direction === 'OUTBOUND' ? '↩ ' : '') + esc(c.lastMessage.body) : '—'}</div>
+    </div>`).join('') || '<div class="empty">No conversations.</div>';
+  document.querySelectorAll('.row').forEach((el) => el.onclick = () => selectConversation(el.dataset.id));
+}
+
+async function selectConversation(id) {
+  selectedId = id;
+  document.querySelectorAll('.row').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
+  await refreshThread();
+  clearInterval(threadTimer);
+  threadTimer = setInterval(refreshThread, 5000);
+}
+
+async function refreshThread() {
+  if (!selectedId) return;
+  let t;
+  try { t = await api('/api/whatsapp/ops/conversations/' + selectedId); }
+  catch { return; }
+  const canSend = t.state !== 'CLOSED';
+  document.getElementById('pane').innerHTML = `
+    <div class="phead">
+      <b>+${esc(t.phone)}</b> ${brandBadge(t.brand)} ${stateBadge(t.state)}
+      <span class="sp"></span>
+      ${t.state !== 'HUMAN_ACTIVE' ? '<button data-act="takeover">Take over</button>' : '<button data-act="release">Release to AI</button>'}
+      ${t.state !== 'CLOSED' ? '<button data-act="close">Close</button>' : ''}
+    </div>
+    <div class="thread" id="thread">
+      ${t.messages.map((m) => `
+        <div class="msg ${m.direction === 'INBOUND' ? 'in' : 'out'}">
+          ${esc(m.body)}
+          <div class="meta">${m.templateName ? 'template · ' : ''}${time(m.at)}</div>
+        </div>`).join('') || '<div class="empty">No messages yet.</div>'}
+    </div>
+    <div class="composer">
+      <textarea id="composerText" placeholder="${canSend ? 'Reply as a human (sending takes the conversation over)…' : 'Conversation is closed'}" ${canSend ? '' : 'disabled'}></textarea>
+      <button class="primary" id="sendBtn" ${canSend ? '' : 'disabled'}>Send</button>
+    </div>`;
+  const thread = document.getElementById('thread');
+  thread.scrollTop = thread.scrollHeight;
+  document.querySelectorAll('[data-act]').forEach((b) => b.onclick = () => doAction(b.dataset.act));
+  const sendBtn = document.getElementById('sendBtn');
+  if (sendBtn) sendBtn.onclick = sendReply;
+}
+
+async function doAction(act) {
+  const body = act === 'takeover' ? JSON.stringify({ opsName: (prompt('Your name?', 'ops') || 'ops') }) : '{}';
+  await api('/api/whatsapp/ops/conversations/' + selectedId + '/' + act, { method: 'POST', body });
+  await refreshThread(); await refreshList();
+}
+
+async function sendReply() {
+  const el = document.getElementById('composerText');
+  const body = el.value.trim();
+  if (!body) return;
+  document.getElementById('sendBtn').disabled = true;
+  try {
+    await api('/api/whatsapp/ops/conversations/' + selectedId + '/reply', { method: 'POST', body: JSON.stringify({ body }) });
+    el.value = '';
+  } catch (e) { alert('Send failed: ' + e.message); }
+  await refreshThread(); await refreshList();
+}
+
+document.getElementById('fState').onchange = refreshList;
+document.getElementById('fBrand').onchange = refreshList;
+document.getElementById('keyInput').value = adminKey;
+
+refreshList();
+listTimer = setInterval(refreshList, 5000);
+</script>
+</body>
+</html>

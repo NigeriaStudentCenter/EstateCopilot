@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
+import path from 'node:path';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
@@ -15,6 +16,16 @@ import {
   previewCampaign,
   runCampaign,
 } from '../services/whatsapp/campaigns.js';
+import {
+  listConversations,
+  getThread,
+  takeoverConversation,
+  releaseConversation,
+  closeConversation,
+  replyAsHuman,
+  type WaConversationState,
+} from '../services/whatsapp/conversationStore.js';
+import type { WaBrand } from '../services/whatsapp/brands.js';
 
 export const whatsappRouter = Router();
 
@@ -215,6 +226,56 @@ whatsappRouter.post('/api/whatsapp/campaigns/:id/send', requireAdmin, async (req
   const result = await runCampaign(req.params.id);
   if (!result.started) return res.status(409).json(result);
   res.status(202).json(result);
+});
+
+// --- Ops console ----------------------------------------------------
+// Human-takeover UI for live conversations. The static page is at
+// GET /ops/whatsapp; it drives the JSON endpoints below (admin-key guarded
+// in real mode, open in MOCK_MODE).
+whatsappRouter.get('/ops/whatsapp', (_req, res) => {
+  // This single-file page uses inline <script>/<style>; relax helmet's
+  // default CSP for just this response.
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+  );
+  res.sendFile(path.join(process.cwd(), 'public', 'ops-console.html'));
+});
+
+const CONV_STATES = ['AI_ACTIVE', 'HUMAN_ACTIVE', 'AWAITING_OPT_IN', 'CLOSED'] as const;
+const CONV_BRANDS = ['ESTATECOPILOT', 'AI_ACADEMY', 'UNKNOWN'] as const;
+
+whatsappRouter.get('/api/whatsapp/ops/conversations', requireAdmin, async (req, res) => {
+  const state = CONV_STATES.includes(req.query.state as any) ? (req.query.state as WaConversationState) : undefined;
+  const brand = CONV_BRANDS.includes(req.query.brand as any) ? (req.query.brand as WaBrand) : undefined;
+  res.json(await listConversations({ state, brand, limit: 200 }));
+});
+
+whatsappRouter.get('/api/whatsapp/ops/conversations/:id', requireAdmin, async (req, res) => {
+  const t = await getThread(req.params.id);
+  return t ? res.json(t) : res.sendStatus(404);
+});
+
+whatsappRouter.post('/api/whatsapp/ops/conversations/:id/takeover', requireAdmin, async (req, res) => {
+  const ok = await takeoverConversation(req.params.id, String(req.body?.opsName ?? 'ops'));
+  return ok ? res.json({ ok: true }) : res.sendStatus(404);
+});
+
+whatsappRouter.post('/api/whatsapp/ops/conversations/:id/release', requireAdmin, async (req, res) => {
+  const ok = await releaseConversation(req.params.id);
+  return ok ? res.json({ ok: true }) : res.sendStatus(404);
+});
+
+whatsappRouter.post('/api/whatsapp/ops/conversations/:id/close', requireAdmin, async (req, res) => {
+  const ok = await closeConversation(req.params.id);
+  return ok ? res.json({ ok: true }) : res.sendStatus(404);
+});
+
+whatsappRouter.post('/api/whatsapp/ops/conversations/:id/reply', requireAdmin, async (req, res) => {
+  const body = String(req.body?.body ?? '').trim();
+  if (!body) return res.status(400).json({ error: 'body is required' });
+  const r = await replyAsHuman(req.params.id, body);
+  return r.ok ? res.json(r) : res.status(404).json(r);
 });
 
 // MOCK_MODE only — drive the marketing agent with a fake inbound message and

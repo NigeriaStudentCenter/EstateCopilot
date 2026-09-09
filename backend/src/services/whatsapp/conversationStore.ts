@@ -9,6 +9,7 @@
 
 import { env } from '../../config/env.js';
 import { prisma } from '../../lib/prisma.js';
+import { sendWhatsAppMessage } from '../whatsapp.js';
 import type { WaBrand } from './brands.js';
 
 export type WaConversationState = 'AI_ACTIVE' | 'HUMAN_ACTIVE' | 'AWAITING_OPT_IN' | 'CLOSED';
@@ -27,8 +28,17 @@ export interface TurnMessage {
 
 // ---- mock store --------------------------------------------------------
 
+interface MockMessage {
+  direction: 'INBOUND' | 'OUTBOUND';
+  body: string;
+  at: string;
+  templateName?: string | null;
+}
 interface MockConversation extends Conversation {
   history: TurnMessage[];
+  messages: MockMessage[]; // richer log for the ops console
+  assignedOps?: string | null;
+  updatedAt: string;
 }
 
 const mockConversations = new Map<string, MockConversation>(); // phone -> convo
@@ -36,10 +46,24 @@ const mockConversations = new Map<string, MockConversation>(); // phone -> convo
 function mockLoad(phone: string): MockConversation {
   let c = mockConversations.get(phone);
   if (!c) {
-    c = { id: `wac_mock_${Date.now()}`, phone, brand: 'UNKNOWN', state: 'AI_ACTIVE', history: [] };
+    c = {
+      id: `wac_mock_${phone}`,
+      phone,
+      brand: 'UNKNOWN',
+      state: 'AI_ACTIVE',
+      history: [],
+      messages: [],
+      assignedOps: null,
+      updatedAt: new Date().toISOString(),
+    };
     mockConversations.set(phone, c);
   }
   return c;
+}
+
+function mockById(id: string): MockConversation | undefined {
+  for (const c of mockConversations.values()) if (c.id === id) return c;
+  return undefined;
 }
 
 // ---- public API ------------------------------------------------------
@@ -115,7 +139,10 @@ export async function recordInbound(
   msg: { body: string; from: string; to: string; waMessageId?: string },
 ): Promise<void> {
   if (env.mockMode) {
-    mockLoad(convo.phone).history.push({ role: 'user', content: msg.body });
+    const c = mockLoad(convo.phone);
+    c.history.push({ role: 'user', content: msg.body });
+    c.messages.push({ direction: 'INBOUND', body: msg.body, at: new Date().toISOString() });
+    c.updatedAt = new Date().toISOString();
     return;
   }
   await prisma.whatsAppMessage.create({
@@ -139,7 +166,10 @@ export async function recordOutbound(
   msg: { body: string; from: string; to: string; waMessageId?: string },
 ): Promise<void> {
   if (env.mockMode) {
-    mockLoad(convo.phone).history.push({ role: 'assistant', content: msg.body });
+    const c = mockLoad(convo.phone);
+    c.history.push({ role: 'assistant', content: msg.body });
+    c.messages.push({ direction: 'OUTBOUND', body: msg.body, at: new Date().toISOString() });
+    c.updatedAt = new Date().toISOString();
     return;
   }
   await prisma.whatsAppMessage.create({
@@ -153,4 +183,180 @@ export async function recordOutbound(
       conversationId: convo.id,
     },
   });
+}
+
+// ---- ops console ----------------------------------------------------
+//
+// Read/act on conversations by id (not phone) for the human-takeover UI.
+
+export interface ConversationSummary {
+  id: string;
+  phone: string;
+  displayName: string | null;
+  brand: WaBrand;
+  state: WaConversationState;
+  assignedOps: string | null;
+  messageCount: number;
+  lastMessage: { direction: string; body: string; at: string } | null;
+  updatedAt: string;
+}
+
+export interface ConversationThread extends ConversationSummary {
+  messages: { direction: string; body: string; at: string; templateName?: string | null }[];
+}
+
+export async function listConversations(filter: {
+  state?: WaConversationState;
+  brand?: WaBrand;
+  limit?: number;
+} = {}): Promise<ConversationSummary[]> {
+  const limit = filter.limit ?? 100;
+
+  if (env.mockMode) {
+    return [...mockConversations.values()]
+      .filter((c) => (!filter.state || c.state === filter.state) && (!filter.brand || c.brand === filter.brand))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, limit)
+      .map((c) => ({
+        id: c.id,
+        phone: c.phone,
+        displayName: null,
+        brand: c.brand,
+        state: c.state,
+        assignedOps: c.assignedOps ?? null,
+        messageCount: c.messages.length,
+        lastMessage: c.messages.length
+          ? { direction: c.messages[c.messages.length - 1].direction, body: c.messages[c.messages.length - 1].body, at: c.messages[c.messages.length - 1].at }
+          : null,
+        updatedAt: c.updatedAt,
+      }));
+  }
+
+  const rows = await prisma.waConversation.findMany({
+    where: { ...(filter.state ? { state: filter.state } : {}), ...(filter.brand ? { brand: filter.brand } : {}) },
+    orderBy: { updatedAt: 'desc' },
+    take: limit,
+    include: {
+      contact: true,
+      messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+      _count: { select: { messages: true } },
+    },
+  });
+  return rows.map((c) => ({
+    id: c.id,
+    phone: c.contact.phone,
+    displayName: c.contact.displayName ?? null,
+    brand: c.brand as WaBrand,
+    state: c.state as WaConversationState,
+    assignedOps: c.assignedOps ?? null,
+    messageCount: c._count.messages,
+    lastMessage: c.messages[0]
+      ? { direction: c.messages[0].direction, body: c.messages[0].body, at: c.messages[0].createdAt.toISOString() }
+      : null,
+    updatedAt: c.updatedAt.toISOString(),
+  }));
+}
+
+export async function getThread(id: string): Promise<ConversationThread | null> {
+  if (env.mockMode) {
+    const c = mockById(id);
+    if (!c) return null;
+    return {
+      id: c.id,
+      phone: c.phone,
+      displayName: null,
+      brand: c.brand,
+      state: c.state,
+      assignedOps: c.assignedOps ?? null,
+      messageCount: c.messages.length,
+      lastMessage: c.messages.length
+        ? { direction: c.messages[c.messages.length - 1].direction, body: c.messages[c.messages.length - 1].body, at: c.messages[c.messages.length - 1].at }
+        : null,
+      updatedAt: c.updatedAt,
+      messages: c.messages.map((m) => ({ direction: m.direction, body: m.body, at: m.at, templateName: m.templateName ?? null })),
+    };
+  }
+
+  const c = await prisma.waConversation.findUnique({
+    where: { id },
+    include: { contact: true, messages: { orderBy: { createdAt: 'asc' } } },
+  });
+  if (!c) return null;
+  return {
+    id: c.id,
+    phone: c.contact.phone,
+    displayName: c.contact.displayName ?? null,
+    brand: c.brand as WaBrand,
+    state: c.state as WaConversationState,
+    assignedOps: c.assignedOps ?? null,
+    messageCount: c.messages.length,
+    lastMessage: c.messages.length
+      ? {
+          direction: c.messages[c.messages.length - 1].direction,
+          body: c.messages[c.messages.length - 1].body,
+          at: c.messages[c.messages.length - 1].createdAt.toISOString(),
+        }
+      : null,
+    updatedAt: c.updatedAt.toISOString(),
+    messages: c.messages.map((m) => ({
+      direction: m.direction,
+      body: m.body,
+      at: m.createdAt.toISOString(),
+      templateName: m.templateName ?? null,
+    })),
+  };
+}
+
+async function setStateById(id: string, state: WaConversationState, opsName?: string | null): Promise<boolean> {
+  if (env.mockMode) {
+    const c = mockById(id);
+    if (!c) return false;
+    c.state = state;
+    if (opsName !== undefined) c.assignedOps = opsName;
+    c.updatedAt = new Date().toISOString();
+    return true;
+  }
+  const r = await prisma.waConversation
+    .update({
+      where: { id },
+      data: { state, ...(opsName !== undefined ? { assignedOps: opsName } : {}) },
+    })
+    .then(() => true)
+    .catch(() => false);
+  return r;
+}
+
+export const takeoverConversation = (id: string, opsName: string) => setStateById(id, 'HUMAN_ACTIVE', opsName || 'ops');
+export const releaseConversation = (id: string) => setStateById(id, 'AI_ACTIVE', null);
+export const closeConversation = (id: string) => setStateById(id, 'CLOSED');
+
+// Human sends a message from the ops console. Implies takeover — the agent
+// must not also be replying to this thread.
+export async function replyAsHuman(id: string, body: string): Promise<{ ok: boolean; sent?: boolean; error?: string }> {
+  const thread = await getThread(id);
+  if (!thread) return { ok: false, error: 'conversation not found' };
+
+  await setStateById(id, 'HUMAN_ACTIVE');
+
+  const sent = await sendWhatsAppMessage(thread.phone, body);
+
+  if (env.mockMode) {
+    const c = mockById(id)!;
+    c.history.push({ role: 'assistant', content: body });
+    c.messages.push({ direction: 'OUTBOUND', body, at: new Date().toISOString() });
+    c.updatedAt = new Date().toISOString();
+  } else {
+    await prisma.whatsAppMessage.create({
+      data: {
+        direction: 'OUTBOUND',
+        fromNumber: '',
+        toNumber: thread.phone,
+        body,
+        waMessageId: sent.id,
+        brand: thread.brand === 'UNKNOWN' ? null : thread.brand,
+        conversationId: id,
+      },
+    });
+  }
+  return { ok: true, sent: sent.sent };
 }

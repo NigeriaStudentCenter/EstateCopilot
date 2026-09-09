@@ -39,6 +39,12 @@ anything financial, legal, or contractual.
   (`components/WhatsAppOptIn.tsx`) on the artisan quote modal, the property
   book-viewing form, and landlord signup; posts to `/api/whatsapp/consent`
   on submit when ticked.
+- **Ops console** — `GET /ops/whatsapp` serves a single-file page
+  (`backend/public/ops-console.html`) backed by
+  `/api/whatsapp/ops/conversations[...]`: list/filter live conversations,
+  open a thread, take over (agent goes silent), reply as a human, release
+  to AI, close. Admin-key guarded in real mode. Conversation read/act
+  helpers live in `conversationStore.ts`.
 - `backend/src/services/whatsapp/campaigns.ts` + `sendWhatsAppTemplate()` —
   outbound campaign engine. Audience segments (`phones`, `consented` by
   brand, `artisan_leads` with age/status filters); every send gated on
@@ -59,7 +65,6 @@ anything financial, legal, or contractual.
 - More audience segments (leases expiring, landlords with no listing).
 - Template library + Meta submission.
 - `wa_optin_confirmation` template send right after the checkbox opt-in.
-- Ops console (human takeover UI).
 - Splitting ops vs marketing on the one number (per keyword / per campaign).
 - Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` covers three
   programmes (teens 10–17 parent/guardian-only, university students, working
