@@ -44,8 +44,8 @@ anything financial, legal, or contractual.
 - Splitting ops vs marketing on the one number (per keyword / per campaign).
 - Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` covers three
   programmes (teens 10–17 parent/guardian-only, university students, working
-  professionals), all online; teens fees ₦20,000/mo NG · £10/mo UK. Still to
-  confirm: university & professional track names + fees, class days/times,
+  professionals), all online, same fee for all: ₦20,000/mo NG · £10/mo UK.
+  Still to confirm: university & professional track names, class days/times,
   term dates, safeguarding policy link.
 
 ## Try it

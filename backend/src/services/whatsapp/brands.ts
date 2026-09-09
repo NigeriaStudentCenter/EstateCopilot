@@ -53,14 +53,13 @@ const AI_ACADEMY: BrandProfile = {
     'For the UNIVERSITY-STUDENT and WORKING-PROFESSIONAL programmes you speak directly with the prospective student. ' +
     'Never quote a price, schedule, term date, or admission decision that is not in the facts below — if it is not there, capture the enquiry and let a human follow up.',
   // TODO(content): still to confirm — the exact names of the university and
-  // professional tracks, their fees, class schedule / days / times, term
-  // dates, safeguarding policy link, what a subscription includes.
+  // professional tracks, class schedule / days / times, term dates,
+  // safeguarding policy link, what a subscription includes.
   faq: [
     'AI Academy teaches people to build with AI and modern software tools, through structured online classes on a monthly plan.',
     'There are separate programmes for: teenagers aged 10 to 17; university students; and working / business professionals.',
     'All classes are held online.',
-    'Teens programme (ages 10-17) fees: ₦20,000 per month for families in Nigeria, or £10 per month for families in the UK.',
-    'Fees for the university-student and working-professional programmes are confirmed by the team after an enquiry — do not state a figure unless it appears here.',
+    'Fees are the same for every programme: a monthly subscription of ₦20,000 for Nigeria, or £10 for the UK.',
     'The teens programme communicates only with a parent or guardian; the university and professional programmes deal directly with the student.',
     'Enrolment starts with a short onboarding form; the team then confirms a place and the schedule.',
     'Exact class days/times and term dates are confirmed by the team after an enquiry — do not state them unless they appear here.',
