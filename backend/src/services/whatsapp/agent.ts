@@ -23,7 +23,7 @@ import {
   setState,
   type Conversation,
 } from './conversationStore.js';
-import { toolsForBrand, runTool, type ToolContext } from './tools.js';
+import { toolsForBrand, runTool, type ToolContext, type MediaAttachment } from './tools.js';
 import { isOptOut, recordOptOut } from './consent.js';
 
 const MAX_STEPS = 4; // model <-> tool round trips before we send whatever we have
@@ -37,6 +37,8 @@ export interface AgentResult {
   /** false => the conversation is human-owned; the agent stayed silent. */
   handled: boolean;
   reply?: string;
+  /** Images/videos to send after the text (e.g. onboarding step pictures). */
+  attachments: MediaAttachment[];
   brand: WaBrand;
   escalated: boolean;
 }
@@ -126,7 +128,7 @@ export async function runMarketingAgent(params: {
   displayNumber?: string;
   waMessageId?: string;
   /** Real delivery. Omit in mock mode / simulation — the reply is just returned. */
-  deliver?: (reply: string) => Promise<{ sent?: boolean; id?: string }>;
+  deliver?: (reply: string, attachments: MediaAttachment[]) => Promise<{ sent?: boolean; id?: string }>;
 }): Promise<AgentResult> {
   const convo: Conversation = await loadConversation(params.from);
   const rawText = (params.text ?? '').trim();
@@ -144,9 +146,9 @@ export async function runMarketingAgent(params: {
     await setState(convo, 'CLOSED');
     const reply =
       "You've been unsubscribed — you won't get marketing messages from us. You can still message this number any time if you need help.";
-    if (params.deliver) await params.deliver(reply).catch(() => {});
+    if (params.deliver) await params.deliver(reply, []).catch(() => {});
     await recordOutbound(convo, { body: reply, from: params.displayNumber ?? '', to: params.from });
-    return { handled: true, reply, brand: convo.brand, escalated: false };
+    return { handled: true, reply, attachments: [], brand: convo.brand, escalated: false };
   }
 
   // A human has taken this conversation over — record the inbound so they see
@@ -158,7 +160,7 @@ export async function runMarketingAgent(params: {
       to: params.displayNumber ?? '',
       waMessageId: params.waMessageId,
     });
-    return { handled: false, brand: convo.brand, escalated: false };
+    return { handled: false, attachments: [], brand: convo.brand, escalated: false };
   }
 
   const brand: WaBrand =
@@ -173,11 +175,12 @@ export async function runMarketingAgent(params: {
   });
 
   let reply = '';
+  let attachments: MediaAttachment[] = [];
 
   if (!env.ai.anthropicApiKey) {
     reply = fallbackReply(brand);
   } else {
-    const ctx: ToolContext = { from: params.from, convo };
+    const ctx: ToolContext = { from: params.from, convo, media: [] };
     const system = buildSystemPrompt(brand);
     const tools = toolsForBrand(brand);
     const model = pickModel(text, brand);
@@ -222,13 +225,14 @@ export async function runMarketingAgent(params: {
         `No reply produced for ${params.from}. Last message:\n"${rawText.slice(0, 500)}"`,
       );
     }
+    attachments = ctx.media;
   }
 
   await setBrand(convo, brand);
 
   let sentId: string | undefined;
   if (params.deliver) {
-    const sent = await params.deliver(reply).catch(() => ({ id: undefined }));
+    const sent = await params.deliver(reply, attachments).catch(() => ({ id: undefined }));
     sentId = sent?.id;
   }
   await recordOutbound(convo, {
@@ -237,10 +241,18 @@ export async function runMarketingAgent(params: {
     to: params.from,
     waMessageId: sentId,
   });
+  for (const a of attachments) {
+    await recordOutbound(convo, {
+      body: `[${a.kind}] ${a.caption ?? a.link}`,
+      from: params.displayNumber ?? '',
+      to: params.from,
+    });
+  }
 
   return {
     handled: true,
     reply,
+    attachments,
     brand,
     // escalate_to_human mutates convo.state at runtime; the cast defeats the
     // control-flow narrowing from the HUMAN_ACTIVE guard above.

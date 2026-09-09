@@ -83,3 +83,41 @@ export async function sendWhatsAppTemplate(
   const data = (await response.json()) as { messages?: { id: string }[] };
   return { sent: true, id: data.messages?.[0]?.id };
 }
+
+// Sends an image or video by public URL (with an optional caption). Used by
+// the agent to attach the illustration for an onboarding step.
+export async function sendWhatsAppMedia(
+  to: string,
+  kind: 'image' | 'video',
+  link: string,
+  caption?: string,
+): Promise<{ sent: boolean; id?: string }> {
+  if (env.mockMode || !env.whatsapp.metaToken || !env.whatsapp.metaPhoneNumberId) {
+    console.log(`[whatsapp:mock:${kind}] -> ${to}: ${link}${caption ? ` (${caption})` : ''}`);
+    return { sent: true, id: `mock_${kind}_${Date.now()}` };
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/${env.whatsapp.graphVersion}/${env.whatsapp.metaPhoneNumberId}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${env.whatsapp.metaToken}`,
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: kind,
+        [kind]: { link, ...(caption ? { caption } : {}) },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    console.error(`[whatsapp:${kind}] send failed (${response.status}) -> ${to}: ${await response.text().catch(() => '')}`);
+    return { sent: false };
+  }
+  const data = (await response.json()) as { messages?: { id: string }[] };
+  return { sent: true, id: data.messages?.[0]?.id };
+}

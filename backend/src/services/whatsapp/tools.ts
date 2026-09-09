@@ -20,10 +20,25 @@ import { TRADES, isTradeId, tradeLabel, type TradeId } from '../../lib/trades.js
 import type { WaBrand } from './brands.js';
 import { brandProfile } from './brands.js';
 import { setState, type Conversation } from './conversationStore.js';
+import {
+  LANDLORD_ONBOARDING,
+  onboardingOverview,
+  imageUrl,
+  videoUrl,
+  landlordGuideUrl,
+} from './onboarding.js';
+
+export interface MediaAttachment {
+  kind: 'image' | 'video';
+  link: string;
+  caption?: string;
+}
 
 export interface ToolContext {
   from: string; // the customer's WhatsApp number, E.164 without '+'
   convo: Conversation;
+  /** Tools push here to have media sent alongside the agent's text reply. */
+  media: MediaAttachment[];
 }
 
 // Anthropic tool schema. Kept deliberately small — WhatsApp answers are short
@@ -324,6 +339,40 @@ async function requestArtisanQuote(
   return `Quote request sent to ${a.name}. Tell the user ${a.name} will contact them on this number.`;
 }
 
+// Walks a landlord through onboarding one step at a time. Omitting `step`
+// returns the overview; a step number returns that step and queues its
+// illustration (and, for the intro, the walkthrough video) to be sent.
+async function getLandlordOnboarding(input: { step?: number }, ctx: ToolContext): Promise<string> {
+  const steps = LANDLORD_ONBOARDING;
+
+  if (!input.step) {
+    ctx.media.push({
+      kind: 'video',
+      link: videoUrl('walkthrough.mp4'),
+      caption: 'EstateCopilot for landlords — quick walkthrough',
+    });
+    return (
+      `${onboardingOverview()}\n\n` +
+      `Tell the user you can walk them through it here, one step at a time — they say "next" or give a step number. ` +
+      `Full illustrated guide: ${landlordGuideUrl()}`
+    );
+  }
+
+  const s = steps.find((x) => x.n === input.step);
+  if (!s) return `There are ${steps.length} onboarding steps (1–${steps.length}). Ask the user which one.`;
+
+  if (s.image) ctx.media.push({ kind: 'image', link: imageUrl(s.image), caption: `Step ${s.n}: ${s.title}` });
+  if (s.video) ctx.media.push({ kind: 'video', link: videoUrl(s.video) });
+
+  const next = steps.find((x) => x.n === s.n + 1);
+  return (
+    `Give the user step ${s.n} of ${steps.length} — "${s.title}":\n${s.body}\n\n` +
+    (next
+      ? `Then offer step ${next.n} ("${next.title}") — they can say "next".`
+      : `That is the final step. Point them to the full guide: ${landlordGuideUrl()}`)
+  );
+}
+
 async function captureLead(
   input: { intent: string; name?: string; details: string },
   ctx: ToolContext,
@@ -453,6 +502,18 @@ const ARTISAN_TOOLS: ToolDef[] = [
   },
 ];
 
+const ONBOARDING_TOOL: ToolDef = {
+  name: 'get_landlord_onboarding',
+  description:
+    'Walk a prospective or new landlord through signing up and using EstateCopilot, one step at a time. Omit `step` for the overview + walkthrough video; pass a step number for that step (its illustration is sent automatically).',
+  input_schema: {
+    type: 'object',
+    properties: {
+      step: { type: 'number', description: '1-based step number; omit for the overview' },
+    },
+  },
+};
+
 const CAPTURE_LEAD_TOOL: ToolDef = {
   name: 'capture_lead',
   description: 'Record a lead for the team when no other tool fits (e.g. a landlord wanting to list, a request with no match).',
@@ -505,7 +566,7 @@ const ESCALATE_TOOL: ToolDef = {
 
 export function toolsForBrand(brand: WaBrand): ToolDef[] {
   if (brand === 'ESTATECOPILOT') {
-    return [...LISTING_TOOLS, ...ARTISAN_TOOLS, CAPTURE_LEAD_TOOL, ESCALATE_TOOL];
+    return [...LISTING_TOOLS, ...ARTISAN_TOOLS, ONBOARDING_TOOL, CAPTURE_LEAD_TOOL, ESCALATE_TOOL];
   }
   if (brand === 'AI_ACADEMY') {
     return [...ACADEMY_TOOLS, ESCALATE_TOOL];
@@ -533,6 +594,8 @@ export async function runTool(
         return await searchArtisans(input as any);
       case 'request_artisan_quote':
         return await requestArtisanQuote(input as any, ctx);
+      case 'get_landlord_onboarding':
+        return await getLandlordOnboarding(input as any, ctx);
       case 'capture_lead':
         return await captureLead(input as any, ctx, brand);
       case 'get_academy_info':

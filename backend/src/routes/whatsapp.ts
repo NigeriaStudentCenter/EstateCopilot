@@ -5,7 +5,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
-import { sendWhatsAppMessage } from '../services/whatsapp.js';
+import { sendWhatsAppMessage, sendWhatsAppMedia } from '../services/whatsapp.js';
 import { classifyInbound } from '../services/whatsappIntent.js';
 import { runMarketingAgent } from '../services/whatsapp/agent.js';
 import { recordConsent, recordOptOut } from '../services/whatsapp/consent.js';
@@ -93,7 +93,15 @@ whatsappRouter.post('/webhooks/whatsapp', async (req, res) => {
         text: body,
         displayNumber,
         waMessageId,
-        deliver: env.mockMode ? undefined : (reply) => sendWhatsAppMessage(from, reply),
+        deliver: env.mockMode
+          ? undefined
+          : async (reply, attachments) => {
+              const sent = await sendWhatsAppMessage(from, reply);
+              for (const a of attachments) {
+                await sendWhatsAppMedia(from, a.kind, a.link, a.caption);
+              }
+              return sent;
+            },
       });
       return;
     }

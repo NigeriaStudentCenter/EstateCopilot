@@ -18,10 +18,18 @@ anything financial, legal, or contractual.
   (`WaContact`/`WaConversation`/`WhatsAppMessage`) otherwise.
 - `backend/src/services/whatsapp/tools.ts` — agent tools:
   - EstateCopilot: `search_listings`, `get_listing_details`, `book_viewing`,
-    `search_artisans`, `request_artisan_quote`, `capture_lead`
+    `search_artisans`, `request_artisan_quote`, `get_landlord_onboarding`,
+    `capture_lead`
   - AI Academy: `get_academy_info`, `capture_academy_lead`
   - shared: `escalate_to_human` (sets conversation `HUMAN_ACTIVE`, agent
     then stays silent)
+- `backend/src/services/whatsapp/onboarding.ts` — landlord onboarding as 11
+  small steps (short copy + an illustration each; intro also has the
+  walkthrough video). Images/video are the marketing site's guide assets
+  (`/guides/images/landlord-NN-*.webp`, `/videos/walkthrough.mp4`), base URL
+  `WA_ONBOARDING_MEDIA_BASE`. The agent serves one step at a time via
+  `get_landlord_onboarding({ step? })`; the step's picture is pushed to
+  `ctx.media` and sent after the text (`sendWhatsAppMedia`).
 - `backend/src/services/whatsapp/agent.ts` — the Claude tool-use loop.
   Haiku by default; escalates the model for unknown brand / long messages /
   complaints / legal topics. Never throws — degrades to an acknowledgement
