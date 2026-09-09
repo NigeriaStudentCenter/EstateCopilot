@@ -9,6 +9,7 @@ import { mockTickets } from '../lib/mockMaintenance.js';
 import { resolveCategory } from '../lib/repairChecklist.js';
 import { draftReply, type DraftReplyParams } from '../services/aiReply.js';
 import { mockAgreements } from '../lib/mockAgreements.js';
+import { toTenancyDto, toInstallmentDto } from '../lib/dto.js';
 
 export const tenantPortalRouter = Router();
 // Scoped to /tenant/* only — an unscoped `.use(requireTenantAuth)` here would
@@ -25,13 +26,23 @@ tenantPortalRouter.get('/tenant/me', async (req: AuthedRequest, res) => {
   if (env.mockMode) {
     const tenancy = MOCK_TENANCIES.find((t) => t.id === tenancyId);
     if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
-    return res.json({ ...tenancy, name, email });
+    return res.json({ ...toTenancyDto(tenancy), name, email });
   }
   const tenancy = await prisma.tenancy.findUnique({
     where: { id: tenancyId },
     include: { tenant: true, property: true },
   });
-  res.json(tenancy);
+  if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
+
+  const levyArrears = await prisma.levy.count({
+    where: { propertyId: tenancy.propertyId, status: 'ARREARS' },
+  });
+  res.json({
+    ...toTenancyDto(tenancy, { lgLevyStatus: levyArrears > 0 ? 'ARREARS' : 'CLEARED' }),
+    // The tenant portal also shows the signed-in tenant's own name/email.
+    name: tenancy.tenant.name,
+    email: tenancy.tenant.email ?? email ?? '',
+  });
 });
 
 tenantPortalRouter.get('/tenant/agreement', async (req: AuthedRequest, res) => {
@@ -99,7 +110,7 @@ async function logInboundAndDraft(params: {
     entry = logMockCorrespondence(tenancyId, { channel, direction: 'INBOUND', author: name, body });
   } else {
     const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId }, include: { property: true } });
-    propertyTitle = tenancy?.property.title ?? '';
+    propertyTitle = tenancy?.property?.title ?? '';
     entry = await prisma.correspondence.create({
       data: { tenancyId, channel, direction: 'INBOUND', author: name, body },
     });
@@ -135,11 +146,14 @@ tenantPortalRouter.get('/tenant/payment-plan', async (req: AuthedRequest, res) =
   const { tenancyId } = req.tenant!;
   if (env.mockMode) {
     const existing = mockPaymentPlans.get(tenancyId);
-    return res.json(existing ?? { plan: 'FULL', installments: [] });
+    return res.json({
+      plan: existing?.plan ?? 'FULL',
+      installments: (existing?.installments ?? []).map(toInstallmentDto),
+    });
   }
   const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId } });
-  const installments = await prisma.rentInstallment.findMany({ where: { tenancyId }, orderBy: { sequence: 'asc' } });
-  res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments });
+  const rows = await prisma.rentInstallment.findMany({ where: { tenancyId }, orderBy: { sequence: 'asc' } });
+  res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments: rows.map(toInstallmentDto) });
 });
 
 tenantPortalRouter.get('/tenant/maintenance', async (req: AuthedRequest, res) => {
