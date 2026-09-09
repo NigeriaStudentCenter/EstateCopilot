@@ -31,7 +31,29 @@ tenantPortalRouter.get('/tenant/me', async (req: AuthedRequest, res) => {
     where: { id: tenancyId },
     include: { tenant: true, property: true },
   });
-  res.json(tenancy);
+  if (!tenancy) return res.status(404).json({ error: 'Tenancy not found' });
+
+  // The portal renders a flat shape (mirrors MockTenancy). Map the Prisma
+  // row + relations onto it — a raw findUnique result has `tenant.name`,
+  // `property.title` and `leaseEnd`, which the frontend does not expect.
+  const levyArrears = await prisma.levy.count({
+    where: { propertyId: tenancy.propertyId, status: 'ARREARS' },
+  });
+  res.json({
+    id: tenancy.id,
+    propertyId: tenancy.propertyId,
+    propertyTitle: tenancy.property.title,
+    tenantName: tenancy.tenant.name,
+    name: tenancy.tenant.name,
+    email: tenancy.tenant.email ?? email ?? '',
+    leaseEndDate: tenancy.leaseEnd.toISOString(),
+    paymentStatus: tenancy.paymentStatus,
+    rentAmount: tenancy.rentAmount,
+    // No per-tenancy electricity-arrears source yet — shown as a balance of 0.
+    discoArrears: 0,
+    lgLevyStatus: levyArrears > 0 ? 'ARREARS' : 'CLEARED',
+    kycStatus: tenancy.tenant.kycStatus,
+  });
 });
 
 tenantPortalRouter.get('/tenant/agreement', async (req: AuthedRequest, res) => {
@@ -99,7 +121,7 @@ async function logInboundAndDraft(params: {
     entry = logMockCorrespondence(tenancyId, { channel, direction: 'INBOUND', author: name, body });
   } else {
     const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId }, include: { property: true } });
-    propertyTitle = tenancy?.property.title ?? '';
+    propertyTitle = tenancy?.property?.title ?? '';
     entry = await prisma.correspondence.create({
       data: { tenancyId, channel, direction: 'INBOUND', author: name, body },
     });
@@ -138,7 +160,14 @@ tenantPortalRouter.get('/tenant/payment-plan', async (req: AuthedRequest, res) =
     return res.json(existing ?? { plan: 'FULL', installments: [] });
   }
   const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId } });
-  const installments = await prisma.rentInstallment.findMany({ where: { tenancyId }, orderBy: { sequence: 'asc' } });
+  const rows = await prisma.rentInstallment.findMany({ where: { tenancyId }, orderBy: { sequence: 'asc' } });
+  const installments = rows.map((i) => ({
+    sequence: i.sequence,
+    amount: i.amount,
+    dueDate: i.dueDate.toISOString(),
+    status: i.status,
+    paymentLink: i.paymentLink ?? '',
+  }));
   res.json({ plan: tenancy?.paymentPlan ?? 'FULL', installments });
 });
 
