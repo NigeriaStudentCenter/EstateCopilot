@@ -9,7 +9,7 @@ export async function sendWhatsAppMessage(to: string, body: string): Promise<{ s
   }
 
   const response = await fetch(
-    `https://graph.facebook.com/v20.0/${env.whatsapp.metaPhoneNumberId}/messages`,
+    `https://graph.facebook.com/${env.whatsapp.graphVersion}/${env.whatsapp.metaPhoneNumberId}/messages`,
     {
       method: 'POST',
       headers: {

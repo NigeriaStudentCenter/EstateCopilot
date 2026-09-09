@@ -4,6 +4,7 @@ import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { classifyInbound } from '../services/whatsappIntent.js';
+import { runMarketingAgent } from '../services/whatsapp/agent.js';
 
 export const whatsappRouter = Router();
 
@@ -58,6 +59,22 @@ whatsappRouter.post('/webhooks/whatsapp', async (req, res) => {
 
     console.log(`[whatsapp:inbound] ${from}: ${body}`);
 
+    // Marketing AI agent (opt-in via WA_AGENT_ENABLED). When on, the
+    // brand-aware agent (EstateCopilot + AI Academy) owns the reply and the
+    // tenant/guarantor-ops classifier below is skipped entirely. Splitting
+    // ops and marketing on one number (per keyword / per campaign) is a
+    // later step.
+    if (env.whatsapp.agentEnabled) {
+      await runMarketingAgent({
+        from,
+        text: body,
+        displayNumber,
+        waMessageId,
+        deliver: env.mockMode ? undefined : (reply) => sendWhatsAppMessage(from, reply),
+      });
+      return;
+    }
+
     // First hop of the engine: bucket the message so the right pillar can act
     // on it (NIN/BVN submission, guarantor YES/STOP, maintenance report,
     // rent reply). The classifier only ever returns an acknowledgement — no
@@ -110,5 +127,19 @@ whatsappRouter.post('/webhooks/whatsapp/send-test', async (req, res) => {
   const { to, body } = req.body ?? {};
   if (!to || !body) return res.status(400).json({ error: 'to and body are required' });
   const result = await sendWhatsAppMessage(to, body);
+  res.json(result);
+});
+
+// MOCK_MODE only — drive the marketing agent with a fake inbound message and
+// get its reply (and the tools it called, in the logs) without Meta. e.g.
+//   curl -XPOST localhost:4000/webhooks/whatsapp/simulate \
+//     -H 'content-type: application/json' \
+//     -d '{"from":"2348030004444","text":"[EC] 3-bed in Lekki under 8m?"}'
+// `brand` optionally forces ESTATECOPILOT | AI_ACADEMY for the first turn.
+whatsappRouter.post('/webhooks/whatsapp/simulate', async (req, res) => {
+  if (!env.mockMode) return res.sendStatus(404);
+  const { from = '2348000000001', text, brand } = req.body ?? {};
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  const result = await runMarketingAgent({ from, text, brandHint: brand });
   res.json(result);
 });

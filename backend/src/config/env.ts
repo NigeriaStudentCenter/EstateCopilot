@@ -32,9 +32,25 @@ export const env = {
     metaPhoneNumberId: process.env.META_WHATSAPP_PHONE_NUMBER_ID,
     metaVerifyToken: process.env.META_WEBHOOK_VERIFY_TOKEN ?? 'change-me-verify-token',
     metaAppSecret: process.env.META_APP_SECRET,
+    // Meta Graph API version for outbound sends. Bump deliberately — a new
+    // version can change payload/field shapes.
+    graphVersion: process.env.WA_GRAPH_VERSION ?? 'v23.0',
     twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
     twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
     twilioWhatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER,
+    // Marketing AI agent (EstateCopilot + AI Academy). Off by default: when
+    // false the inbound webhook keeps its existing tenant/guarantor-ops
+    // classifier behaviour untouched. Set WA_AGENT_ENABLED=true to route
+    // inbound messages through the brand-aware agent instead.
+    agentEnabled: process.env.WA_AGENT_ENABLED === 'true',
+    agentModel: process.env.WA_AGENT_MODEL ?? 'claude-haiku-4-5-20251001',
+    // Used for not-yet-known brand, long messages, complaints and legal/
+    // financial topics.
+    agentModelComplex: process.env.WA_AGENT_MODEL_COMPLEX ?? 'claude-sonnet-5',
+  },
+  aiAcademy: {
+    // Where an AI Academy enrolment enquiry is sent to start onboarding.
+    onboardingUrl: process.env.AI_ACADEMY_ONBOARDING_URL ?? 'https://estatecopilot.org/ai-academy',
   },
   tenantAuth: {
     jwtSecret: process.env.TENANT_JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
