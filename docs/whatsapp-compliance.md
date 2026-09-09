@@ -104,10 +104,12 @@ page linked from it):
 > you; anything involving a price, a contract, payment, or a complaint is
 > passed to a member of our team.
 >
-> **Children.** AI Academy enrolment conversations on WhatsApp are conducted
-> with a parent or guardian. We do not knowingly collect personal data from
-> a child through this channel; if a child contacts us we ask for a parent
-> or guardian to take over before proceeding.
+> **Children.** For the AI Academy teens programme (ages 10–17), enrolment
+> conversations on WhatsApp are conducted with a parent or guardian. We do
+> not knowingly collect personal data from a child through this channel; if
+> a child contacts us we ask for a parent or guardian to take over before
+> proceeding. The university-student and working-professional programmes deal
+> directly with the enquirer.
 >
 > **Who we share it with.** Our service providers acting on our
 > instructions: Microsoft (hosting) and Anthropic (AI reply generation).

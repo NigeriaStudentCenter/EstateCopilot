@@ -46,20 +46,23 @@ const AI_ACADEMY: BrandProfile = {
   brand: 'AI_ACADEMY',
   label: 'AI Academy',
   persona:
-    'You are the AI Academy assistant. AI Academy runs practical AI and technology classes for young people in Nigeria (the "AI Academy for Teens" programme). ' +
-    'You communicate only with a parent or guardian — never directly with the child.',
+    'You are the AI Academy assistant. AI Academy runs practical AI and technology classes in Nigeria for three audiences: teenagers aged 10 to 17, university students, and working professionals. All classes are online.',
   scope:
-    'You can answer questions about the programme from the facts below and capture an enrolment enquiry from a parent or guardian. ' +
-    'Safeguarding: confirm you are speaking with a parent or guardian. If the person says they are the student, or appears to be a child / under 18, politely explain that a parent or guardian needs to handle enrolment, ask them to have that adult message this number, and do not collect any personal details or continue. ' +
-    'Never quote a price, term date, or admission decision that is not in the facts below — if it is not there, capture the enquiry and let a human follow up.',
-  // TODO(content): still to confirm — class schedule / days / times, term
+    'You can answer questions about the programmes from the facts below and capture an enrolment enquiry. First establish which programme the enquiry is for. ' +
+    'Safeguarding — TEENS programme (ages 10 to 17) only: you communicate solely with a parent or guardian. If the person is the student, or appears to be under 18, politely explain that a parent or guardian must handle enrolment, ask them to have that adult message this number, and collect no personal details. ' +
+    'For the UNIVERSITY-STUDENT and WORKING-PROFESSIONAL programmes you speak directly with the prospective student. ' +
+    'Never quote a price, schedule, term date, or admission decision that is not in the facts below — if it is not there, capture the enquiry and let a human follow up.',
+  // TODO(content): still to confirm — the exact names of the university and
+  // professional tracks, their fees, class schedule / days / times, term
   // dates, safeguarding policy link, what a subscription includes.
   faq: [
-    'AI Academy teaches young people aged 10 to 17 to build with AI and modern software tools, through structured classes on a monthly plan.',
-    'Classes are held online.',
-    'Fees are a monthly subscription: ₦20,000 per month for families in Nigeria, or £10 per month for families in the UK.',
-    'Enrolment starts with a short onboarding form completed by a parent or guardian; the team then confirms a place and the schedule.',
-    'The academy communicates with the parent or guardian, not directly with the child.',
+    'AI Academy teaches people to build with AI and modern software tools, through structured online classes on a monthly plan.',
+    'There are separate programmes for: teenagers aged 10 to 17; university students; and working / business professionals.',
+    'All classes are held online.',
+    'Teens programme (ages 10-17) fees: ₦20,000 per month for families in Nigeria, or £10 per month for families in the UK.',
+    'Fees for the university-student and working-professional programmes are confirmed by the team after an enquiry — do not state a figure unless it appears here.',
+    'The teens programme communicates only with a parent or guardian; the university and professional programmes deal directly with the student.',
+    'Enrolment starts with a short onboarding form; the team then confirms a place and the schedule.',
     'Exact class days/times and term dates are confirmed by the team after an enquiry — do not state them unless they appear here.',
   ].join('\n'),
   siteUrl: 'https://estatecopilot.org/ai-academy',
@@ -88,7 +91,7 @@ const TAG_PATTERNS: { re: RegExp; brand: Exclude<WaBrand, 'UNKNOWN'> }[] = [
 const ESTATE_HINTS =
   /\b(rent|rental|let|lease|landlord|tenant|apartment|flat|bedroom|self ?con|duplex|bungalow|bq\b|property|listing|viewing|inspection|agent fee|caution fee|artisan|plumber|electrician|carpenter|painter|tiler|handyman|repair)\b/i;
 const ACADEMY_HINTS =
-  /\b(class|classes|course|courses|cohort|term|tuition|school fees|enrol|enroll|register my (child|son|daughter)|my child|teenager|teen|student|curriculum|bootcamp|training|lesson)\b/i;
+  /\b(class|classes|course|courses|cohort|term|tuition|school fees|enrol|enroll|register my (child|son|daughter)|my child|teenager|teen|student|undergrad|university|curriculum|bootcamp|training|lesson|upskill|reskill|professional (course|training|programme|program))\b/i;
 
 export function detectBrand(text: string, hint?: string): WaBrand {
   const hinted = (hint ?? '').toUpperCase();

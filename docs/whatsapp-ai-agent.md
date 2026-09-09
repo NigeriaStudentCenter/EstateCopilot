@@ -42,10 +42,11 @@ anything financial, legal, or contractual.
 - Consent-capture endpoint + the marketing-site checkbox.
 - Ops console (human takeover UI).
 - Splitting ops vs marketing on the one number (per keyword / per campaign).
-- Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` now has the
-  parent/guardian-only rule, ages 10–17, online classes, and fees
-  (₦20,000/mo NG, £10/mo UK); still to confirm: class days/times, term
-  dates, safeguarding policy link.
+- Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` covers three
+  programmes (teens 10–17 parent/guardian-only, university students, working
+  professionals), all online; teens fees ₦20,000/mo NG · £10/mo UK. Still to
+  confirm: university & professional track names + fees, class days/times,
+  term dates, safeguarding policy link.
 
 ## Try it
 

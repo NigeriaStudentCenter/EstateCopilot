@@ -347,6 +347,7 @@ async function getAcademyInfo(_input: { question?: string }): Promise<string> {
 async function captureAcademyLead(
   input: {
     interest: string;
+    programme?: string; // teens | university | professional
     studentName?: string;
     parentName?: string;
     ageOrClass?: string;
@@ -356,12 +357,13 @@ async function captureAcademyLead(
   ctx: ToolContext,
 ): Promise<string> {
   await notifyOps(
-    'AI Academy enrolment enquiry — parent/guardian (WhatsApp)',
+    'AI Academy enrolment enquiry (WhatsApp)',
     [
       `Interest: ${input.interest}`,
+      input.programme ? `Programme: ${input.programme}` : null,
       input.studentName ? `Student: ${input.studentName}` : null,
       input.parentName ? `Parent/guardian: ${input.parentName}` : null,
-      input.ageOrClass ? `Age/class: ${input.ageOrClass}` : null,
+      input.ageOrClass ? `Age/level: ${input.ageOrClass}` : null,
       input.location ? `Location: ${input.location}` : null,
       `Contact: ${ctx.from}${input.contactPreference ? ` (${input.contactPreference})` : ''}`,
     ]
@@ -478,9 +480,10 @@ const ACADEMY_TOOLS: ToolDef[] = [
       type: 'object',
       properties: {
         interest: { type: 'string', description: 'What they asked about / want' },
+        programme: { type: 'string', enum: ['teens', 'university', 'professional'] },
         studentName: { type: 'string' },
-        parentName: { type: 'string' },
-        ageOrClass: { type: 'string' },
+        parentName: { type: 'string', description: 'For the teens programme only' },
+        ageOrClass: { type: 'string', description: 'Age (teens) or level/role (university, professional)' },
         location: { type: 'string' },
         contactPreference: { type: 'string' },
       },
