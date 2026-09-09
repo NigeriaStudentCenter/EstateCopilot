@@ -35,6 +35,13 @@ anything financial, legal, or contractual.
   (`WaConsent`). Inbound `STOP` / `UNSUBSCRIBE` is caught in the agent
   before the LLM: records the opt-out, closes the conversation, sends a
   confirmation. `hasMarketingConsent(phone)` is the gate campaigns will use.
+- `backend/src/services/whatsapp/campaigns.ts` + `sendWhatsAppTemplate()` —
+  outbound campaign engine. Audience segments (`phones`, `consented` by
+  brand, `artisan_leads` with age/status filters); every send gated on
+  `hasMarketingConsent` + a `WA_CAMPAIGN_MIN_GAP_DAYS` frequency cap;
+  throttled sender (`WA_CAMPAIGN_THROTTLE_PER_MIN`). Endpoints (admin-key
+  guarded in real mode): `POST/GET /api/whatsapp/campaigns`, `GET /:id`,
+  `POST /:id/preview` (dry run), `POST /:id/send`.
 - Prisma models: `WaContact`, `WaConsent`, `WaConversation`, `WaCampaign`
   + `WaBrand`/`WaConversationState`/`WaCampaignStatus` enums; run
   `npm run prisma:migrate` to create the migration.
@@ -42,8 +49,11 @@ anything financial, legal, or contractual.
 
 **Not built yet:**
 
-- Campaign engine (audience builder + throttled template sender) — `WaCampaign`
-  model exists, no worker.
+- Campaign worker — `runCampaign` streams from the API process (capped at
+  500/run); a large audience needs a dedicated WebJob. `scheduleAt` is
+  stored but nothing acts on it yet.
+- More audience segments (leases expiring, landlords with no listing).
+- Template library + Meta submission.
 - The marketing-site checkbox that calls `POST /api/whatsapp/consent`
   (backend endpoint is done; the `marketing/` form change is not).
 - Ops console (human takeover UI).

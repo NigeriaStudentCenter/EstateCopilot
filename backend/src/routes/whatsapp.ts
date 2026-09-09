@@ -1,11 +1,20 @@
 import { Router } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
+import { z } from 'zod';
 import { env } from '../config/env.js';
 import { prisma } from '../lib/prisma.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { classifyInbound } from '../services/whatsappIntent.js';
 import { runMarketingAgent } from '../services/whatsapp/agent.js';
 import { recordConsent, recordOptOut } from '../services/whatsapp/consent.js';
+import {
+  createCampaign,
+  listCampaigns,
+  getCampaign,
+  previewCampaign,
+  runCampaign,
+} from '../services/whatsapp/campaigns.js';
 
 export const whatsappRouter = Router();
 
@@ -150,6 +159,62 @@ whatsappRouter.post('/api/whatsapp/opt-out', async (req, res) => {
   if (!phone) return res.status(400).json({ error: 'phone is required' });
   await recordOptOut(phone);
   res.json({ ok: true });
+});
+
+// --- Campaigns ------------------------------------------------------
+// Send an approved template to a consented, queried audience. Guarded by the
+// shared ADMIN_API_KEY in real mode; open in MOCK_MODE like the rest of the
+// app. A large audience should move to a WebJob — runCampaign streams from
+// this process for now.
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (env.mockMode) return next();
+  if (!env.admin.apiKey) return res.sendStatus(404);
+  if (req.get('x-admin-key') !== env.admin.apiKey) return res.status(401).json({ error: 'Bad admin key' });
+  next();
+}
+
+const audienceQuerySchema = z.object({
+  phones: z.array(z.string()).optional(),
+  segment: z.enum(['consented', 'artisan_leads']).optional(),
+  brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'UNKNOWN']).optional(),
+  status: z.string().optional(),
+  olderThanDays: z.number().int().positive().optional(),
+});
+
+const campaignSchema = z.object({
+  name: z.string().min(2).max(120),
+  brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'UNKNOWN']).optional(),
+  templateName: z.string().min(1).max(120),
+  templateLang: z.string().min(2).max(10).optional(),
+  audienceQuery: audienceQuerySchema,
+  scheduleAt: z.string().datetime().optional(),
+});
+
+whatsappRouter.post('/api/whatsapp/campaigns', requireAdmin, async (req, res) => {
+  const parsed = campaignSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  res.status(201).json(await createCampaign(parsed.data));
+});
+
+whatsappRouter.get('/api/whatsapp/campaigns', requireAdmin, async (_req, res) => {
+  res.json(await listCampaigns());
+});
+
+whatsappRouter.get('/api/whatsapp/campaigns/:id', requireAdmin, async (req, res) => {
+  const c = await getCampaign(req.params.id);
+  return c ? res.json(c) : res.sendStatus(404);
+});
+
+// Dry run — audience size + a small sample, no sends.
+whatsappRouter.post('/api/whatsapp/campaigns/:id/preview', requireAdmin, async (req, res) => {
+  const p = await previewCampaign(req.params.id);
+  return p ? res.json(p) : res.sendStatus(404);
+});
+
+whatsappRouter.post('/api/whatsapp/campaigns/:id/send', requireAdmin, async (req, res) => {
+  const result = await runCampaign(req.params.id);
+  if (!result.started) return res.status(409).json(result);
+  res.status(202).json(result);
 });
 
 // MOCK_MODE only — drive the marketing agent with a fake inbound message and
