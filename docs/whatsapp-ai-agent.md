@@ -34,7 +34,11 @@ anything financial, legal, or contractual.
   and `POST /api/whatsapp/opt-out` — logged marketing opt-in/out
   (`WaConsent`). Inbound `STOP` / `UNSUBSCRIBE` is caught in the agent
   before the LLM: records the opt-out, closes the conversation, sends a
-  confirmation. `hasMarketingConsent(phone)` is the gate campaigns will use.
+  confirmation. `hasMarketingConsent(phone)` is the gate campaigns use.
+- `marketing/` — an unticked WhatsApp opt-in checkbox
+  (`components/WhatsAppOptIn.tsx`) on the artisan quote modal, the property
+  book-viewing form, and landlord signup; posts to `/api/whatsapp/consent`
+  on submit when ticked.
 - `backend/src/services/whatsapp/campaigns.ts` + `sendWhatsAppTemplate()` —
   outbound campaign engine. Audience segments (`phones`, `consented` by
   brand, `artisan_leads` with age/status filters); every send gated on
@@ -54,8 +58,7 @@ anything financial, legal, or contractual.
   stored but nothing acts on it yet.
 - More audience segments (leases expiring, landlords with no listing).
 - Template library + Meta submission.
-- The marketing-site checkbox that calls `POST /api/whatsapp/consent`
-  (backend endpoint is done; the `marketing/` form change is not).
+- `wa_optin_confirmation` template send right after the checkbox opt-in.
 - Ops console (human takeover UI).
 - Splitting ops vs marketing on the one number (per keyword / per campaign).
 - Remaining AI Academy content — `brands.ts` `AI_ACADEMY.faq` covers three
