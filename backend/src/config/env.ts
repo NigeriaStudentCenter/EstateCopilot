@@ -52,6 +52,23 @@ export const env = {
     // Where an AI Academy enrolment enquiry is sent to start onboarding.
     onboardingUrl: process.env.AI_ACADEMY_ONBOARDING_URL ?? 'https://estatecopilot.org/ai-academy',
   },
+  // AI Academy on Wheels (university / professional) enrolment provisioning.
+  // The Microsoft Form's Power Automate flow POSTs to /api/ai-academy/enrol
+  // with AI_ACADEMY_ENROL_SECRET; this module then does the M365 side via
+  // app-only Graph. Graph auth falls back to the SharePoint app (same tenant).
+  aiAcademyEnrol: {
+    secret: process.env.AI_ACADEMY_ENROL_SECRET, // unset => route is 404
+    accountDomain: process.env.AI_ACADEMY_ACCOUNT_DOMAIN ?? 'bsoedu.org',
+    sitePath: process.env.AI_ACADEMY_SITE_PATH ?? 'bsoed.sharepoint.com:/sites/AIAcademy',
+    listName: process.env.AI_ACADEMY_ENROL_LIST_NAME ?? 'AI Academy Enrolments',
+    listId: process.env.AI_ACADEMY_ENROL_LIST_ID, // optional; else resolved/created by name
+    teamGroupId: process.env.AI_ACADEMY_TEAM_GROUP_ID, // the "AI Academy" M365 group/team
+    licenseSkuId: process.env.AI_ACADEMY_LICENSE_SKU_ID, // Microsoft 365 A1 for students skuId
+    welcomeFrom: process.env.AI_ACADEMY_WELCOME_FROM ?? 'john@bsoedu.org',
+    tenantId: process.env.AI_ACADEMY_GRAPH_TENANT_ID ?? process.env.SHAREPOINT_TENANT_ID,
+    clientId: process.env.AI_ACADEMY_GRAPH_CLIENT_ID ?? process.env.SHAREPOINT_CLIENT_ID,
+    clientSecret: process.env.AI_ACADEMY_GRAPH_CLIENT_SECRET ?? process.env.SHAREPOINT_CLIENT_SECRET,
+  },
   tenantAuth: {
     jwtSecret: process.env.TENANT_JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
   },
