@@ -50,7 +50,9 @@ export const env = {
   },
   aiAcademy: {
     // Where an AI Academy enrolment enquiry is sent to start onboarding.
-    onboardingUrl: process.env.AI_ACADEMY_ONBOARDING_URL ?? 'https://estatecopilot.org/ai-academy',
+    onboardingUrl:
+      process.env.AI_ACADEMY_ONBOARDING_URL ??
+      'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXguXesy5xKlEksmVVecOy5ZUM1hIVTU0OEROMFBRVFZFOVZITk5YUFJOMS4u',
   },
   // AI Academy on Wheels (university / professional) enrolment provisioning.
   // The Microsoft Form's Power Automate flow POSTs to /api/ai-academy/enrol
