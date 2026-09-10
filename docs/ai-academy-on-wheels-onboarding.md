@@ -39,8 +39,11 @@ Path B's route is 404 until `AI_ACADEMY_ENROL_SECRET` is set.
 ## 1. One-time tenant setup (bsoed tenant — you do this)
 
 ### a. Create the "AI Academy" team — DONE
-The **AI Academy** M365 group (created 2026-07-24, owns
-`…/sites/AIAcademy`) now has a team attached.
+The **AI Academy** M365 group already existed (created 2026-07-24) and is a
+full team: `…/sites/AIAcademy`, 11 channels, the branded `Academy-Home.aspx`
+home page, ~3 GB of course content. **Do NOT "create a team from scratch"** —
+that made a duplicate class team on `/sites/AIAcademy_e42cba` (deleted
+2026-09-10). Use the existing one.
 **Group ID = `3141a2c7-95c5-45bf-abbc-35f8d5da4c02`** → `AI_ACADEMY_TEAM_GROUP_ID`.
 (Re-check any time: `az rest --method get --url
 "https://bsoed.sharepoint.com/sites/AIAcademy/_api/site?\$select=GroupId"`, or
