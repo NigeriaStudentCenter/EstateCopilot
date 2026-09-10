@@ -75,11 +75,16 @@ shared mailbox `aiacademy@bsoedu.org`).
 Reuse the SharePoint app → nothing else to set. New app → set
 `AI_ACADEMY_GRAPH_TENANT_ID` / `_CLIENT_ID` / `_CLIENT_SECRET`.
 
-### d. SharePoint list
-Nothing to do — the backend creates **"AI Academy Enrolments"** on
-`…/sites/AIAcademy` on the first real run (columns: Email, Programme,
-Organisation, Country, Phone, AccountUPN, StartMonth, Status, EnrolledAt).
-To use an existing list instead, set `AI_ACADEMY_ENROL_LIST_ID`.
+### d. SharePoint list — DONE
+The **"AI Academy Enrolments"** list already exists on
+`https://bsoed.sharepoint.com/sites/AIAcademy` (created 2026-09-10), with the
+12 single-line-text columns the poller reads and writes: `FirstName`,
+`LastName`, `Email`, `Programme`, `Organisation`, `Country`, `Phone`,
+`StartMonth`, `Status`, `AccountUPN`, `ProvisionNote`, `EnrolledAt` (plus the
+built-in `Title`). All are on the default view. Nothing to do here.
+(If the backend ever runs against a fresh site, it recreates this list by
+name on the first poll. To point at a different list, set
+`AI_ACADEMY_ENROL_LIST_ID`.)
 
 ### e. Azure App Settings on `estatecopilot-api`
 ```
@@ -120,15 +125,20 @@ WhatsApp agent hands it out.
 
 ---
 
-## 3. The Power Automate flow (Path A — no premium)
+## 3. The Power Automate flow (Path A — no premium) — BUILT
 
-1. **Trigger — Microsoft Forms: "When a new response is submitted"** → the form above.
+The flow **"AI Academy on Wheels — Enrolment intake"** is already built and
+saved in the *British School of Outdoor Education* environment (2026-09-10),
+exactly as below. It is enabled but does nothing useful until the backend
+poller is switched on (§1e). To review/edit it: make.powerautomate.com →
+My flows → *AI Academy on Wheels — Enrolment intake*.
+
+1. **Trigger — Microsoft Forms: "When a new response is submitted"** → form *AI Academy on Wheels — Enrolment*.
 2. **Action — Microsoft Forms: "Get response details"** → same form; Response Id from the trigger.
 3. **Action — SharePoint: "Create item"**
-   - Site: `https://bsoed.sharepoint.com/sites/AIAcademy`
-   - List: **AI Academy Enrolments** (the backend creates it on first poll if it
-     doesn't exist — or make it first with the columns in §1d)
-   - Fields:
+   - Site: `AI Academy - https://bsoed.sharepoint.com/sites/AIAcademy`
+   - List: **AI Academy Enrolments** (already exists, §1d)
+   - Fields (each `<Qn>` = the *Get response details* dynamic token for that question):
      | Column | Value (dynamic content) |
      |---|---|
      | Title | `<Q1> <Q2>` (first + last) |
