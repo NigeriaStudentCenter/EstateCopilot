@@ -1,19 +1,26 @@
 // AI Academy on Wheels — learner provisioning.
 //
-// Called by the "AI Academy Enrolment" Microsoft Form via a one-step Power
-// Automate flow (Forms trigger -> HTTP POST to /api/ai-academy/enrol). This
-// module does the Microsoft 365 side with app-only Graph (same client-
-// credentials pattern as services/sharepoint.ts, same tenant):
+// Two intake paths, same Microsoft 365 work:
+//
+//  A. Power Automate flow (no premium): the "AI Academy on Wheels — Enrolment"
+//     Microsoft Form -> Forms "Get response details" -> SharePoint "Create
+//     item" into the "AI Academy Enrolments" list with Status blank/"New".
+//     runEnrolmentPoll() (services/aiAcademy/poller.ts, on a timer) picks up
+//     those rows, provisions, and writes the outcome back to the row.
+//
+//  B. HTTP: POST /api/ai-academy/enrol (needs the premium HTTP action, or a
+//     direct caller) -> enrolLearner(), which also creates the SharePoint row.
+//
+// The M365 side, via app-only Graph (same client-credentials pattern as
+// services/sharepoint.ts, same tenant):
 //
 //   1. create the learner's account   (first.last@<domain>)
 //   2. assign the student licence      (Microsoft 365 A1 for students)
 //   3. add them to the "AI Academy" team/group
-//   4. write a row to the enrolment SharePoint list
-//   5. email them their sign-in details + class link
+//   4. email them their sign-in details + class link
 //
 // Every step is independent and best-effort: one failure does not abort the
-// rest, and the function never throws — it returns a per-step report so the
-// flow (and ops) can see exactly what happened.
+// rest, and nothing here throws — callers get a per-step report.
 
 import crypto from 'node:crypto';
 import { env } from '../../config/env.js';
@@ -39,9 +46,16 @@ export interface EnrolReport {
     createUser: StepResult;
     assignLicence: StepResult;
     addToTeam: StepResult;
-    sharePointRow: StepResult;
     welcomeEmail: StepResult;
+    sharePointRow?: StepResult; // only on the HTTP path (path B)
   };
+}
+
+function reportNote(r: EnrolReport): string {
+  return (
+    `user:${r.steps.createUser} · licence:${r.steps.assignLicence} · ` +
+    `team:${r.steps.addToTeam} · email:${r.steps.welcomeEmail}`
+  );
 }
 
 const cfg = () => env.aiAcademyEnrol;
@@ -149,18 +163,23 @@ async function resolveListId(siteId: string): Promise<string | null> {
     listIdCache = found;
     return found;
   }
-  // Create it once, with the columns the row write below uses.
+  // Create it once. The Power Automate "Create item" step fills the intake
+  // columns (Title holds the full name); the poller writes Status/AccountUPN/
+  // ProvisionNote/EnrolledAt back.
   const created = await graph('POST', `/sites/${siteId}/lists`, {
     displayName: cfg().listName,
     columns: [
+      { name: 'FirstName', text: {} },
+      { name: 'LastName', text: {} },
       { name: 'Email', text: {} },
       { name: 'Programme', text: {} },
       { name: 'Organisation', text: {} },
       { name: 'Country', text: {} },
       { name: 'Phone', text: {} },
-      { name: 'AccountUPN', text: {} },
       { name: 'StartMonth', text: {} },
       { name: 'Status', text: {} },
+      { name: 'AccountUPN', text: {} },
+      { name: 'ProvisionNote', text: {} },
       { name: 'EnrolledAt', text: {} },
     ],
     list: { template: 'genericList' },
@@ -187,19 +206,13 @@ async function pickUpn(first: string, last: string): Promise<string> {
   return `${base}${Date.now().toString().slice(-4)}@${domain}`;
 }
 
-// ---- public entrypoint --------------------------------------
+// ---- the Microsoft 365 work (both paths) --------------------
 
-export async function enrolLearner(input: EnrolInput): Promise<EnrolReport> {
+async function provisionM365(input: EnrolInput): Promise<EnrolReport> {
   const report: EnrolReport = {
     ok: false,
     mock: !graphConfigured(),
-    steps: {
-      createUser: 'skipped',
-      assignLicence: 'skipped',
-      addToTeam: 'skipped',
-      sharePointRow: 'skipped',
-      welcomeEmail: 'skipped',
-    },
+    steps: { createUser: 'skipped', assignLicence: 'skipped', addToTeam: 'skipped', welcomeEmail: 'skipped' },
   };
 
   const displayName = `${input.firstName.trim()} ${input.lastName.trim()}`.trim();
@@ -217,8 +230,7 @@ export async function enrolLearner(input: EnrolInput): Promise<EnrolReport> {
         createUser: 'ok',
         assignLicence: cfg().licenseSkuId ? 'ok' : 'skipped',
         addToTeam: cfg().teamGroupId ? 'ok' : 'skipped',
-        sharePointRow: 'ok',
-        welcomeEmail: 'ok',
+        welcomeEmail: cfg().welcomeFrom ? 'ok' : 'skipped',
       },
     };
   }
@@ -257,35 +269,11 @@ export async function enrolLearner(input: EnrolInput): Promise<EnrolReport> {
     const add = await graph('POST', `/groups/${cfg().teamGroupId}/members/$ref`, {
       '@odata.id': `https://graph.microsoft.com/v1.0/directoryObjects/${userId}`,
     });
-    // 400 with "already exist" is fine
     report.steps.addToTeam =
       add.ok || /already exist/i.test(add.text) ? 'ok' : `error: ${add.status} ${add.text.slice(0, 200)}`;
   }
 
-  // 4. enrolment row in SharePoint
-  const siteId = await resolveSiteId();
-  const listId = siteId ? await resolveListId(siteId) : null;
-  if (siteId && listId) {
-    const row = await graph('POST', `/sites/${siteId}/lists/${listId}/items`, {
-      fields: {
-        Title: displayName,
-        Email: input.personalEmail,
-        Programme: input.programme,
-        Organisation: input.organisation ?? '',
-        Country: input.country ?? '',
-        Phone: input.phone ?? '',
-        AccountUPN: upn,
-        StartMonth: input.startMonth ?? '',
-        Status: 'Active',
-        EnrolledAt: new Date().toISOString(),
-      },
-    });
-    report.steps.sharePointRow = row.ok ? 'ok' : `error: ${row.status} ${row.text.slice(0, 200)}`;
-  } else {
-    report.steps.sharePointRow = 'error: site or list unresolved';
-  }
-
-  // 5. welcome email
+  // 4. welcome email
   const from = cfg().welcomeFrom;
   if (from) {
     const mail = await graph('POST', `/users/${encodeURIComponent(from)}/sendMail`, {
@@ -315,4 +303,116 @@ export async function enrolLearner(input: EnrolInput): Promise<EnrolReport> {
 
   report.ok = report.steps.createUser === 'ok';
   return report;
+}
+
+// ---- path B: HTTP endpoint (also creates the SharePoint row) ----
+
+export async function enrolLearner(input: EnrolInput): Promise<EnrolReport> {
+  const report = await provisionM365(input);
+
+  const siteId = await resolveSiteId();
+  const listId = siteId ? await resolveListId(siteId) : null;
+  if (siteId && listId) {
+    const row = await graph('POST', `/sites/${siteId}/lists/${listId}/items`, {
+      fields: {
+        Title: `${input.firstName} ${input.lastName}`.trim(),
+        FirstName: input.firstName,
+        LastName: input.lastName,
+        Email: input.personalEmail,
+        Programme: input.programme,
+        Organisation: input.organisation ?? '',
+        Country: input.country ?? '',
+        Phone: input.phone ?? '',
+        StartMonth: input.startMonth ?? '',
+        Status: report.ok ? 'Active' : 'Failed',
+        AccountUPN: report.upn ?? '',
+        ProvisionNote: reportNote(report),
+        EnrolledAt: new Date().toISOString(),
+      },
+    });
+    report.steps.sharePointRow = row.ok ? 'ok' : `error: ${row.status} ${row.text.slice(0, 200)}`;
+  } else if (!report.mock) {
+    report.steps.sharePointRow = 'error: site or list unresolved';
+  }
+  return report;
+}
+
+// ---- path A: poll the SharePoint list for new enrolments -------
+
+const inFlight = new Set<string>();
+
+function normProgramme(raw?: string): 'university' | 'professional' {
+  return /prof|work|employ|staff/i.test(raw ?? '') ? 'professional' : 'university';
+}
+
+function rowToInput(f: Record<string, any>): EnrolInput | null {
+  const email = String(f.Email ?? f.email ?? '').trim();
+  if (!email) return null;
+  let first = String(f.FirstName ?? f.firstName ?? '').trim();
+  let last = String(f.LastName ?? f.lastName ?? '').trim();
+  if (!first) {
+    const parts = String(f.Title ?? '').trim().split(/\s+/);
+    first = parts[0] ?? '';
+    last = last || parts.slice(1).join(' ');
+  }
+  if (!first) return null;
+  return {
+    firstName: first,
+    lastName: last || first,
+    personalEmail: email,
+    phone: String(f.Phone ?? '').trim() || undefined,
+    programme: normProgramme(f.Programme ?? f['I am a…'] ?? f.IAmA),
+    organisation: String(f.Organisation ?? '').trim() || undefined,
+    country: String(f.Country ?? '').trim() || undefined,
+    startMonth: String(f.StartMonth ?? '').trim() || undefined,
+  };
+}
+
+// One pass: provision every list row that has no Status yet (or Status "New").
+export async function runEnrolmentPoll(): Promise<{ scanned: number; provisioned: number } | null> {
+  if (!graphConfigured()) return null;
+  const siteId = await resolveSiteId();
+  const listId = siteId ? await resolveListId(siteId) : null;
+  if (!siteId || !listId) return null;
+
+  const list = await graph(
+    'GET',
+    `/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=50&$orderby=lastModifiedDateTime desc`,
+  );
+  const items: any[] = list.json?.value ?? [];
+  let provisioned = 0;
+
+  for (const item of items) {
+    const id = String(item.id);
+    const f = item.fields ?? {};
+    const status = String(f.Status ?? '').trim().toLowerCase();
+    if (status && status !== 'new') continue; // already handled
+    if (inFlight.has(id)) continue;
+    const input = rowToInput(f);
+    if (!input) continue;
+
+    inFlight.add(id);
+    try {
+      // Claim the row so an overlapping tick / instance skips it.
+      await graph('PATCH', `/sites/${siteId}/lists/${listId}/items/${id}/fields`, { Status: 'Processing' });
+      const report = await provisionM365(input);
+      await graph('PATCH', `/sites/${siteId}/lists/${listId}/items/${id}/fields`, {
+        Status: report.ok ? 'Active' : 'Failed',
+        AccountUPN: report.upn ?? '',
+        ProvisionNote: reportNote(report),
+        EnrolledAt: new Date().toISOString(),
+      });
+      if (report.ok) provisioned++;
+      console.log(`[ai-academy:poll] ${input.personalEmail} -> ${report.upn ?? '?'} (${report.ok ? 'Active' : 'Failed'})`);
+    } catch (err) {
+      console.error('[ai-academy:poll] row failed', id, err);
+      await graph('PATCH', `/sites/${siteId}/lists/${listId}/items/${id}/fields`, {
+        Status: 'Failed',
+        ProvisionNote: `poll error: ${err instanceof Error ? err.message : String(err)}`.slice(0, 250),
+      }).catch(() => {});
+    } finally {
+      inFlight.delete(id);
+    }
+  }
+  return { scanned: items.length, provisioned };
 }

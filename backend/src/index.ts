@@ -21,6 +21,7 @@ import { bookingsRouter } from './routes/bookings.js';
 import { legalRouter } from './routes/legal.js';
 import { whatsappRouter } from './routes/whatsapp.js';
 import { startCampaignScheduler } from './services/whatsapp/campaignScheduler.js';
+import { startAiAcademyPoller } from './services/aiAcademy/poller.js';
 import { seedDemoLandlord } from './lib/mockLandlords.js';
 import { seedDemoArtisan } from './lib/mockArtisans.js';
 import { localUploadsMount } from './lib/blobStorage.js';
@@ -80,5 +81,10 @@ app.listen(env.port, () => {
   // marketing agent is enabled — otherwise the campaign engine is dormant.
   if (env.whatsapp.agentEnabled) {
     startCampaignScheduler(Number(process.env.WA_SCHEDULER_INTERVAL_MS) || 60_000);
+  }
+  // Polls the AI Academy Enrolments SharePoint list (filled by the Power
+  // Automate flow) and provisions each new learner.
+  if (env.aiAcademyEnrol.poll) {
+    startAiAcademyPoller(env.aiAcademyEnrol.pollIntervalMs);
   }
 });

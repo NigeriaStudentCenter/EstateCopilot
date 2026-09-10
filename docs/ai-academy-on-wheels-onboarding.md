@@ -4,24 +4,35 @@ For the **university / professional** programme only. (Teens stay on the
 lightweight "parent fills a form, team follows up" path — no account
 provisioning.)
 
-**Flow:** Microsoft Form → one-step Power Automate flow → `POST /api/ai-academy/enrol`
-on `estatecopilot-api` → the backend does the Microsoft 365 side via app-only
-Graph:
+**Two intake paths — same Microsoft 365 work. Path A is the default (no
+premium connector needed).**
 
-1. create the learner's account — `first.last@bsoedu.org`
-2. assign the **Microsoft 365 A1 for students** licence
-3. add them to the **"AI Academy"** team
-4. write a row to the **AI Academy Enrolments** SharePoint list on `…/sites/AIAcademy`
-5. email their sign-in details + class info to their personal address
+**Path A — SharePoint list + backend poller (recommended):**
+Microsoft Form → Power Automate flow (Forms trigger → *Get response details*
+→ **SharePoint "Create item"**) writes a row to the **AI Academy Enrolments**
+list on `…/sites/AIAcademy` with `Status` blank. The backend
+(`AI_ACADEMY_ENROL_POLL=true`) polls that list every ~2 min, and for each new
+row:
 
-Every step is independent and best-effort; the endpoint returns a per-step
-report (`{ ok, mock, upn, steps: {...} }`) so the flow can flag a partial
-failure. It never returns non-2xx for a provisioning error (that would make
-the flow retry and double-provision).
+1. creates the learner's account — `first.last@bsoedu.org`
+2. assigns the **Microsoft 365 A1 for students** licence
+3. adds them to the **"AI Academy"** team
+4. emails their sign-in details + class info to their personal address
+5. writes the outcome back to the row — `Status` → `Active` / `Failed`,
+   `AccountUPN`, `ProvisionNote`
 
-Code: `backend/src/routes/aiAcademy.ts`, `backend/src/services/aiAcademy/provision.ts`.
-Config: `AI_ACADEMY_*` in `backend/.env.example`. Route is **404 until
-`AI_ACADEMY_ENROL_SECRET` is set.**
+The poller claims each row (`Status` → `Processing`) before working it, so an
+overlapping tick or a second instance skips it.
+
+**Path B — HTTP:** `POST /api/ai-academy/enrol` with `AI_ACADEMY_ENROL_SECRET`
+(needs the **premium** HTTP action). Same 1–4, plus it creates the list row
+itself. Always returns 200 with a per-step report so the flow never retries
+and double-provisions.
+
+Code: `backend/src/services/aiAcademy/{provision,poller}.ts`,
+`backend/src/routes/aiAcademy.ts`. Config: `AI_ACADEMY_*` in
+`backend/.env.example`. Path A is off until `AI_ACADEMY_ENROL_POLL=true`;
+Path B's route is 404 until `AI_ACADEMY_ENROL_SECRET` is set.
 
 ---
 
@@ -72,10 +83,11 @@ To use an existing list instead, set `AI_ACADEMY_ENROL_LIST_ID`.
 
 ### e. Azure App Settings on `estatecopilot-api`
 ```
-AI_ACADEMY_ENROL_SECRET      = <a long random string>   # also goes in the flow
+AI_ACADEMY_ENROL_POLL        = true                     # turns on Path A
 AI_ACADEMY_TEAM_GROUP_ID     = <from step a>
 AI_ACADEMY_LICENSE_SKU_ID    = <from step b>
 AI_ACADEMY_WELCOME_FROM      = aiacademy@bsoedu.org      # optional, defaults to john@
+# AI_ACADEMY_ENROL_SECRET only if you also want Path B (premium HTTP)
 # AI_ACADEMY_GRAPH_* only if NOT reusing the SharePoint app
 ```
 
@@ -108,44 +120,59 @@ WhatsApp agent hands it out.
 
 ---
 
-## 3. The Power Automate flow (3 steps)
+## 3. The Power Automate flow (Path A — no premium)
 
-1. **Trigger — Microsoft Forms: "When a new response is submitted"**
-   Form Id: the form above.
+1. **Trigger — Microsoft Forms: "When a new response is submitted"** → the form above.
+2. **Action — Microsoft Forms: "Get response details"** → same form; Response Id from the trigger.
+3. **Action — SharePoint: "Create item"**
+   - Site: `https://bsoed.sharepoint.com/sites/AIAcademy`
+   - List: **AI Academy Enrolments** (the backend creates it on first poll if it
+     doesn't exist — or make it first with the columns in §1d)
+   - Fields:
+     | Column | Value (dynamic content) |
+     |---|---|
+     | Title | `<Q1> <Q2>` (first + last) |
+     | FirstName | `<Q1>` |
+     | LastName | `<Q2>` |
+     | Email | `<Q3>` |
+     | Phone | `<Q4>` |
+     | Programme | `<Q5>` (the raw "University student" / "Working professional" — the backend normalises it) |
+     | Organisation | `<Q6>` |
+     | Country | `<Q7>` |
+     | StartMonth | `<Q9>` |
+     | Status | *(leave blank)* |
 
-2. **Action — Microsoft Forms: "Get response details"**
-   Form Id: same. Response Id: `Response Id` from the trigger.
+   (`<Qn>` = the "Get response details" dynamic content for that question.)
 
-3. **Action — HTTP**
-   - Method: `POST`
-   - URI: `https://estatecopilot-api.azurewebsites.net/api/ai-academy/enrol`
-   - Headers: `Content-Type: application/json` · `x-enrol-secret: <AI_ACADEMY_ENROL_SECRET>`
-   - Body:
-     ```json
-     {
-       "firstName": "<Q1>",
-       "lastName": "<Q2>",
-       "personalEmail": "<Q3>",
-       "phone": "<Q4>",
-       "programme": "@{if(equals(<Q5>,'Working professional'),'professional','university')}",
-       "organisation": "<Q6>",
-       "country": "<Q7>",
-       "startMonth": "<Q9>"
-     }
-     ```
-     (`<Qn>` = the "Get response details" dynamic content for that question.)
+The backend poller picks the row up within ~2 min, provisions the learner,
+and sets `Status` = `Active` / `Failed` with a `ProvisionNote`. Watch the
+list to see results.
 
-4. *(optional)* **Condition** on `@{body('HTTP')?['ok']}` = `false` → post the
-   `body('HTTP')` report to a Teams channel or email ops, so a partial
-   provisioning failure is seen.
+### List columns (§1d) if creating it by hand
+Single line of text: `FirstName`, `LastName`, `Email`, `Programme`,
+`Organisation`, `Country`, `Phone`, `StartMonth`, `Status`, `AccountUPN`,
+`ProvisionNote`, `EnrolledAt`. (`Title` exists by default.)
+
+## 3b. Optional — Path B (premium HTTP action)
+
+Replace step 3 with an **HTTP** action: `POST
+https://estatecopilot-api.azurewebsites.net/api/ai-academy/enrol`, headers
+`Content-Type: application/json` + `x-enrol-secret: <AI_ACADEMY_ENROL_SECRET>`,
+body:
+```json
+{ "firstName":"<Q1>", "lastName":"<Q2>", "personalEmail":"<Q3>", "phone":"<Q4>",
+  "programme":"@{if(equals(<Q5>,'Working professional'),'professional','university')}",
+  "organisation":"<Q6>", "country":"<Q7>", "startMonth":"<Q9>" }
+```
+The response `{ ok, upn, steps }` lets you branch on a partial failure.
 
 ---
 
 ## Testing before go-live
 
-With `AI_ACADEMY_ENROL_SECRET` set but Graph creds absent, the endpoint runs
-in **mock mode** — it logs what it would do and returns a simulated report.
-Once the app permissions + IDs are in, submit one real form response and
+With Graph creds absent, both paths run in **mock mode** — they log what they
+would do and return a simulated report; the poller no-ops. Once the app
+permissions + IDs are in, submit one real form response and
 check: account created, licence shows in the M365 admin center, the person
 is in the AI Academy team, a row in the SharePoint list, welcome email
 received.

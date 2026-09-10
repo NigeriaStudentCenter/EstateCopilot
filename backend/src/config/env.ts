@@ -59,7 +59,11 @@ export const env = {
   // with AI_ACADEMY_ENROL_SECRET; this module then does the M365 side via
   // app-only Graph. Graph auth falls back to the SharePoint app (same tenant).
   aiAcademyEnrol: {
-    secret: process.env.AI_ACADEMY_ENROL_SECRET, // unset => route is 404
+    secret: process.env.AI_ACADEMY_ENROL_SECRET, // unset => the HTTP route is 404
+    // Path A (no premium): poll the SharePoint list the Power Automate flow
+    // writes to. On when true AND Graph is configured.
+    poll: process.env.AI_ACADEMY_ENROL_POLL === 'true',
+    pollIntervalMs: Number(process.env.AI_ACADEMY_ENROL_POLL_MS) || 120_000,
     accountDomain: process.env.AI_ACADEMY_ACCOUNT_DOMAIN ?? 'bsoedu.org',
     sitePath: process.env.AI_ACADEMY_SITE_PATH ?? 'bsoed.sharepoint.com:/sites/AIAcademy',
     listName: process.env.AI_ACADEMY_ENROL_LIST_NAME ?? 'AI Academy Enrolments',
