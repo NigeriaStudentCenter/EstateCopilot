@@ -412,7 +412,7 @@ async function getAcademyInfo(_input: { question?: string }): Promise<string> {
 async function captureAcademyLead(
   input: {
     interest: string;
-    programme?: string; // teens | university | professional
+    programme?: string; // teens | on_wheels
     studentName?: string;
     parentName?: string;
     ageOrClass?: string;
@@ -558,10 +558,14 @@ const ACADEMY_TOOLS: ToolDef[] = [
       type: 'object',
       properties: {
         interest: { type: 'string', description: 'What they asked about / want' },
-        programme: { type: 'string', enum: ['teens', 'university', 'professional'] },
+        programme: {
+          type: 'string',
+          enum: ['teens', 'on_wheels'],
+          description: '"teens" = AI Academy for Teens (10-17); "on_wheels" = AI Academy on Wheels (university students / working professionals)',
+        },
         studentName: { type: 'string' },
         parentName: { type: 'string', description: 'For the teens programme only' },
-        ageOrClass: { type: 'string', description: 'Age (teens) or level/role (university, professional)' },
+        ageOrClass: { type: 'string', description: 'Age (teens), or "university" / job role (on_wheels)' },
         location: { type: 'string' },
         contactPreference: { type: 'string' },
       },
