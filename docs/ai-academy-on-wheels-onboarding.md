@@ -38,42 +38,54 @@ Path B's route is 404 until `AI_ACADEMY_ENROL_SECRET` is set.
 
 ## 1. One-time tenant setup (bsoed tenant — you do this)
 
-### a. Create the "AI Academy" team
-Teams → **Join or create a team → Create team → From scratch → Private** →
-name it **AI Academy**. Then get its **Group ID**:
-Teams admin center → Teams → AI Academy → *Group ID*, or
-Entra admin center → Groups → AI Academy → *Object ID*.
-→ set `AI_ACADEMY_TEAM_GROUP_ID`.
+### a. Create the "AI Academy" team — DONE
+The **AI Academy** M365 group (created 2026-07-24, owns
+`…/sites/AIAcademy`) now has a team attached.
+**Group ID = `3141a2c7-95c5-45bf-abbc-35f8d5da4c02`** → `AI_ACADEMY_TEAM_GROUP_ID`.
+(Re-check any time: `az rest --method get --url
+"https://bsoed.sharepoint.com/sites/AIAcademy/_api/site?\$select=GroupId"`, or
+Teams admin center → Teams → AI Academy → *Group ID*.)
 
-### b. Get the licence SKU ID
-Graph Explorer (or any Graph call), signed in as an admin:
+### b. Get the licence SKU ID — DONE
+`az rest --method get --url
+"https://graph.microsoft.com/v1.0/subscribedSkus?\$select=skuId,skuPartNumber,prepaidUnits,consumedUnits"`
+The bsoed tenant has **no** `M365EDU_A1` / `STANDARDWOFFPACK_IW_STUDENT`; the
+assignable student productivity plan is **`STANDARDWOFFPACK_STUDENT`**
+("Office 365 A1 for students" — Exchange, SharePoint, Teams, web apps).
+**skuId = `314c4481-f395-4525-be8b-2ec4bb1e9d91`** → `AI_ACADEMY_LICENSE_SKU_ID`.
+Seats: enabled 1,000,000 / consumed 56 — plenty.
+(`OFFICESUBSCRIPTION_STUDENT` — the *desktop* apps — has only 6 seats; don't
+use it as the base.)
+
+### c. Graph app permissions — TODO (needs a Global/Cloud-App admin)
+App **`EstateCopilot-SharePoint-Integration`**
+(appId `a82b7190-14dc-4600-b3ef-78e551e993d0`, tenant
+`76691188-9b9d-47ee-bb5a-2afec52f4d5e`) — the backend already uses it via the
+`SHAREPOINT_*` settings. It currently has only **`Sites.ReadWrite.All`**
+(app). Add these **application** permissions + **admin consent**:
+
+| Permission | Graph app-role id | For |
+|---|---|---|
+| `User.ReadWrite.All` | `741f803b-c850-494e-b5df-cde7c675a1ca` | create the learner account |
+| `Group.ReadWrite.All` | `62a82d76-70ea-41e2-9197-370581804d09` | add them to the AI Academy team |
+| `Mail.Send` | `b633e1c5-b582-4048-a93e-9f11b44c7e96` | the welcome email |
+
+```bash
+az ad app permission add --id a82b7190-14dc-4600-b3ef-78e551e993d0 \
+  --api 00000003-0000-0000-c000-000000000000 \
+  --api-permissions \
+    741f803b-c850-494e-b5df-cde7c675a1ca=Role \
+    62a82d76-70ea-41e2-9197-370581804d09=Role \
+    b633e1c5-b582-4048-a93e-9f11b44c7e96=Role
+az ad app permission admin-consent --id a82b7190-14dc-4600-b3ef-78e551e993d0
 ```
-GET https://graph.microsoft.com/v1.0/subscribedSkus?$select=skuId,skuPartNumber,prepaidUnits,consumedUnits
-```
-Find the row whose `skuPartNumber` is the A1-for-students one
-(`STANDARDWOFFPACK_IW_STUDENT`, or `M365EDU_A1` depending on how it was
-bought), copy its `skuId` GUID.
-→ set `AI_ACADEMY_LICENSE_SKU_ID`. Confirm `prepaidUnits.enabled - consumedUnits`
-leaves enough seats.
+Verify: `az rest --method get --url
+"https://graph.microsoft.com/v1.0/servicePrincipals(appId='a82b7190-14dc-4600-b3ef-78e551e993d0')/appRoleAssignments?\$select=resourceDisplayName,appRoleId"`
+— expect 4 entries.
 
-### c. Graph app permissions
-The app `services/sharepoint.ts` already uses (client-credentials, bsoed
-tenant) needs these **application** permissions added, with **admin consent**:
-
-| Permission | For |
-|---|---|
-| `User.ReadWrite.All` | create the learner account |
-| `Group.ReadWrite.All` | add them to the AI Academy group/team |
-| `Sites.ReadWrite.All` | the enrolment list (already has this) |
-| `Mail.Send` | the welcome email |
-| `Organization.Read.All` | *(optional)* read `subscribedSkus` |
-
-`Mail.Send` as an app permission can send as **any** mailbox — scope it with
-an **ApplicationAccessPolicy** to just `AI_ACADEMY_WELCOME_FROM` (e.g. a
-shared mailbox `aiacademy@bsoedu.org`).
-
-Reuse the SharePoint app → nothing else to set. New app → set
-`AI_ACADEMY_GRAPH_TENANT_ID` / `_CLIENT_ID` / `_CLIENT_SECRET`.
+`Mail.Send` (app) can send as **any** mailbox — scope it with an
+**ApplicationAccessPolicy** (Exchange Online PowerShell) to just
+`AI_ACADEMY_WELCOME_FROM`. Recommended, not blocking.
 
 ### d. SharePoint list — DONE
 The **"AI Academy Enrolments"** list already exists on
@@ -86,15 +98,29 @@ built-in `Title`). All are on the default view. Nothing to do here.
 name on the first poll. To point at a different list, set
 `AI_ACADEMY_ENROL_LIST_ID`.)
 
-### e. Azure App Settings on `estatecopilot-api`
+### e. Azure App Settings on `estatecopilot-api` (`estatecopilot-rg`)
+
+Step 1 — set the IDs now (harmless; nothing runs until POLL is on):
+```bash
+az webapp config appsettings set \
+  --name estatecopilot-api --resource-group estatecopilot-rg \
+  --settings \
+    AI_ACADEMY_TEAM_GROUP_ID=3141a2c7-95c5-45bf-abbc-35f8d5da4c02 \
+    AI_ACADEMY_LICENSE_SKU_ID=314c4481-f395-4525-be8b-2ec4bb1e9d91 \
+    AI_ACADEMY_WELCOME_FROM=john@bsoedu.org \
+  --output table
 ```
-AI_ACADEMY_ENROL_POLL        = true                     # turns on Path A
-AI_ACADEMY_TEAM_GROUP_ID     = <from step a>
-AI_ACADEMY_LICENSE_SKU_ID    = <from step b>
-AI_ACADEMY_WELCOME_FROM      = aiacademy@bsoedu.org      # optional, defaults to john@
-# AI_ACADEMY_ENROL_SECRET only if you also want Path B (premium HTTP)
-# AI_ACADEMY_GRAPH_* only if NOT reusing the SharePoint app
+
+Step 2 — only AFTER step c (Graph permissions + admin consent) is done, flip
+the poller on:
+```bash
+az webapp config appsettings set \
+  --name estatecopilot-api --resource-group estatecopilot-rg \
+  --settings AI_ACADEMY_ENROL_POLL=true --output table
 ```
+
+`AI_ACADEMY_GRAPH_*` are unset — Graph auth falls back to `SHAREPOINT_*`
+(same tenant/app). `AI_ACADEMY_ENROL_SECRET` only if you also want Path B.
 
 ---
 
