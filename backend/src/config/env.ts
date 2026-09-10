@@ -50,7 +50,30 @@ export const env = {
   },
   aiAcademy: {
     // Where an AI Academy enrolment enquiry is sent to start onboarding.
-    onboardingUrl: process.env.AI_ACADEMY_ONBOARDING_URL ?? 'https://estatecopilot.org/ai-academy',
+    onboardingUrl:
+      process.env.AI_ACADEMY_ONBOARDING_URL ??
+      'https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXguXesy5xKlEksmVVecOy5ZUM1hIVTU0OEROMFBRVFZFOVZITk5YUFJOMS4u',
+  },
+  // AI Academy on Wheels (university / professional) enrolment provisioning.
+  // The Microsoft Form's Power Automate flow POSTs to /api/ai-academy/enrol
+  // with AI_ACADEMY_ENROL_SECRET; this module then does the M365 side via
+  // app-only Graph. Graph auth falls back to the SharePoint app (same tenant).
+  aiAcademyEnrol: {
+    secret: process.env.AI_ACADEMY_ENROL_SECRET, // unset => the HTTP route is 404
+    // Path A (no premium): poll the SharePoint list the Power Automate flow
+    // writes to. On when true AND Graph is configured.
+    poll: process.env.AI_ACADEMY_ENROL_POLL === 'true',
+    pollIntervalMs: Number(process.env.AI_ACADEMY_ENROL_POLL_MS) || 120_000,
+    accountDomain: process.env.AI_ACADEMY_ACCOUNT_DOMAIN ?? 'bsoedu.org',
+    sitePath: process.env.AI_ACADEMY_SITE_PATH ?? 'bsoed.sharepoint.com:/sites/AIAcademy',
+    listName: process.env.AI_ACADEMY_ENROL_LIST_NAME ?? 'AI Academy Enrolments',
+    listId: process.env.AI_ACADEMY_ENROL_LIST_ID, // optional; else resolved/created by name
+    teamGroupId: process.env.AI_ACADEMY_TEAM_GROUP_ID, // the "AI Academy" M365 group/team
+    licenseSkuId: process.env.AI_ACADEMY_LICENSE_SKU_ID, // Microsoft 365 A1 for students skuId
+    welcomeFrom: process.env.AI_ACADEMY_WELCOME_FROM ?? 'john@bsoedu.org',
+    tenantId: process.env.AI_ACADEMY_GRAPH_TENANT_ID ?? process.env.SHAREPOINT_TENANT_ID,
+    clientId: process.env.AI_ACADEMY_GRAPH_CLIENT_ID ?? process.env.SHAREPOINT_CLIENT_ID,
+    clientSecret: process.env.AI_ACADEMY_GRAPH_CLIENT_SECRET ?? process.env.SHAREPOINT_CLIENT_SECRET,
   },
   tenantAuth: {
     jwtSecret: process.env.TENANT_JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
