@@ -93,7 +93,7 @@ export default function Login({ onDone }: { onDone: () => void }) {
         </form>
       ) : (
         <form onSubmit={verify} className="space-y-4">
-          <Field label="6-digit code" hint={devOtp ? `Dev mode: your code is ${devOtp}` : `Sent to ${phone}`}>
+          <Field label="6-digit code" hint={devOtp ? `Your code: ${devOtp}` : `Sent to ${phone}`}>
             <input
               className={`${input} text-center text-lg tracking-[0.5em]`}
               inputMode="numeric"
