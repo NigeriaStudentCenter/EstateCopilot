@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL, PROPERTIES_MARKETPLACE_URL } from '../lib/links';
+import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL, PROPERTIES_MARKETPLACE_URL, MAIN_SITE_URL, isPropertiesHost } from '../lib/links';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `text-sm font-medium transition ${isActive ? 'text-emerald-700' : 'text-gray-600 hover:text-gray-900'}`;
+
+// On the properties subdomain, "/" is the marketplace itself (see App.tsx) —
+// so "Home" and the logo need to point at the real homepage explicitly
+// instead of the usual internal "/".
+const onPropertiesSubdomain = isPropertiesHost(window.location.hostname);
 
 const NavBar: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -11,13 +16,24 @@ const NavBar: React.FC = () => {
   return (
     <header className="bg-white/90 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-emerald-950 rounded-full"></div>
-          <span className="text-lg font-bold text-gray-900">EstateCopilot</span>
-        </Link>
+        {onPropertiesSubdomain ? (
+          <a href={MAIN_SITE_URL} className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-emerald-950 rounded-full"></div>
+            <span className="text-lg font-bold text-gray-900">EstateCopilot</span>
+          </a>
+        ) : (
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-emerald-950 rounded-full"></div>
+            <span className="text-lg font-bold text-gray-900">EstateCopilot</span>
+          </Link>
+        )}
 
         <nav className="hidden md:flex items-center gap-8">
-          <NavLink to="/" end className={navLinkClass}>Home</NavLink>
+          {onPropertiesSubdomain ? (
+            <a href={MAIN_SITE_URL} className="text-sm font-medium text-gray-600 hover:text-gray-900">Home</a>
+          ) : (
+            <NavLink to="/" end className={navLinkClass}>Home</NavLink>
+          )}
           <a href={PROPERTIES_MARKETPLACE_URL} className="text-sm font-medium text-gray-600 hover:text-gray-900">Vacant Properties</a>
           <NavLink to="/artisans" className={navLinkClass}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className={navLinkClass}>For Artisans</NavLink>
@@ -44,7 +60,11 @@ const NavBar: React.FC = () => {
 
       {open && (
         <div className="md:hidden border-t border-gray-100 px-4 py-4 space-y-3 bg-white">
-          <NavLink to="/" end className={navLinkClass} onClick={() => setOpen(false)}>Home</NavLink>
+          {onPropertiesSubdomain ? (
+            <a href={MAIN_SITE_URL} className="block text-sm text-gray-600">Home</a>
+          ) : (
+            <NavLink to="/" end className={navLinkClass} onClick={() => setOpen(false)}>Home</NavLink>
+          )}
           <a href={PROPERTIES_MARKETPLACE_URL} className="block text-sm text-gray-600">Vacant Properties</a>
           <NavLink to="/artisans" className="block" onClick={() => setOpen(false)}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className="block" onClick={() => setOpen(false)}>For Artisans</NavLink>

@@ -19,3 +19,8 @@ export function isPropertiesHost(hostname: string): boolean {
     return false;
   }
 }
+
+// The main marketing site — where the "Home"/logo link on the properties
+// subdomain should actually go (internal "/" there is the marketplace, not
+// the homepage).
+export const MAIN_SITE_URL = import.meta.env.VITE_MAIN_SITE_URL ?? 'https://estatecopilot.org';

@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_ARTISAN_PORTAL_URL?: string;
   readonly VITE_PARTNER_PORTAL_URL?: string;
   readonly VITE_PROPERTIES_MARKETPLACE_URL?: string;
+  readonly VITE_MAIN_SITE_URL?: string;
   /** YouTube/Vimeo watch URL or a direct .mp4 for the homepage walkthrough.
    *  Unset => the "video coming soon" placeholder is shown. */
   readonly VITE_WALKTHROUGH_VIDEO_URL?: string;
