@@ -11,7 +11,7 @@ import { NIGERIA_STATES, stateByName } from '../lib/nigeriaStates.js';
 import { TRADES, isTradeId, tradeLabel, type TradeId } from '../lib/trades.js';
 import { putPropertyImage, deletePropertyImage } from '../lib/blobStorage.js';
 import { computeArtisanScore } from '../lib/artisanScore.js';
-import { signArtisanToken, verifyArtisanToken, normalizePhone, issueOtp, checkOtp } from '../services/artisanAuth.js';
+import { signArtisanToken, verifyArtisanToken, normalizePhone, issueOtp, checkOtp, consumeOtp } from '../services/artisanAuth.js';
 import { verifyNinBvn } from '../services/smileId.js';
 import {
   mockArtisans,
@@ -68,11 +68,14 @@ artisanRouter.post('/artisan-auth/otp/verify', async (req, res) => {
     ? (mockArtisansByPhone.get(phone) ? mockArtisans.get(mockArtisansByPhone.get(phone)!)! : null)
     : await prisma.artisan.findUnique({ where: { phone } });
   if (existing) {
+    await consumeOtp(phone);
     touchLastActive(existing.id).catch(() => {});
     return res.json({ token: signArtisanToken({ artisanId: existing.id, phone }), isNew: false });
   }
 
-  // new account — need a name + a base location
+  // new account — need a name + a base location. The code stays valid (not
+  // yet consumed) so the follow-up call with these fields, using the same
+  // code, still succeeds.
   const name = parsed.data.name?.trim();
   const st = stateByName(parsed.data.state);
   const lga = parsed.data.lga && ALL_LGAS.has(parsed.data.lga) ? parsed.data.lga : st?.lgas[0];
@@ -83,6 +86,7 @@ artisanRouter.post('/artisan-auth/otp/verify', async (req, res) => {
   const created = env.mockMode
     ? createMockArtisan({ phone, name, baseState: st.name, baseLga: lga })
     : await prisma.artisan.create({ data: { phone, name, baseState: st.name, baseLga: lga } });
+  await consumeOtp(phone);
   res.status(201).json({ token: signArtisanToken({ artisanId: created.id, phone }), isNew: true });
 });
 

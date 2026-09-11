@@ -57,16 +57,29 @@ export async function issueOtp(phone: string): Promise<{ devOtp?: string }> {
   return {};
 }
 
+// Checks validity WITHOUT consuming the code — a brand-new artisan verifies
+// the code once, then (on the 422 "needsProfile" response) resubmits the
+// *same* code together with their name/state/LGA to actually create the
+// account. Deleting the code on the first check made that second, real
+// registration call fail with "Invalid or expired code" every time — the
+// account was never created because the code that gated it no longer
+// existed by the time the profile fields arrived. Callers must call
+// consumeOtp() once the phone is fully resolved to an account (existing or
+// newly created).
 export async function checkOtp(phone: string, code: string): Promise<boolean> {
   if (env.mockMode) {
     const hit = mockStore.get(phone);
-    if (!hit || hit.expires < Date.now() || hit.code !== code) return false;
-    mockStore.delete(phone);
-    return true;
+    return !!hit && hit.expires >= Date.now() && hit.code === code;
   }
 
   const hit = await prisma.artisanOtp.findUnique({ where: { phone } });
-  if (!hit || hit.expiresAt.getTime() < Date.now() || hit.code !== code) return false;
-  await prisma.artisanOtp.delete({ where: { phone } }).catch(() => {}); // single-use; ignore a concurrent verify racing this delete
-  return true;
+  return !!hit && hit.expiresAt.getTime() >= Date.now() && hit.code === code;
+}
+
+export async function consumeOtp(phone: string): Promise<void> {
+  if (env.mockMode) {
+    mockStore.delete(phone);
+    return;
+  }
+  await prisma.artisanOtp.delete({ where: { phone } }).catch(() => {}); // already gone / racing another consume — fine either way
 }
