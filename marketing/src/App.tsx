@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { captureRef } from './lib/referral';
+import { isPropertiesHost } from './lib/links';
 import NavBar from './components/NavBar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -11,6 +12,11 @@ import ArtisanProfile from './pages/ArtisanProfile';
 import LegalTeam from './pages/LegalTeam';
 import Signup from './pages/Signup';
 import SignupCallback from './pages/SignupCallback';
+
+// Same build deployed to two Static Web Apps: the main marketing site, and
+// properties.estatecopilot.org — the property marketplace's own subdomain.
+// Everything else about the app is identical; only what "/" renders differs.
+const isOnPropertiesSubdomain = isPropertiesHost(window.location.hostname);
 
 const App: React.FC = () => {
   // Stash ?ref= from an affiliate link before any navigation drops the query string.
@@ -23,7 +29,7 @@ const App: React.FC = () => {
       <NavBar />
       <main className="flex-1">
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={isOnPropertiesSubdomain ? <Properties /> : <Home />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/properties/:stateSlug" element={<Properties />} />
           <Route path="/handymen" element={<Handymen />} />

@@ -1,6 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL, ARTISAN_PORTAL_URL, PARTNER_PORTAL_URL } from '../lib/links';
+import {
+  LANDLORD_PORTAL_URL,
+  TENANT_PORTAL_URL,
+  ARTISAN_PORTAL_URL,
+  PARTNER_PORTAL_URL,
+  PROPERTIES_MARKETPLACE_URL,
+} from '../lib/links';
 
 const Footer: React.FC = () => (
   <footer className="bg-emerald-950 text-emerald-100">
@@ -20,7 +26,7 @@ const Footer: React.FC = () => (
         <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400 mb-3">Platform</p>
         <ul className="space-y-2 text-sm">
           <li><Link to="/" className="hover:text-white">How it works</Link></li>
-          <li><Link to="/properties" className="hover:text-white">Vacant properties</Link></li>
+          <li><a href={PROPERTIES_MARKETPLACE_URL} className="hover:text-white">Vacant properties</a></li>
           <li><Link to="/artisans" className="hover:text-white">Find an artisan</Link></li>
           <li><Link to="/handymen" className="hover:text-white">Repair jobs for artisans</Link></li>
         </ul>

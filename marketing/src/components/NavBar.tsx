@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL } from '../lib/links';
+import { LANDLORD_PORTAL_URL, TENANT_PORTAL_URL, PROPERTIES_MARKETPLACE_URL } from '../lib/links';
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `text-sm font-medium transition ${isActive ? 'text-emerald-700' : 'text-gray-600 hover:text-gray-900'}`;
@@ -18,7 +18,7 @@ const NavBar: React.FC = () => {
 
         <nav className="hidden md:flex items-center gap-8">
           <NavLink to="/" end className={navLinkClass}>Home</NavLink>
-          <NavLink to="/properties" className={navLinkClass}>Vacant Properties</NavLink>
+          <a href={PROPERTIES_MARKETPLACE_URL} className="text-sm font-medium text-gray-600 hover:text-gray-900">Vacant Properties</a>
           <NavLink to="/artisans" className={navLinkClass}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className={navLinkClass}>For Artisans</NavLink>
           <NavLink to="/legal-team" className={navLinkClass}>For Lawyers</NavLink>
@@ -45,7 +45,7 @@ const NavBar: React.FC = () => {
       {open && (
         <div className="md:hidden border-t border-gray-100 px-4 py-4 space-y-3 bg-white">
           <NavLink to="/" end className={navLinkClass} onClick={() => setOpen(false)}>Home</NavLink>
-          <NavLink to="/properties" className="block" onClick={() => setOpen(false)}>Vacant Properties</NavLink>
+          <a href={PROPERTIES_MARKETPLACE_URL} className="block text-sm text-gray-600">Vacant Properties</a>
           <NavLink to="/artisans" className="block" onClick={() => setOpen(false)}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className="block" onClick={() => setOpen(false)}>For Artisans</NavLink>
           <NavLink to="/legal-team" className="block" onClick={() => setOpen(false)}>For Lawyers</NavLink>

@@ -1,0 +1,35 @@
+name: Deploy properties marketplace
+
+# One-time setup (done):
+#   az staticwebapp create -g estatecopilot-rg -n estatecopilot-properties -l westeurope --sku Free
+#   gh secret set AZURE_SWA_TOKEN_PROPERTIES --body "$(az staticwebapp secrets list \
+#     -g estatecopilot-rg -n estatecopilot-properties --query properties.apiKey -o tsv)"
+#
+# Deploys the SAME marketing build to a second Static Web App, bound to
+# properties.estatecopilot.org — the marketing site's Free-tier SWA is
+# already at its 2-custom-domain limit (estatecopilot.org, www.). The app
+# detects that hostname at runtime and opens straight into the property
+# marketplace instead of the homepage (see src/App.tsx).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'marketing/**'
+      - '.github/workflows/deploy-properties.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN_PROPERTIES }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: 'marketing'
+          output_location: 'dist'
+          skip_api_build: true
