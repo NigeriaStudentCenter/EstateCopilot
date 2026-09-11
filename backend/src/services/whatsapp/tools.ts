@@ -36,6 +36,7 @@ import {
   TEENS_TRACKS,
   findTeensTrack,
 } from './academyTeensCatalogue.js';
+import { LANDLORD_FEATURES, findLandlordFeature, landlordFeatureImageUrl, landlordFeatureGuideUrl } from './featureGuides.js';
 import {
   ONBOARDING,
   ONBOARDING_AUDIENCES,
@@ -405,6 +406,26 @@ async function getOnboarding(input: { audience?: string; step?: number }, ctx: T
   );
 }
 
+// ---- EstateCopilot: landlord feature guides ---------------------------
+
+async function shareLandlordFeature(input: { feature?: string }, ctx: ToolContext): Promise<string> {
+  const feature = findLandlordFeature(input.feature ?? '');
+  if (!feature) return 'Could not match that to one feature — ask a short clarifying question, or use get_onboarding for the full landlord walkthrough.';
+  const img = landlordFeatureImageUrl(feature);
+  if (img) ctx.media.push({ kind: 'image', link: img, caption: feature.title });
+  return `${feature.title}: ${feature.summary}\nFull guide section: ${landlordFeatureGuideUrl(feature)}`;
+}
+
+async function shareLandlordPaymentLink(): Promise<string> {
+  const monthly = `₦${(env.subscription.monthlyAmountKobo / 100).toLocaleString('en-NG')}/month`;
+  return (
+    `Sign-up has two steps, in this order — paying first with no account on file leaves nothing for the team to activate. ` +
+    `1) Create the account: estatecopilot.org → "List your property" → fill in name, email, WhatsApp number, password and state. ` +
+    `2) Pay the flat ${monthly} (any number of properties, no extra charges) — the signup form takes them to a secure Paystack page automatically, or they can pay directly at ${env.subscription.hostedPageUrl} once the account exists. ` +
+    'The account is NOT switched on automatically — during the pilot a real person checks every new landlord after payment clears, usually within a few hours, then the account goes live.'
+  );
+}
+
 async function captureLead(
   input: { intent: string; name?: string; details: string },
   ctx: ToolContext,
@@ -599,6 +620,30 @@ const ONBOARDING_TOOL: ToolDef = {
   },
 };
 
+const LANDLORD_FEATURE_TOOL: ToolDef = {
+  name: 'share_landlord_feature',
+  description:
+    "Answer a landlord's \"how do I…\" question about a specific portal feature once they are past sign-up — the full explanation plus its real screenshot and a link to that section of the illustrated guide.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      feature: {
+        type: 'string',
+        enum: LANDLORD_FEATURES.map((f) => f.title),
+        description: 'The exact feature title that best matches what the landlord asked about.',
+      },
+    },
+    required: ['feature'],
+  },
+};
+
+const LANDLORD_PAYMENT_TOOL: ToolDef = {
+  name: 'share_landlord_payment_link',
+  description:
+    'Share how a landlord signs up and pays when they are ready to list a property or ask how to pay — returns both the sign-up-first sequence and the payment link, since paying without an account first leaves nothing for the team to activate.',
+  input_schema: { type: 'object', properties: {} },
+};
+
 const CAPTURE_LEAD_TOOL: ToolDef = {
   name: 'capture_lead',
   description: 'Record a lead for the team when no other tool fits (e.g. a landlord wanting to list, a request with no match).',
@@ -715,7 +760,15 @@ const ESCALATE_TOOL: ToolDef = {
 
 export function toolsForBrand(brand: WaBrand): ToolDef[] {
   if (brand === 'ESTATECOPILOT') {
-    return [...LISTING_TOOLS, ...ARTISAN_TOOLS, ONBOARDING_TOOL, CAPTURE_LEAD_TOOL, ESCALATE_TOOL];
+    return [
+      ...LISTING_TOOLS,
+      ...ARTISAN_TOOLS,
+      ONBOARDING_TOOL,
+      LANDLORD_FEATURE_TOOL,
+      LANDLORD_PAYMENT_TOOL,
+      CAPTURE_LEAD_TOOL,
+      ESCALATE_TOOL,
+    ];
   }
   if (brand === 'AI_ACADEMY') {
     return [...ACADEMY_TOOLS, ESCALATE_TOOL];
@@ -745,6 +798,10 @@ export async function runTool(
         return await requestArtisanQuote(input as any, ctx);
       case 'get_onboarding':
         return await getOnboarding(input as any, ctx);
+      case 'share_landlord_feature':
+        return await shareLandlordFeature(input as any, ctx);
+      case 'share_landlord_payment_link':
+        return await shareLandlordPaymentLink();
       case 'capture_lead':
         return await captureLead(input as any, ctx, brand);
       case 'get_academy_info':
