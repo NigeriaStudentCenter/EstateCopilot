@@ -1,14 +1,16 @@
 // AI Academy for Teens — public pages, sourced from the real curriculum on
 // the TeenSkills SharePoint site (bsoed.sharepoint.com/sites/TeenSkills),
-// published alongside the adult catalogue (see academyCatalogue.ts). No
-// self-serve payment link is known for this programme yet — enrolment goes
-// through capture_academy_lead, a human confirms the place.
+// published alongside the adult catalogue (see academyCatalogue.ts).
 //
 // All URLs verified reachable (200) on 2026-09-11.
 
 export const TEENS_CURRICULUM_URL = 'https://nigeriastudentcenter.github.io/AI-Academy/TeensCurriculum.html';
 export const TEENS_SAFETY_URL = 'https://nigeriastudentcenter.github.io/AI-Academy/TeensAISafety.html';
 export const TEENS_SEL_URL = 'https://nigeriastudentcenter.github.io/AI-Academy/TeensSEL.html';
+// A Paystack storefront, paid by the parent/guardian. Once payment is
+// confirmed, the learner is added to the Academy automatically — no
+// separate signup form (same model as the adult catalogue's payment link).
+export const TEENS_PAYMENT_URL = 'https://paystack.shop/pay/teensaiacademy';
 
 export interface TeensTrack {
   title: string;

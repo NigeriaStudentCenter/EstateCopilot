@@ -28,7 +28,14 @@ import {
   ACADEMY_COURSES,
   findAcademyCourse,
 } from './academyCatalogue.js';
-import { TEENS_CURRICULUM_URL, TEENS_SAFETY_URL, TEENS_SEL_URL, TEENS_TRACKS, findTeensTrack } from './academyTeensCatalogue.js';
+import {
+  TEENS_CURRICULUM_URL,
+  TEENS_SAFETY_URL,
+  TEENS_SEL_URL,
+  TEENS_PAYMENT_URL,
+  TEENS_TRACKS,
+  findTeensTrack,
+} from './academyTeensCatalogue.js';
 import {
   ONBOARDING,
   ONBOARDING_AUDIENCES,
@@ -454,6 +461,11 @@ async function shareTeensLink(input: { resource?: string }): Promise<string> {
       return `Using AI Safely & Wisely — the mandatory first module: ${TEENS_SAFETY_URL}`;
     case 'sel':
       return `The Social-Emotional Learning course, which runs alongside the AI tracks: ${TEENS_SEL_URL}`;
+    case 'payment':
+      return (
+        `Enrol and pay here: ${TEENS_PAYMENT_URL} — once payment is confirmed, your child is added to the ` +
+        'Academy automatically, no extra form needed.'
+      );
     default:
       return `AI Academy for Teens — the curriculum: ${TEENS_CURRICULUM_URL}`;
   }
@@ -642,15 +654,15 @@ const ACADEMY_TOOLS: ToolDef[] = [
   {
     name: 'share_teens_link',
     description:
-      "Share one of the AI Academy for Teens' general links: the curriculum hub, the mandatory safety module, or the Social-Emotional Learning (SEL) course.",
+      "Share one of the AI Academy for Teens' general links: the curriculum hub, the mandatory safety module, the Social-Emotional Learning (SEL) course, or the payment link.",
     input_schema: {
       type: 'object',
       properties: {
         resource: {
           type: 'string',
-          enum: ['curriculum', 'safety', 'sel'],
+          enum: ['curriculum', 'safety', 'sel', 'payment'],
           description:
-            '"curriculum" for a general first look at the teens programme, "safety" for the mandatory first module, "sel" for the wellbeing/social-emotional-learning course.',
+            '"curriculum" for a general first look at the teens programme, "safety" for the mandatory first module, "sel" for the wellbeing/social-emotional-learning course, "payment" when the parent/guardian is ready to enrol.',
         },
       },
       required: ['resource'],

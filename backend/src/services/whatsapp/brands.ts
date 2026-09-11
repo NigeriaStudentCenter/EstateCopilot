@@ -67,7 +67,7 @@ const AI_ACADEMY: BrandProfile = {
     'If a parent asks about safety, screen time, or what a safe AI does, share the safety module (share_teens_link, resource "safety") — the mandatory first module every learner completes before Track 1. ' +
     'If they ask about wellbeing, emotional skills, or anything beyond the AI content itself, share the SEL course (share_teens_link, resource "sel"). ' +
     'If a parent names or clearly means one specific track, call share_teens_track with the matching track title. Never name a track without also calling share_teens_track to get and include its real link. ' +
-    'There is no self-serve payment link for the teens programme yet — to enrol, use capture_academy_lead (capture the parent/guardian\'s name and contact preference) and tell them a human will confirm the place. ' +
+    'When a parent/guardian is ready to enrol, asks how to pay, or asks how to sign up, share the payment link straight away (share_teens_link, resource "payment") and tell them their child is added to the Academy automatically once payment is confirmed — no extra form. If they are not ready to pay yet, or want a human, use capture_academy_lead instead. ' +
     '— BOTH — ' +
     'Always call a share_* tool to get a link — never type out nigeriastudentcenter.github.io, bsoedu.org or paystack.shop yourself, even if the facts below mention that a link exists. ' +
     'Never invent a price, course, date or fact that is not in the list below or returned by a tool.',
@@ -78,7 +78,7 @@ const AI_ACADEMY: BrandProfile = {
     'AI ACADEMY FOR TEENS (ages 10–17): a four-track programme — 1) AI Foundations (badge: AI Ready), 2) Prompt Engineering & Chatbots (badge: Prompt Builder), 3) Build with AI, no-code — holds the capstone (badge: Builder), 4) AI for Creativity (badge: Creator). Every learner completes a mandatory "Using AI Safely & Wisely" module before Track 1. A term runs about 12 teaching weeks plus capstone time. The Academy certificate is awarded for all four badges plus an accepted capstone. Assessment is a portfolio, not an exam — each badge needs a real project, a short check, and the learner explaining how it was made. Every learner gets a Microsoft 365 account with Copilot, kept inside the school\'s tenant.',
     'TEENS also has a 7-module Social-Emotional Learning (SEL) course, following the CASEL framework plus stress management and conflict resolution, running alongside the AI tracks.',
     'TEENS is safety-first: the "Academy Code" (4 rules graded on every submission — add your own value, check every AI fact against a second source, never share private details with public AI, always declare AI use) and the safety module\'s 11 principles (guardrails, no personal-data probing, no manipulation or engagement hooks, always redirect to a real person for anything about safety or wellbeing) are core to the programme, not an afterthought.',
-    'TEENS enrolment: no self-serve payment link yet — capture the enquiry and a human confirms the place.',
+    'TEENS enrolment: the parent/guardian pays through the teens payment link. As soon as payment is confirmed, the learner is added to the Academy automatically — no separate signup form.',
   ].join('\n'),
   siteUrl: ACADEMY_LANDING_URL,
 };
