@@ -28,6 +28,7 @@ import {
   ACADEMY_COURSES,
   findAcademyCourse,
 } from './academyCatalogue.js';
+import { TEENS_CURRICULUM_URL, TEENS_SAFETY_URL, TEENS_SEL_URL, TEENS_TRACKS, findTeensTrack } from './academyTeensCatalogue.js';
 import {
   ONBOARDING,
   ONBOARDING_AUDIENCES,
@@ -443,6 +444,27 @@ async function shareAcademyCourse(input: { course?: string }): Promise<string> {
   return `${course.title}${course.free ? ' (free lesson)' : ''}: ${course.url}`;
 }
 
+// ---- AI Academy for Teens --------------------------------------------
+
+async function shareTeensLink(input: { resource?: string }): Promise<string> {
+  switch (input.resource) {
+    case 'curriculum':
+      return `AI Academy for Teens — the curriculum: ${TEENS_CURRICULUM_URL}`;
+    case 'safety':
+      return `Using AI Safely & Wisely — the mandatory first module: ${TEENS_SAFETY_URL}`;
+    case 'sel':
+      return `The Social-Emotional Learning course, which runs alongside the AI tracks: ${TEENS_SEL_URL}`;
+    default:
+      return `AI Academy for Teens — the curriculum: ${TEENS_CURRICULUM_URL}`;
+  }
+}
+
+async function shareTeensTrack(input: { track?: string }): Promise<string> {
+  const track = findTeensTrack(input.track ?? '');
+  if (!track) return `Couldn't match that to one track — share the curriculum page instead: ${TEENS_CURRICULUM_URL}`;
+  return `${track.title}: ${track.url}`;
+}
+
 async function captureAcademyLead(
   input: {
     interest: string;
@@ -618,6 +640,38 @@ const ACADEMY_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: 'share_teens_link',
+    description:
+      "Share one of the AI Academy for Teens' general links: the curriculum hub, the mandatory safety module, or the Social-Emotional Learning (SEL) course.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        resource: {
+          type: 'string',
+          enum: ['curriculum', 'safety', 'sel'],
+          description:
+            '"curriculum" for a general first look at the teens programme, "safety" for the mandatory first module, "sel" for the wellbeing/social-emotional-learning course.',
+        },
+      },
+      required: ['resource'],
+    },
+  },
+  {
+    name: 'share_teens_track',
+    description: 'Share the link for ONE specific AI Academy for Teens track the user asked about.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        track: {
+          type: 'string',
+          enum: TEENS_TRACKS.map((t) => t.title),
+          description: 'The exact track title that best matches what the user asked about.',
+        },
+      },
+      required: ['track'],
+    },
+  },
+  {
     name: 'capture_academy_lead',
     description: 'Record an AI Academy enquiry for a human to follow up on (not ready to pay, or a question the facts/tools cannot resolve).',
     input_schema: {
@@ -687,6 +741,10 @@ export async function runTool(
         return await shareAcademyLink(input as any);
       case 'share_academy_course':
         return await shareAcademyCourse(input as any);
+      case 'share_teens_link':
+        return await shareTeensLink(input as any);
+      case 'share_teens_track':
+        return await shareTeensTrack(input as any);
       case 'capture_academy_lead':
         return await captureAcademyLead(input as any, ctx);
       case 'escalate_to_human':
