@@ -5,8 +5,8 @@
 // (marketing/public/guides/) — not new pages — with a real screenshot the
 // agent attaches alongside its reply.
 //
-// One array per EstateCopilot audience: landlord today; tenant, artisan and
-// Kolo partner follow the same shape.
+// One array per EstateCopilot audience: landlord, tenant, artisan, and
+// Kolo (referral) partner.
 
 import { imageUrl, mediaBase } from './onboarding.js';
 
@@ -118,6 +118,111 @@ export const LANDLORD_FEATURES: FeatureGuide[] = [
   },
 ];
 
+export const TENANT_FEATURES: FeatureGuide[] = [
+  {
+    title: 'Accepting your invite and signing up',
+    summary:
+      'The invite link from your landlord pre-fills your Tenancy ID — you just add your full name (as on the tenancy agreement), an email you check, and a password of at least 8 characters. You only need the link once; after that, log in at tenant.estatecopilot.org.',
+    guidePath: 'tenant-guide.html#part1',
+    image: 'tenant-02-signup-filled.webp',
+  },
+  {
+    title: 'Your Overview page',
+    summary:
+      'Your home screen: lease status, renewal date, yearly rent, electricity balance, and — when something is due — a "Next payment due" banner with a Pay now button.',
+    guidePath: 'tenant-guide.html#part2',
+    image: 'tenant-04-overview.webp',
+  },
+  {
+    title: 'Messaging your landlord',
+    summary:
+      'Correspondence shows every conversation with your landlord, including WhatsApp reminders. Type in the box and tap Send — your landlord reviews each reply before it reaches you, so a response can take a little while.',
+    guidePath: 'tenant-guide.html#part3',
+    image: 'tenant-05-correspondence.webp',
+  },
+  {
+    title: 'Reporting a repair',
+    summary:
+      'Open Maintenance, tick the checklist item closest to your issue — it instantly shows whether it is "🏠 Landlord\'s responsibility" (plumbing, wiring, the roof) or "🔧 Your responsibility" (day-to-day upkeep), or tick "Something else / not sure" — then add a short description and tap Report issue. It appears in a list below with a status badge that moves OPEN → DISPATCHED → AWAITING TENANT SIGNOFF → RESOLVED as your landlord works on it.',
+    guidePath: 'vacancies-repairs-guide.html#r-report',
+    image: 'tenant-07-maintenance-reported.webp',
+  },
+  {
+    title: 'Paying your rent',
+    summary:
+      'On your Overview page, tap "Pay now via Paystack" in the amber box. Pay by card or bank transfer — the money goes straight to your landlord\'s own bank account, never to EstateCopilot. Never pay rent any other way; if someone asks you to, check with your landlord first.',
+    guidePath: 'tenant-guide.html#part4',
+    image: 'tenant-04-overview.webp',
+  },
+  {
+    title: 'Signing your tenancy agreement',
+    summary:
+      'When your landlord sends it, open the Agreement tab and read it fully. At the bottom, type your full legal name, tick "I have read and agree...", then tap Sign agreement — your signature and the date are saved automatically.',
+    guidePath: 'tenant-guide.html#part4',
+    image: 'tenant-09-agreement-signed.webp',
+  },
+];
+
+export const ARTISAN_FEATURES: FeatureGuide[] = [
+  {
+    title: 'Creating your account',
+    summary:
+      'Go to artisans.estatecopilot.org, or tap "Join as an artisan" in the website footer. No invite needed — sign up independently any time. Enter your phone number, confirm the 6-digit code sent to you (that code logs you in every time — no password), then add your name, state and base LGA.',
+    guidePath: 'artisan-guide.html#part1',
+  },
+  {
+    title: 'Picking your trades and coverage area',
+    summary:
+      'Choose up to six trades (Electrician, Plumber, Tiler, AC Technician, Generator Technician, Carpenter, Painter, Welder, Borehole, POP & Ceiling, and more), set years of experience for each, and mark one as your primary trade. Your base LGA is always covered — add every other LGA you\'ll travel to, since jobs are matched to artisans who cover that area.',
+    guidePath: 'artisan-guide.html#part2',
+  },
+  {
+    title: 'Getting verified',
+    summary:
+      'You will not appear in the public directory until you pass at least an ID check. Enter your NIN or BVN on your profile — it is checked against the national database to confirm your name only, the number itself is never stored or shown. A pass moves you to ID-verified and switches your profile live. Higher tiers (reference-checked, then EstateCopilot-certified) come later and help you stand out further.',
+    guidePath: 'artisan-guide.html#part3',
+  },
+  {
+    title: 'Adding work photos and availability',
+    summary:
+      'Upload clear photos of finished jobs — a neat DB board, a tiled bathroom, a fitted wardrobe. The first photo becomes your directory cover and is the single biggest thing that wins a call. Keep your status set to Open, Busy or Away honestly, since landlords and tenants see it.',
+    guidePath: 'artisan-guide.html#part4',
+  },
+  {
+    title: 'Winning jobs',
+    summary:
+      'When someone picks you from the directory, their request appears under Direct requests with their phone number — call back quickly, speed wins these. The Jobs tab lists repair jobs in your coverage area; send a price, or ask to visit first if you need to see it to quote accurately. Finished jobs get rated, and ratings feed your score, which decides how high you rank next time someone searches your trade. Direct hires are agreed and paid between you and the client — EstateCopilot takes no cut.',
+    guidePath: 'artisan-guide.html#part5',
+  },
+];
+
+export const PARTNER_FEATURES: FeatureGuide[] = [
+  {
+    title: 'Creating your partner account',
+    summary:
+      'Use the "Refer & earn" link in the EstateCopilot website footer, or a partner-portal link a team member sent you. Enter your phone number and the one-time code you receive — there\'s no password. Add your name; you can add your bank account under Wallet later, once you\'re ready to be paid.',
+    guidePath: 'referral-guide.html#part1',
+  },
+  {
+    title: 'Getting your referral link',
+    summary:
+      'Open the Links tab — your link looks like estatecopilot.org/?ref=YOURCODE. Share the plain link, or point it at a specific page (like the sign-up page); both still carry your code. A click is credited to you for 30 days, even if the landlord signs up later, including after clicking away to pay.',
+    guidePath: 'referral-guide.html#part2',
+  },
+  {
+    title: 'Sharing it the right way',
+    summary:
+      'Send it with a short, honest pitch — landlords respond to clarity, not hype. Good places: your WhatsApp status, landlord groups you\'re part of, a pinned message in a building\'s owners chat, your email signature, one-to-one with clients. Don\'t spam groups you\'re not part of, don\'t sign people up on their behalf — referrals that look like abuse can be reversed.',
+    guidePath: 'referral-guide.html#part3',
+  },
+  {
+    title: 'Tracking signups and getting paid',
+    summary:
+      'Home shows clicks and signups. Wallet shows what you\'ve earned — each confirmed landlord shows as a commission, payable once their subscription payment clears. Add your bank account under Wallet to be paid on a regular cycle; a 5% withholding tax (as required in Nigeria) is deducted and remitted on your behalf, and Wallet shows the gross amount, the deduction, and what lands in your account.',
+    guidePath: 'referral-guide.html#part4',
+  },
+];
+
 export function findLandlordFeature(title: string): FeatureGuide | undefined {
   return LANDLORD_FEATURES.find((f) => f.title === title);
 }
@@ -127,5 +232,41 @@ export function landlordFeatureImageUrl(f: FeatureGuide): string | undefined {
 }
 
 export function landlordFeatureGuideUrl(f: FeatureGuide): string {
+  return guideUrl(f.guidePath);
+}
+
+export function findTenantFeature(title: string): FeatureGuide | undefined {
+  return TENANT_FEATURES.find((f) => f.title === title);
+}
+
+export function tenantFeatureImageUrl(f: FeatureGuide): string | undefined {
+  return f.image ? imageUrl(f.image) : undefined;
+}
+
+export function tenantFeatureGuideUrl(f: FeatureGuide): string {
+  return guideUrl(f.guidePath);
+}
+
+export function findArtisanFeature(title: string): FeatureGuide | undefined {
+  return ARTISAN_FEATURES.find((f) => f.title === title);
+}
+
+export function artisanFeatureImageUrl(f: FeatureGuide): string | undefined {
+  return f.image ? imageUrl(f.image) : undefined;
+}
+
+export function artisanFeatureGuideUrl(f: FeatureGuide): string {
+  return guideUrl(f.guidePath);
+}
+
+export function findPartnerFeature(title: string): FeatureGuide | undefined {
+  return PARTNER_FEATURES.find((f) => f.title === title);
+}
+
+export function partnerFeatureImageUrl(f: FeatureGuide): string | undefined {
+  return f.image ? imageUrl(f.image) : undefined;
+}
+
+export function partnerFeatureGuideUrl(f: FeatureGuide): string {
   return guideUrl(f.guidePath);
 }

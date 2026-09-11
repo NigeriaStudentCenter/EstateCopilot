@@ -36,7 +36,24 @@ import {
   TEENS_TRACKS,
   findTeensTrack,
 } from './academyTeensCatalogue.js';
-import { LANDLORD_FEATURES, findLandlordFeature, landlordFeatureImageUrl, landlordFeatureGuideUrl } from './featureGuides.js';
+import {
+  LANDLORD_FEATURES,
+  findLandlordFeature,
+  landlordFeatureImageUrl,
+  landlordFeatureGuideUrl,
+  TENANT_FEATURES,
+  findTenantFeature,
+  tenantFeatureImageUrl,
+  tenantFeatureGuideUrl,
+  ARTISAN_FEATURES,
+  findArtisanFeature,
+  artisanFeatureImageUrl,
+  artisanFeatureGuideUrl,
+  PARTNER_FEATURES,
+  findPartnerFeature,
+  partnerFeatureImageUrl,
+  partnerFeatureGuideUrl,
+} from './featureGuides.js';
 import {
   ONBOARDING,
   ONBOARDING_AUDIENCES,
@@ -426,6 +443,36 @@ async function shareLandlordPaymentLink(): Promise<string> {
   );
 }
 
+// ---- EstateCopilot: tenant feature guides -----------------------------
+
+async function shareTenantFeature(input: { feature?: string }, ctx: ToolContext): Promise<string> {
+  const feature = findTenantFeature(input.feature ?? '');
+  if (!feature) return 'Could not match that to one feature — ask a short clarifying question, or use get_onboarding for the full tenant walkthrough.';
+  const img = tenantFeatureImageUrl(feature);
+  if (img) ctx.media.push({ kind: 'image', link: img, caption: feature.title });
+  return `${feature.title}: ${feature.summary}\nFull guide section: ${tenantFeatureGuideUrl(feature)}`;
+}
+
+// ---- EstateCopilot: artisan feature guides ----------------------------
+
+async function shareArtisanFeature(input: { feature?: string }, ctx: ToolContext): Promise<string> {
+  const feature = findArtisanFeature(input.feature ?? '');
+  if (!feature) return 'Could not match that to one feature — ask a short clarifying question, or use get_onboarding for the full artisan walkthrough.';
+  const img = artisanFeatureImageUrl(feature);
+  if (img) ctx.media.push({ kind: 'image', link: img, caption: feature.title });
+  return `${feature.title}: ${feature.summary}\nFull guide section: ${artisanFeatureGuideUrl(feature)}`;
+}
+
+// ---- EstateCopilot: Kolo referral partner feature guides ---------------
+
+async function sharePartnerFeature(input: { feature?: string }, ctx: ToolContext): Promise<string> {
+  const feature = findPartnerFeature(input.feature ?? '');
+  if (!feature) return 'Could not match that to one feature — ask a short clarifying question, or use get_onboarding for the full partner walkthrough.';
+  const img = partnerFeatureImageUrl(feature);
+  if (img) ctx.media.push({ kind: 'image', link: img, caption: feature.title });
+  return `${feature.title}: ${feature.summary}\nFull guide section: ${partnerFeatureGuideUrl(feature)}`;
+}
+
 async function captureLead(
   input: { intent: string; name?: string; details: string },
   ctx: ToolContext,
@@ -644,6 +691,57 @@ const LANDLORD_PAYMENT_TOOL: ToolDef = {
   input_schema: { type: 'object', properties: {} },
 };
 
+const TENANT_FEATURE_TOOL: ToolDef = {
+  name: 'share_tenant_feature',
+  description:
+    "Answer a tenant's \"how do I…\" question about a specific portal feature — messaging their landlord, reporting a repair, paying rent, signing their agreement — the full explanation plus its real screenshot and a link to that section of the illustrated guide.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      feature: {
+        type: 'string',
+        enum: TENANT_FEATURES.map((f) => f.title),
+        description: 'The exact feature title that best matches what the tenant asked about.',
+      },
+    },
+    required: ['feature'],
+  },
+};
+
+const ARTISAN_FEATURE_TOOL: ToolDef = {
+  name: 'share_artisan_feature',
+  description:
+    "Answer an artisan's \"how do I…\" question about a specific part of the artisan portal — signing up, picking trades and coverage, getting verified, adding photos, winning jobs — the full explanation plus a link to that section of the illustrated guide.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      feature: {
+        type: 'string',
+        enum: ARTISAN_FEATURES.map((f) => f.title),
+        description: 'The exact feature title that best matches what the artisan asked about.',
+      },
+    },
+    required: ['feature'],
+  },
+};
+
+const PARTNER_FEATURE_TOOL: ToolDef = {
+  name: 'share_partner_feature',
+  description:
+    "Answer a Kolo referral partner's \"how do I…\" question about a specific part of the partner portal — signing up, getting their referral link, sharing it, tracking signups and getting paid — the full explanation plus a link to that section of the illustrated guide.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      feature: {
+        type: 'string',
+        enum: PARTNER_FEATURES.map((f) => f.title),
+        description: 'The exact feature title that best matches what the partner asked about.',
+      },
+    },
+    required: ['feature'],
+  },
+};
+
 const CAPTURE_LEAD_TOOL: ToolDef = {
   name: 'capture_lead',
   description: 'Record a lead for the team when no other tool fits (e.g. a landlord wanting to list, a request with no match).',
@@ -766,6 +864,9 @@ export function toolsForBrand(brand: WaBrand): ToolDef[] {
       ONBOARDING_TOOL,
       LANDLORD_FEATURE_TOOL,
       LANDLORD_PAYMENT_TOOL,
+      TENANT_FEATURE_TOOL,
+      ARTISAN_FEATURE_TOOL,
+      PARTNER_FEATURE_TOOL,
       CAPTURE_LEAD_TOOL,
       ESCALATE_TOOL,
     ];
@@ -802,6 +903,12 @@ export async function runTool(
         return await shareLandlordFeature(input as any, ctx);
       case 'share_landlord_payment_link':
         return await shareLandlordPaymentLink();
+      case 'share_tenant_feature':
+        return await shareTenantFeature(input as any, ctx);
+      case 'share_artisan_feature':
+        return await shareArtisanFeature(input as any, ctx);
+      case 'share_partner_feature':
+        return await sharePartnerFeature(input as any, ctx);
       case 'capture_lead':
         return await captureLead(input as any, ctx, brand);
       case 'get_academy_info':
