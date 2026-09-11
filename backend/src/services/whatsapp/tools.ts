@@ -21,6 +21,14 @@ import type { WaBrand } from './brands.js';
 import { brandProfile } from './brands.js';
 import { setState, type Conversation } from './conversationStore.js';
 import {
+  ACADEMY_LANDING_URL,
+  ACADEMY_LEARNER_GUIDE_URL,
+  ACADEMY_CATALOGUE_URL,
+  ACADEMY_PAYMENT_URL,
+  ACADEMY_COURSES,
+  findAcademyCourse,
+} from './academyCatalogue.js';
+import {
   ONBOARDING,
   ONBOARDING_AUDIENCES,
   isOnboardingAudience,
@@ -409,10 +417,36 @@ async function getAcademyInfo(_input: { question?: string }): Promise<string> {
   return `${p.faq}\n\nMore info: ${p.siteUrl}\n(Only state facts that appear above. For anything else, capture the enquiry.)`;
 }
 
+// One general link per stage of the conversation — everything is browsable
+// content, no login required.
+async function shareAcademyLink(input: { resource?: string }): Promise<string> {
+  switch (input.resource) {
+    case 'landing':
+      return `AI Academy: ${ACADEMY_LANDING_URL}`;
+    case 'learner_guide':
+      return `Here's what learning at the Academy looks like: ${ACADEMY_LEARNER_GUIDE_URL}`;
+    case 'catalogue':
+      return `The full course catalogue: ${ACADEMY_CATALOGUE_URL}`;
+    case 'payment':
+      return (
+        `Enrol and pay here: ${ACADEMY_PAYMENT_URL} — registration completes automatically as soon as ` +
+        'payment is confirmed, no extra form needed.'
+      );
+    default:
+      return `AI Academy: ${ACADEMY_LANDING_URL}`;
+  }
+}
+
+async function shareAcademyCourse(input: { course?: string }): Promise<string> {
+  const course = findAcademyCourse(input.course ?? '');
+  if (!course) return `Couldn't match that to one course — share the full catalogue instead: ${ACADEMY_CATALOGUE_URL}`;
+  return `${course.title}${course.free ? ' (free lesson)' : ''}: ${course.url}`;
+}
+
 async function captureAcademyLead(
   input: {
     interest: string;
-    programme?: string; // teens | university | professional
+    programme?: string; // course title, or "teens" for an under-18 enquiry
     studentName?: string;
     parentName?: string;
     ageOrClass?: string;
@@ -425,9 +459,9 @@ async function captureAcademyLead(
     'AI Academy enrolment enquiry (WhatsApp)',
     [
       `Interest: ${input.interest}`,
-      input.programme ? `Programme: ${input.programme}` : null,
-      input.studentName ? `Student: ${input.studentName}` : null,
-      input.parentName ? `Parent/guardian: ${input.parentName}` : null,
+      input.programme ? `Course/programme: ${input.programme}` : null,
+      input.studentName ? `Name: ${input.studentName}` : null,
+      input.parentName ? `Parent/guardian (under-18 enquiry): ${input.parentName}` : null,
       input.ageOrClass ? `Age/level: ${input.ageOrClass}` : null,
       input.location ? `Location: ${input.location}` : null,
       `Contact: ${ctx.from}${input.contactPreference ? ` (${input.contactPreference})` : ''}`,
@@ -435,7 +469,7 @@ async function captureAcademyLead(
       .filter(Boolean)
       .join('\n'),
   );
-  return `Enquiry captured. Share this link to start the onboarding form: ${env.aiAcademy.onboardingUrl} — then the team confirms a place and schedule.`;
+  return 'Enquiry captured. Tell the user the team will follow up on this WhatsApp number.';
 }
 
 // ---- shared -------------------------------------------------------
@@ -552,16 +586,48 @@ const ACADEMY_TOOLS: ToolDef[] = [
     input_schema: { type: 'object', properties: { question: { type: 'string' } } },
   },
   {
+    name: 'share_academy_link',
+    description:
+      "Share one of the AI Academy's general links: the landing page for a general first look, the learner guide for what learners will learn, the full catalogue to browse every course, or the payment link when someone is ready to enrol.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        resource: {
+          type: 'string',
+          enum: ['landing', 'learner_guide', 'catalogue', 'payment'],
+          description:
+            '"landing" for a general enquiry, "learner_guide" for what they will learn, "catalogue" to browse everything, "payment" when ready to enrol.',
+        },
+      },
+      required: ['resource'],
+    },
+  },
+  {
+    name: 'share_academy_course',
+    description: 'Share the link for ONE specific AI Academy course or track the user asked about.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        course: {
+          type: 'string',
+          enum: ACADEMY_COURSES.map((c) => c.title),
+          description: 'The exact course title that best matches what the user asked about.',
+        },
+      },
+      required: ['course'],
+    },
+  },
+  {
     name: 'capture_academy_lead',
-    description: 'Record an AI Academy enrolment enquiry and hand back the onboarding link.',
+    description: 'Record an AI Academy enquiry for a human to follow up on (not ready to pay, or a question the facts/tools cannot resolve).',
     input_schema: {
       type: 'object',
       properties: {
         interest: { type: 'string', description: 'What they asked about / want' },
-        programme: { type: 'string', enum: ['teens', 'university', 'professional'] },
+        programme: { type: 'string', description: 'The course/track they are interested in, if any, by its title' },
         studentName: { type: 'string' },
-        parentName: { type: 'string', description: 'For the teens programme only' },
-        ageOrClass: { type: 'string', description: 'Age (teens) or level/role (university, professional)' },
+        parentName: { type: 'string', description: 'Only for an enquiry on behalf of a school-age child/teenager' },
+        ageOrClass: { type: 'string', description: 'Age, or level/role (student, professional, business)' },
         location: { type: 'string' },
         contactPreference: { type: 'string' },
       },
@@ -617,6 +683,10 @@ export async function runTool(
         return await captureLead(input as any, ctx, brand);
       case 'get_academy_info':
         return await getAcademyInfo(input as any);
+      case 'share_academy_link':
+        return await shareAcademyLink(input as any);
+      case 'share_academy_course':
+        return await shareAcademyCourse(input as any);
       case 'capture_academy_lead':
         return await captureAcademyLead(input as any, ctx);
       case 'escalate_to_human':
