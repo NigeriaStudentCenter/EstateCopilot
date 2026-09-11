@@ -47,7 +47,7 @@ const LANDLORD: OnboardingStep[] = [
     body:
       'EstateCopilot gives you a dashboard to manage your properties and tenants, WhatsApp help drafting replies to tenants (nothing is sent without your OK), and rent paid straight into your own bank account. It costs a flat ₦10,000 per month — any number of properties, no extra charges.',
     image: 'landlord-01-homepage.webp',
-    video: 'walkthrough.mp4',
+    // The walkthrough video is sent once with the landlord overview, not here.
   },
   {
     n: 2,
