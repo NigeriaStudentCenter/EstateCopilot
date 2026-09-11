@@ -76,7 +76,7 @@ export default function Login({ onDone }: { onDone: () => void }) {
 
       {step === 'phone' ? (
         <form onSubmit={sendCode} className="space-y-4">
-          <Field label="Phone number" hint="The number you got your invite on.">
+          <Field label="Phone number" hint="No invite needed — enter your number and we'll text you a code.">
             <input
               className={input}
               inputMode="tel"

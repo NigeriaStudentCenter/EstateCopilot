@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import { prisma } from '../lib/prisma.js';
 
 // Artisans sign in with a phone number + one-time code, never a password —
-// most are onboarding from a WhatsApp link on a cheap Android phone.
+// most are onboarding from a WhatsApp link on a cheap Android phone, and can
+// register themselves with no invite or admin step (see routes/artisan.ts).
 
 export interface ArtisanTokenPayload {
   artisanId: string;
@@ -17,31 +19,54 @@ export function verifyArtisanToken(token: string): ArtisanTokenPayload {
   return jwt.verify(token, env.artisanAuth.jwtSecret) as ArtisanTokenPayload;
 }
 
-// ---- OTP store (in-memory, single-use, short-lived) ----
+// ---- OTP store ----
+// Real mode persists to Postgres (ArtisanOtp) so a code survives an app
+// restart, a redeploy, or a second instance between "send code" and "verify
+// code" — an in-memory Map didn't, and was silently breaking artisan
+// self-registration with "Invalid or expired code" any time the API
+// redeployed mid-signup. Mock mode keeps the in-memory Map (no DB needed).
 const MOCK_OTP = '000000';
 const OTP_TTL_MS = 10 * 60 * 1000;
-const store = new Map<string, { code: string; expires: number }>();
+const mockStore = new Map<string, { code: string; expires: number }>();
 
 export function normalizePhone(raw: string): string {
   return raw.replace(/[^0-9]/g, '');
 }
 
-export function issueOtp(phone: string): { devOtp?: string } {
-  if (env.artisanAuth.otpProvider) {
-    // A real SMS provider would go here. Until then this branch is unreachable
-    // because otpProvider is unset in every current environment.
-    const code = String(Math.floor(100000 + Math.random() * 900000));
-    store.set(phone, { code, expires: Date.now() + OTP_TTL_MS });
-    return {};
+export async function issueOtp(phone: string): Promise<{ devOtp?: string }> {
+  // A real SMS provider would go here (env.artisanAuth.otpProvider); it's
+  // unset in every current environment, so the code is always shown back to
+  // the caller (devOtp) instead of being sent out of band.
+  const code = env.artisanAuth.otpProvider ? String(Math.floor(100000 + Math.random() * 900000)) : MOCK_OTP;
+  const expiresAt = new Date(Date.now() + OTP_TTL_MS);
+
+  if (env.mockMode) {
+    mockStore.set(phone, { code, expires: expiresAt.getTime() });
+  } else {
+    await prisma.artisanOtp.upsert({
+      where: { phone },
+      create: { phone, code, expiresAt },
+      update: { code, expiresAt },
+    });
   }
-  store.set(phone, { code: MOCK_OTP, expires: Date.now() + OTP_TTL_MS });
-  console.log(`[artisan] OTP for ${phone}: ${MOCK_OTP}`);
-  return { devOtp: MOCK_OTP };
+
+  if (!env.artisanAuth.otpProvider) {
+    console.log(`[artisan] OTP for ${phone}: ${code}`);
+    return { devOtp: code };
+  }
+  return {};
 }
 
-export function checkOtp(phone: string, code: string): boolean {
-  const hit = store.get(phone);
-  if (!hit || hit.expires < Date.now() || hit.code !== code) return false;
-  store.delete(phone);
+export async function checkOtp(phone: string, code: string): Promise<boolean> {
+  if (env.mockMode) {
+    const hit = mockStore.get(phone);
+    if (!hit || hit.expires < Date.now() || hit.code !== code) return false;
+    mockStore.delete(phone);
+    return true;
+  }
+
+  const hit = await prisma.artisanOtp.findUnique({ where: { phone } });
+  if (!hit || hit.expiresAt.getTime() < Date.now() || hit.code !== code) return false;
+  await prisma.artisanOtp.delete({ where: { phone } }).catch(() => {}); // single-use; ignore a concurrent verify racing this delete
   return true;
 }

@@ -41,11 +41,11 @@ artisanRouter.get('/artisan-meta/states', (_req, res) => {
 });
 
 // ---- auth --------------------------------------------------------------
-artisanRouter.post('/artisan-auth/otp/request', (req, res) => {
+artisanRouter.post('/artisan-auth/otp/request', async (req, res) => {
   const parsed = z.object({ phone: z.string().min(7) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Enter a valid phone number' });
   const phone = normalizePhone(parsed.data.phone);
-  const { devOtp } = issueOtp(phone);
+  const { devOtp } = await issueOtp(phone);
   res.json({ sent: true, ...(devOtp ? { devOtp } : {}) });
 });
 
@@ -61,7 +61,7 @@ artisanRouter.post('/artisan-auth/otp/verify', async (req, res) => {
   const parsed = verifySchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const phone = normalizePhone(parsed.data.phone);
-  if (!checkOtp(phone, parsed.data.code)) return res.status(401).json({ error: 'Invalid or expired code' });
+  if (!(await checkOtp(phone, parsed.data.code))) return res.status(401).json({ error: 'Invalid or expired code' });
 
   // existing account?
   const existing = env.mockMode

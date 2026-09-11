@@ -400,6 +400,17 @@ enum ArtisanCredentialStatus {
   FAILED
 }
 
+// One pending code per phone, in the database rather than in-process memory
+// — an in-memory Map doesn't survive an app restart or a second instance,
+// which was silently failing artisan self-registration ("invalid or expired
+// code") any time the API redeployed or scaled between "send code" and
+// "verify code".
+model ArtisanOtp {
+  phone     String   @id
+  code      String
+  expiresAt DateTime
+}
+
 model Artisan {
   id                String              @id @default(cuid())
   phone             String              @unique
