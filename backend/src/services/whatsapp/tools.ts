@@ -19,7 +19,7 @@ import { computeArtisanScore } from '../../lib/artisanScore.js';
 import { TRADES, isTradeId, tradeLabel, type TradeId } from '../../lib/trades.js';
 import type { WaBrand } from './brands.js';
 import { brandProfile } from './brands.js';
-import { setState, type Conversation } from './conversationStore.js';
+import type { Conversation } from './conversationStore.js';
 import {
   ACADEMY_LANDING_URL,
   ACADEMY_LEARNER_GUIDE_URL,
@@ -576,14 +576,21 @@ async function captureAcademyLead(
 
 // ---- shared -------------------------------------------------------
 
+// Flags a conversation for a team member to review (financial/legal/complaint
+// topics, or a brand-new UNKNOWN-brand message). This does NOT silence the
+// agent — a customer must always get a reply. Only a human explicitly taking
+// the conversation over from the ops console (takeoverConversation, a
+// separate admin-gated action) sets it to HUMAN_ACTIVE and stops the agent.
 async function escalateToHuman(input: { reason: string }, ctx: ToolContext, brand: WaBrand): Promise<string> {
-  await setState(ctx.convo, 'HUMAN_ACTIVE');
   const label = brandProfile(brand)?.label ?? 'EstateCopilot/AI Academy';
   await notifyOps(
     `${label} WhatsApp — needs a human`,
-    `Conversation with ${ctx.from} was handed off.\nReason: ${input.reason}`,
+    `Conversation with ${ctx.from} was flagged for review.\nReason: ${input.reason}`,
   );
-  return 'Handed to a team member. Tell the user a person will reply here shortly, then stop.';
+  return (
+    'Flagged for a team member to also review. Tell the user a person may follow up on this specific point, ' +
+    'but keep helping them yourself right now with anything else they ask — never leave them without a reply.'
+  );
 }
 
 // ---- registry ----------------------------------------------------
@@ -848,7 +855,7 @@ const ACADEMY_TOOLS: ToolDef[] = [
 const ESCALATE_TOOL: ToolDef = {
   name: 'escalate_to_human',
   description:
-    'Hand the conversation to a person. Use for anything financial, legal or contractual, complaints, or when the user is stuck. After calling this, tell the user a person will follow up and stop.',
+    'Flag the conversation for a team member to also review. Use for anything financial, legal or contractual, complaints, or when brand is not yet known. This does not hand off the whole conversation — keep answering the user\'s other questions normally afterward.',
   input_schema: {
     type: 'object',
     properties: { reason: { type: 'string' } },

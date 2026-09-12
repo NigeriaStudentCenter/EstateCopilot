@@ -139,7 +139,7 @@ const TAG_PATTERNS: { re: RegExp; brand: Exclude<WaBrand, 'UNKNOWN'> }[] = [
 const ESTATE_HINTS =
   /\b(rent|rental|let|lease|landlord|tenant|apartment|flat|bedroom|self ?con|duplex|bungalow|bq\b|property|listing|viewing|inspection|agent fee|caution fee|artisan|plumber|electrician|carpenter|painter|tiler|handyman|repair)\b/i;
 const ACADEMY_HINTS =
-  /\b(class|classes|course|courses|cohort|term|tuition|school fees|enrol|enroll|register my (child|son|daughter)|my child|teenager|teen|student|undergrad|university|curriculum|bootcamp|training|lesson|upskill|reskill|professional (course|training|programme|program))\b/i;
+  /\b(academy|class|classes|course|courses|catalogue|catalog|cohort|term|tuition|school fees|enrol|enroll|register my (child|son|daughter)|my child|teenager|teen|student|undergrad|university|curriculum|bootcamp|training|lesson|upskill|reskill|professional (course|training|programme|program))\b/i;
 
 export function detectBrand(text: string, hint?: string): WaBrand {
   const hinted = (hint ?? '').toUpperCase();
