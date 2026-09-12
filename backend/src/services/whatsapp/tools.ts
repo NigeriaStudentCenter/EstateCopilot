@@ -189,7 +189,7 @@ async function getListingDetails(input: { listingId: string }): Promise<string> 
 }
 
 async function bookViewing(
-  input: { listingId: string; name: string; preferredTime: string; notes?: string },
+  input: { listingId: string; name: string; preferredTime: string; email?: string; notes?: string },
   ctx: ToolContext,
 ): Promise<string> {
   const id = String(input.listingId).replace(/^#/, '');
@@ -206,6 +206,7 @@ async function bookViewing(
       propertyId: p.id,
       requesterName: input.name,
       requesterPhone: ctx.from,
+      requesterEmail: input.email,
       scheduledFor: input.preferredTime,
       notes: input.notes,
     });
@@ -216,6 +217,7 @@ async function bookViewing(
         propertyId: p.id,
         requesterName: input.name,
         requesterPhone: ctx.from,
+        requesterEmail: input.email,
         // Free-text preferred time from chat — stored as a note, ops confirms
         // an exact slot. Not parsed into a Date to avoid a wrong commitment.
         scheduledFor: new Date(),
@@ -226,7 +228,7 @@ async function bookViewing(
 
   await notifyOps(
     `New viewing request (WhatsApp): ${p.title}`,
-    `${input.name} (${ctx.from}) asked to view "${p.title}" — ${p.lga}, ${p.state}.\nPreferred: ${input.preferredTime}${
+    `${input.name} (${ctx.from}${input.email ? `, ${input.email}` : ''}) asked to view "${p.title}" — ${p.lga}, ${p.state}.\nPreferred: ${input.preferredTime}${
       input.notes ? `\nNote: ${input.notes}` : ''
     }`,
   );
@@ -332,7 +334,7 @@ async function searchArtisans(input: { trade?: string; area?: string }): Promise
 }
 
 async function requestArtisanQuote(
-  input: { artisanId: string; requesterName: string; description: string },
+  input: { artisanId: string; requesterName: string; description: string; email?: string },
   ctx: ToolContext,
 ): Promise<string> {
   const id = String(input.artisanId).replace(/^#/, '');
@@ -349,6 +351,7 @@ async function requestArtisanQuote(
       artisanId: a.id,
       requesterName: input.requesterName,
       requesterPhone: ctx.from,
+      requesterEmail: input.email,
       requesterRole: 'other',
       lga: a.baseLga,
       trade: primaryTrade && isTradeId(primaryTrade) ? (primaryTrade as TradeId) : undefined,
@@ -360,6 +363,7 @@ async function requestArtisanQuote(
         artisanId: a.id,
         requesterName: input.requesterName,
         requesterPhone: ctx.from,
+        requesterEmail: input.email,
         requesterRole: 'other',
         lga: a.baseLga,
         trade: primaryTrade && isTradeId(primaryTrade) ? (primaryTrade as TradeId) : null,
@@ -371,7 +375,7 @@ async function requestArtisanQuote(
 
   await notifyOps(
     `Artisan quote request (WhatsApp) — ${a.name}`,
-    `${input.requesterName} (${ctx.from}) wants a quote from ${a.name}${
+    `${input.requesterName} (${ctx.from}${input.email ? `, ${input.email}` : ''}) wants a quote from ${a.name}${
       a.businessName ? ` / ${a.businessName}` : ''
     } (${a.phone}).\n\n"${input.description}"`,
   );
@@ -474,14 +478,14 @@ async function sharePartnerFeature(input: { feature?: string }, ctx: ToolContext
 }
 
 async function captureLead(
-  input: { intent: string; name?: string; details: string },
+  input: { intent: string; name?: string; email?: string; details: string },
   ctx: ToolContext,
   brand: WaBrand,
 ): Promise<string> {
   const label = brandProfile(brand)?.label ?? 'EstateCopilot';
   await notifyOps(
     `${label} WhatsApp lead — ${input.intent}`,
-    `From ${input.name ?? 'unknown'} (${ctx.from}).\n\n${input.details}`,
+    `From ${input.name ?? 'unknown'} (${ctx.from}${input.email ? `, ${input.email}` : ''}).\n\n${input.details}`,
   );
   return 'Lead captured. Tell the user the team will follow up on this WhatsApp number.';
 }
@@ -551,6 +555,7 @@ async function captureAcademyLead(
     programme?: string; // course title, or "teens" for an under-18 enquiry
     studentName?: string;
     parentName?: string;
+    email?: string;
     ageOrClass?: string;
     location?: string;
     contactPreference?: string;
@@ -564,6 +569,7 @@ async function captureAcademyLead(
       input.programme ? `Course/programme: ${input.programme}` : null,
       input.studentName ? `Name: ${input.studentName}` : null,
       input.parentName ? `Parent/guardian (under-18 enquiry): ${input.parentName}` : null,
+      input.email ? `Email: ${input.email}` : null,
       input.ageOrClass ? `Age/level: ${input.ageOrClass}` : null,
       input.location ? `Location: ${input.location}` : null,
       `Contact: ${ctx.from}${input.contactPreference ? ` (${input.contactPreference})` : ''}`,
@@ -620,13 +626,14 @@ const LISTING_TOOLS: ToolDef[] = [
   },
   {
     name: 'book_viewing',
-    description: 'Log a viewing request for a listing. Does NOT confirm a time — ops does that. Needs visitor name and a preferred day/time.',
+    description: 'Log a viewing request for a listing. Does NOT confirm a time — ops does that. Needs visitor name and a preferred day/time; always ask for an email too so the team can follow up.',
     input_schema: {
       type: 'object',
       properties: {
         listingId: { type: 'string' },
         name: { type: 'string' },
         preferredTime: { type: 'string', description: 'Free text, e.g. "Saturday morning"' },
+        email: { type: 'string', description: "The visitor's email, if they gave one" },
         notes: { type: 'string' },
       },
       required: ['listingId', 'name', 'preferredTime'],
@@ -648,13 +655,14 @@ const ARTISAN_TOOLS: ToolDef[] = [
   },
   {
     name: 'request_artisan_quote',
-    description: 'Send a quote request to one artisan id from search_artisans. Needs requester name and a job description.',
+    description: 'Send a quote request to one artisan id from search_artisans. Needs requester name and a job description; always ask for an email too so the team can follow up.',
     input_schema: {
       type: 'object',
       properties: {
         artisanId: { type: 'string' },
         requesterName: { type: 'string' },
         description: { type: 'string' },
+        email: { type: 'string', description: "The requester's email, if they gave one" },
       },
       required: ['artisanId', 'requesterName', 'description'],
     },
@@ -751,12 +759,13 @@ const PARTNER_FEATURE_TOOL: ToolDef = {
 
 const CAPTURE_LEAD_TOOL: ToolDef = {
   name: 'capture_lead',
-  description: 'Record a lead for the team when no other tool fits (e.g. a landlord wanting to list, a request with no match).',
+  description: 'Record a lead for the team: when no other tool fits (e.g. a landlord wanting to list, a request with no match), OR simply to log an email address someone gave you after a normal, already-resolved enquiry so the team can follow up. Always ask for an email so the team can follow up.',
   input_schema: {
     type: 'object',
     properties: {
       intent: { type: 'string', description: 'Short label, e.g. "landlord wants to list", "rental enquiry no match"' },
       name: { type: 'string' },
+      email: { type: 'string', description: "The person's email, if they gave one" },
       details: { type: 'string', description: 'Everything useful the user said' },
     },
     required: ['intent', 'details'],
@@ -835,7 +844,7 @@ const ACADEMY_TOOLS: ToolDef[] = [
   },
   {
     name: 'capture_academy_lead',
-    description: 'Record an AI Academy enquiry for a human to follow up on (not ready to pay, or a question the facts/tools cannot resolve).',
+    description: 'Record an AI Academy enquiry for a human to follow up on: when not ready to pay, a question the facts/tools cannot resolve, OR simply to log an email address someone gave you after a normal, already-resolved enquiry. Always ask for an email so the team can follow up.',
     input_schema: {
       type: 'object',
       properties: {
@@ -843,6 +852,7 @@ const ACADEMY_TOOLS: ToolDef[] = [
         programme: { type: 'string', description: 'The course/track they are interested in, if any, by its title' },
         studentName: { type: 'string' },
         parentName: { type: 'string', description: 'Only for an enquiry on behalf of a school-age child/teenager' },
+        email: { type: 'string', description: "The person's (parent's, for a teens enquiry) email, if they gave one" },
         ageOrClass: { type: 'string', description: 'Age, or level/role (student, professional, business)' },
         location: { type: 'string' },
         contactPreference: { type: 'string' },

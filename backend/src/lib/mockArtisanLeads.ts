@@ -6,6 +6,7 @@ export interface MockArtisanLead {
   artisanId: string;
   requesterName: string;
   requesterPhone: string;
+  requesterEmail?: string;
   requesterRole?: string;
   lga?: string;
   trade?: TradeId;

@@ -488,6 +488,7 @@ model ArtisanLead {
   artisan        Artisan           @relation(fields: [artisanId], references: [id], onDelete: Cascade)
   requesterName  String
   requesterPhone String
+  requesterEmail String?
   requesterRole  String? // "landlord" | "tenant" | "other" — self-declared, untrusted
   lga            String?
   trade          Trade?
