@@ -33,6 +33,9 @@ import {
   TEENS_SAFETY_URL,
   TEENS_SEL_URL,
   TEENS_PAYMENT_URL,
+  TEENS_AI_TUTOR_URL,
+  TEENS_EXAM_PREP_URL,
+  TEENS_SCHOLARSHIP_FINDER_URL,
   TEENS_TRACKS,
   findTeensTrack,
 } from './academyTeensCatalogue.js';
@@ -513,6 +516,11 @@ async function shareAcademyLink(input: { resource?: string }): Promise<string> {
         `Enrol and pay here: ${ACADEMY_PAYMENT_URL} — registration completes automatically as soon as ` +
         'payment is confirmed, no extra form needed.'
       );
+    case 'scholarship_finder':
+      return (
+        `The Scholarship Finder — free, no login: ${TEENS_SCHOLARSHIP_FINDER_URL} ` +
+        "Pick your stage (school-leaver, undergrad, postgrad or other), destination and field, and it gives a shortlist of real programmes, an eligibility check, and an application plan. It never states an amount, deadline or link as fact — always confirm those on the official site."
+      );
     default:
       return `AI Academy: ${ACADEMY_LANDING_URL}`;
   }
@@ -538,6 +546,21 @@ async function shareTeensLink(input: { resource?: string }): Promise<string> {
       return (
         `Enrol and pay here: ${TEENS_PAYMENT_URL} — once payment is confirmed, your child is added to the ` +
         'Academy automatically, no extra form needed.'
+      );
+    case 'ai_tutor':
+      return (
+        `The AI Tutor Command Center — free, no login: ${TEENS_AI_TUTOR_URL} ` +
+        'A Socratic AI tutor (asks guiding questions rather than just giving answers) for any subject, set up in four quick steps: curriculum (Nigerian NERDC or UK National), level (Primary/Secondary) and year, subject, then topic.'
+      );
+    case 'exam_prep':
+      return (
+        `The Exam Revision Command Center — free, no login: ${TEENS_EXAM_PREP_URL} ` +
+        "Covers GCSE, WAEC, NECO and JAMB. Pick the exam board and subject, then either generate practice questions in that board's real format (marked against a mark scheme, with a worked solution) or paste a real past question to be coached through it. It writes original practice questions in each board's style rather than reproducing real past papers."
+      );
+    case 'scholarship_finder':
+      return (
+        `The Scholarship Finder — free, no login: ${TEENS_SCHOLARSHIP_FINDER_URL} ` +
+        "Also useful beyond the Teens programme — it covers school-leaver, undergrad, postgrad and other stages. Pick stage, destination and field for a shortlist of real programmes, an eligibility check, and an application plan. It never states an amount, deadline or link as fact — always confirm those on the official site — and it will flag that a real scholarship never charges a fee or asks for a BVN/PIN."
       );
     default:
       return `AI Academy for Teens — the curriculum: ${TEENS_CURRICULUM_URL}`;
@@ -818,15 +841,15 @@ const ACADEMY_TOOLS: ToolDef[] = [
   {
     name: 'share_academy_link',
     description:
-      "Share one of the AI Academy's general links: the landing page for a general first look, the learner guide for what learners will learn, the full catalogue to browse every course, or the payment link when someone is ready to enrol.",
+      "Share one of the AI Academy's general links: the landing page for a general first look, the learner guide for what learners will learn, the full catalogue to browse every course, the payment link when someone is ready to enrol, or the free Scholarship Finder tool.",
     input_schema: {
       type: 'object',
       properties: {
         resource: {
           type: 'string',
-          enum: ['landing', 'learner_guide', 'catalogue', 'payment'],
+          enum: ['landing', 'learner_guide', 'catalogue', 'payment', 'scholarship_finder'],
           description:
-            '"landing" for a general enquiry, "learner_guide" for what they will learn, "catalogue" to browse everything, "payment" when ready to enrol.',
+            '"landing" for a general enquiry, "learner_guide" for what they will learn, "catalogue" to browse everything, "payment" when ready to enrol, "scholarship_finder" for the free scholarship/bursary search tool (school-leaver through postgrad).',
         },
       },
       required: ['resource'],
@@ -850,15 +873,15 @@ const ACADEMY_TOOLS: ToolDef[] = [
   {
     name: 'share_teens_link',
     description:
-      "Share one of the AI Academy for Teens' general links: the curriculum hub, the mandatory safety module, the Social-Emotional Learning (SEL) course, or the payment link.",
+      "Share one of the AI Academy for Teens' general links: the curriculum hub, the mandatory safety module, the Social-Emotional Learning (SEL) course, the payment link, or one of the three FREE command-centre tools (AI Tutor, Exam Revision, Scholarship Finder) — those are usable right now, no enrolment or login needed, and are a great thing to offer someone who isn't ready to pay yet.",
     input_schema: {
       type: 'object',
       properties: {
         resource: {
           type: 'string',
-          enum: ['curriculum', 'safety', 'sel', 'payment'],
+          enum: ['curriculum', 'safety', 'sel', 'payment', 'ai_tutor', 'exam_prep', 'scholarship_finder'],
           description:
-            '"curriculum" for a general first look at the teens programme, "safety" for the mandatory first module, "sel" for the wellbeing/social-emotional-learning course, "payment" when the parent/guardian is ready to enrol.',
+            '"curriculum" for a general first look at the teens programme, "safety" for the mandatory first module, "sel" for the wellbeing/social-emotional-learning course, "payment" when the parent/guardian is ready to enrol, "ai_tutor" for the free Socratic AI Tutor Command Center (any subject, Nigerian NERDC or UK National curriculum), "exam_prep" for the free Exam Revision Command Center (GCSE/WAEC/NECO/JAMB practice questions + marking), "scholarship_finder" for the free scholarship/bursary search tool.',
         },
       },
       required: ['resource'],

@@ -12,6 +12,15 @@ export const TEENS_SEL_URL = 'https://nigeriastudentcenter.github.io/AI-Academy/
 // separate signup form (same model as the adult catalogue's payment link).
 export const TEENS_PAYMENT_URL = 'https://paystack.shop/pay/teensaiacademy';
 
+// Free, no-login interactive tools — a different publishing surface (the
+// Naija Digest / Student Tools site) from the curriculum pages above, but
+// part of the same Teens programme and linked from academy.html's "Free
+// command centres" section. Anyone can try these before enrolling.
+// URLs verified reachable (200) on 2026-09-19.
+export const TEENS_AI_TUTOR_URL = 'https://news.nigeriastudentambassador.com/ai-tutor.html';
+export const TEENS_EXAM_PREP_URL = 'https://news.nigeriastudentambassador.com/exam-prep.html';
+export const TEENS_SCHOLARSHIP_FINDER_URL = 'https://news.nigeriastudentambassador.com/scholarship-finder.html';
+
 export interface TeensTrack {
   title: string;
   url: string;
