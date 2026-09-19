@@ -66,6 +66,8 @@ const Footer: React.FC = () => (
     </div>
     <div className="border-t border-emerald-900 py-5 text-center text-xs text-emerald-400">
       © {new Date().getFullYear()} EstateCopilot. Built in Nigeria, for Nigeria.
+      {' '}·{' '}
+      <a href="/privacy.html" className="hover:text-white underline">Privacy Policy</a>
     </div>
   </footer>
 );

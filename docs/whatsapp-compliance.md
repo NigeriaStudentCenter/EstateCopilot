@@ -1,12 +1,16 @@
 # WhatsApp AI Agent — compliance pack
 
 Drafts for the Meta **Data Protection Assessment**, the app's **privacy
-policy**, and the **government data-request policy**. Fill the bracketed
-fields, get legal sign-off, publish the privacy policy at a public URL, and
-paste that URL into the Meta app (App settings → Basic → Privacy Policy URL).
+policy**, and the **government data-request policy**. The privacy policy
+draft below is now published at `marketing/public/privacy.html` ->
+`https://www.estatecopilot.org/privacy.html`. Fill the bracketed fields
+still in it (legal entity name, registration number, `privacy@` inbox), get
+legal sign-off, then paste that URL into the Meta app (App settings → Basic
+→ Privacy Policy URL).
 
-Two brands share one WhatsApp number ("AI Academy/EstateCopilot"): the
-disclosures below cover both.
+Three things share one WhatsApp number ("AI Academy/EstateCopilot"):
+EstateCopilot, AI Academy, and Becoming a New Nigerian — the disclosures
+below (and the published page) cover all three.
 
 ---
 
@@ -80,17 +84,17 @@ page linked from it):
 
 > ### Messaging us on WhatsApp
 >
-> When you contact EstateCopilot or AI Academy on WhatsApp, or agree to
-> receive WhatsApp messages from us, we process:
+> When you contact EstateCopilot, AI Academy, or Becoming a New Nigerian on
+> WhatsApp, or agree to receive WhatsApp messages from us, we process:
 >
 > - **Your WhatsApp phone number and profile name**, and the **content of
 >   the messages** you exchange with us (text, and any images or files you
 >   send).
 > - **Records of consent** — when and how you opted in to marketing
 >   messages, and any opt-out.
-> - **Conversation metadata** — timestamps, delivery/read status, which
->   brand (EstateCopilot or AI Academy) the conversation relates to, and
->   whether it was handled by our automated assistant or a person.
+> - **Conversation metadata** — timestamps, delivery/read status, which of
+>   the three services the conversation relates to, and whether it was
+>   handled by our automated assistant or a person.
 >
 > **Why.** To answer your enquiry; to help you search property listings,
 > contact verified tradespeople, book viewings, or enquire about AI Academy
