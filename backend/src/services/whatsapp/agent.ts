@@ -13,7 +13,7 @@
 
 import { env } from '../../config/env.js';
 import { notifyOps } from '../../lib/notifyOps.js';
-import { detectBrand, stripBrandTag, brandProfile, type WaBrand } from './brands.js';
+import { detectBrand, stripBrandTag, hasExplicitBrandTag, brandProfile, type WaBrand } from './brands.js';
 import {
   loadConversation,
   history,
@@ -29,9 +29,40 @@ import { isOptOut, recordOptOut } from './consent.js';
 const MAX_STEPS = 4; // model <-> tool round trips before we send whatever we have
 const REPLY_MAX_TOKENS = 700;
 const USER_CONTENT_CAP = 2000; // guard against a giant paste blowing the context
+// A conversation idle this long is treated as possibly a fresh topic — see
+// resolveBrand(). Matches the same 24h window WhatsApp itself uses for the
+// customer-service messaging window (WaConversation.lastInboundAt).
+const BRAND_STALE_MS = 24 * 60 * 60 * 1000;
 
 const COMPLEX_RE =
   /\b(lawyer|legal|court|sue|lawsuit|refund|charge ?back|scam|fraud|steal|stolen|complain|complaint|angry|disappointed|unacceptable|manager|supervisor|ceo|owner|police|sue you|report you)\b/i;
+
+// A conversation's brand pins the first time we're confident about it, so a
+// mid-conversation topic swerve doesn't silently re-home an active thread —
+// that's the persona's job (escalate_to_human / "that's not something I
+// cover"). But a pin that never expires breaks badly for a RETURNING
+// customer weeks later asking about something else entirely (confirmed live,
+// 2026-09-19: a contact's AI_ACADEMY conversation from 9 days earlier forced
+// a brand-new "becoming a Nigerian" message through the AI Academy persona).
+// So: an explicit tag always wins (a deliberate signal, even mid-thread);
+// otherwise a stale conversation (no inbound in BRAND_STALE_MS) gets a fresh
+// read if the new message unambiguously points elsewhere.
+export function resolveBrand(convo: Conversation, rawText: string, brandHint?: string): WaBrand {
+  if (convo.brand === 'UNKNOWN') return detectBrand(rawText, brandHint);
+
+  if (brandHint || hasExplicitBrandTag(rawText)) {
+    const tagged = detectBrand(rawText, brandHint);
+    if (tagged !== 'UNKNOWN') return tagged;
+  }
+
+  const idleMs = convo.lastInboundAt ? Date.now() - new Date(convo.lastInboundAt).getTime() : Infinity;
+  if (idleMs >= BRAND_STALE_MS) {
+    const fresh = detectBrand(rawText, brandHint);
+    if (fresh !== 'UNKNOWN') return fresh;
+  }
+
+  return convo.brand;
+}
 
 export interface AgentResult {
   /** false => the conversation is human-owned; the agent stayed silent. */
@@ -166,9 +197,11 @@ export async function runMarketingAgent(params: {
     return { handled: false, attachments: [], brand: convo.brand, escalated: false };
   }
 
-  const brand: WaBrand =
-    convo.brand !== 'UNKNOWN' ? convo.brand : detectBrand(rawText, params.brandHint);
-  const text = convo.brand === 'UNKNOWN' ? stripBrandTag(rawText) : rawText;
+  const brand: WaBrand = resolveBrand(convo, rawText, params.brandHint);
+  // A brand re-home (not a first-time pin) means the stored history is a
+  // different, unrelated topic — don't hand it to the new brand's persona.
+  const brandChanged = convo.brand !== 'UNKNOWN' && convo.brand !== brand;
+  const text = stripBrandTag(rawText); // a no-op when there's no tag prefix
 
   await recordInbound(convo, {
     body: rawText,
@@ -188,7 +221,7 @@ export async function runMarketingAgent(params: {
     const tools = toolsForBrand(brand);
     const model = pickModel(text, brand);
 
-    const hist = await history(convo);
+    const hist = brandChanged ? [] : await history(convo);
     const messages: { role: 'user' | 'assistant'; content: unknown }[] = (
       hist.length ? hist : [{ role: 'user' as const, content: text }]
     ).map((m) => ({ role: m.role, content: String(m.content).slice(0, USER_CONTENT_CAP) }));

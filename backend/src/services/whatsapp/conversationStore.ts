@@ -19,6 +19,8 @@ export interface Conversation {
   phone: string;
   brand: WaBrand;
   state: WaConversationState;
+  /** When the PREVIOUS inbound message arrived (before this turn's), if any. */
+  lastInboundAt?: string | null;
 }
 
 export interface TurnMessage {
@@ -51,6 +53,7 @@ function mockLoad(phone: string): MockConversation {
       phone,
       brand: 'UNKNOWN',
       state: 'AI_ACTIVE',
+      lastInboundAt: null,
       history: [],
       messages: [],
       assignedOps: null,
@@ -71,7 +74,7 @@ function mockById(id: string): MockConversation | undefined {
 export async function loadConversation(phone: string): Promise<Conversation> {
   if (env.mockMode) {
     const c = mockLoad(phone);
-    return { id: c.id, phone: c.phone, brand: c.brand, state: c.state };
+    return { id: c.id, phone: c.phone, brand: c.brand, state: c.state, lastInboundAt: c.lastInboundAt };
   }
 
   const contact = await prisma.waContact.upsert({
@@ -91,6 +94,7 @@ export async function loadConversation(phone: string): Promise<Conversation> {
     phone,
     brand: convo.brand as WaBrand,
     state: convo.state as WaConversationState,
+    lastInboundAt: convo.lastInboundAt?.toISOString() ?? null,
   };
 }
 
@@ -112,11 +116,12 @@ export async function history(convo: Conversation, limit = 12): Promise<TurnMess
     }));
 }
 
-// Pins the brand the first time we're confident about it; never overwrites a
-// brand already set (a mid-conversation topic swerve shouldn't re-home the
-// whole thread — the agent handles that in-persona instead).
+// Updates the conversation's stored brand. Callers decide WHEN re-homing an
+// already-pinned conversation is appropriate (agent.ts's resolveBrand: an
+// explicit tag, or the conversation having gone quiet a while) — this just
+// persists whatever they resolved, and is a no-op if nothing changed.
 export async function setBrand(convo: Conversation, brand: WaBrand): Promise<void> {
-  if (brand === 'UNKNOWN' || convo.brand !== 'UNKNOWN') return;
+  if (brand === 'UNKNOWN' || convo.brand === brand) return;
   convo.brand = brand;
   if (env.mockMode) {
     mockLoad(convo.phone).brand = brand;
@@ -143,6 +148,7 @@ export async function recordInbound(
     c.history.push({ role: 'user', content: msg.body });
     c.messages.push({ direction: 'INBOUND', body: msg.body, at: new Date().toISOString() });
     c.updatedAt = new Date().toISOString();
+    c.lastInboundAt = c.updatedAt;
     return;
   }
   await prisma.whatsAppMessage.create({
