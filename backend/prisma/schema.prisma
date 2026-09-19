@@ -543,6 +543,7 @@ model WhatsAppMessage {
 enum WaBrand {
   ESTATECOPILOT
   AI_ACADEMY
+  NEW_NIGERIAN
   UNKNOWN
 }
 

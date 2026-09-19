@@ -2,17 +2,29 @@
 
 Brand-aware conversational agent on the shared WhatsApp number
 ("AI Academy/EstateCopilot"). Answers inbound enquiries for **EstateCopilot**
-(rentals, verified artisans) and **AI Academy** (classes for young people),
-calls tools for real data / lead capture, and hands off to a human for
-anything financial, legal, or contractual.
+(rentals, verified artisans), **AI Academy** (classes for young people), and
+**Becoming a New Nigerian** (a mindset & nation-building community under the
+Return to Nigeria Initiative), calls tools for real data / lead capture /
+registration links, and hands off to a human for anything financial, legal,
+or contractual.
 
 ## Status
 
 **Built (works in `MOCK_MODE`, no DB, no Meta):**
 
-- `backend/src/services/whatsapp/brands.ts` — the two brand profiles
-  (persona, scope, facts) + brand detection (entry tag `[EC]`/`[AIA]`,
+- `backend/src/services/whatsapp/brands.ts` — the three brand profiles
+  (persona, scope, facts) + brand detection (entry tag `[EC]`/`[AIA]`/`[BNN]`,
   keyword fallback, else `UNKNOWN` → agent asks which service).
+- `backend/src/services/whatsapp/newNigerian.ts` — the "Becoming a New
+  Nigerian" registration form URL. The brand's tools are
+  `share_new_nigerian_registration_link` (always calls the tool for the
+  exact URL, never types it from memory) and `capture_new_nigerian_lead`.
+  The brand profile's `faq` carries five pillars (habits, attitude, law &
+  procedural compliance, competency, value-oriented mindset) as reasoning
+  material — the persona is instructed to argue WHY mindset change matters
+  freshly each time from these, tied to what the person actually asked,
+  rather than reciting a fixed paragraph, and to keep the conversation going
+  with a genuine follow-up question rather than closing after one exchange.
 - `backend/src/services/whatsapp/conversationStore.ts` — conversation +
   message persistence. In-memory in mock mode; Prisma
   (`WaContact`/`WaConversation`/`WhatsAppMessage`) otherwise.

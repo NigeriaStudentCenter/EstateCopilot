@@ -36,6 +36,7 @@ import {
   TEENS_TRACKS,
   findTeensTrack,
 } from './academyTeensCatalogue.js';
+import { NEW_NIGERIAN_REGISTRATION_URL } from './newNigerian.js';
 import {
   LANDLORD_FEATURES,
   findLandlordFeature,
@@ -580,6 +581,42 @@ async function captureAcademyLead(
   return 'Enquiry captured. Tell the user the team will follow up on this WhatsApp number.';
 }
 
+// ---- Becoming a New Nigerian ------------------------------------------
+
+async function shareNewNigerianRegistrationLink(): Promise<string> {
+  return (
+    `Register here — free, takes a few minutes: ${NEW_NIGERIAN_REGISTRATION_URL} ` +
+    'Filling it in is the whole step — no payment, no separate account, and the team follows up from there.'
+  );
+}
+
+async function captureNewNigerianLead(
+  input: {
+    interest: string;
+    name?: string;
+    email?: string;
+    location?: string;
+    motivation?: string;
+    contactPreference?: string;
+  },
+  ctx: ToolContext,
+): Promise<string> {
+  await notifyOps(
+    'Becoming a New Nigerian — WhatsApp enquiry',
+    [
+      `Interest: ${input.interest}`,
+      input.name ? `Name: ${input.name}` : null,
+      input.email ? `Email: ${input.email}` : null,
+      input.location ? `Location: ${input.location}` : null,
+      input.motivation ? `What draws them to this: ${input.motivation}` : null,
+      `Contact: ${ctx.from}${input.contactPreference ? ` (${input.contactPreference})` : ''}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+  return 'Enquiry captured. Tell the user the team will follow up on this WhatsApp number — and keep the conversation going yourself in the meantime.';
+}
+
 // ---- shared -------------------------------------------------------
 
 // Flags a conversation for a team member to review (financial/legal/complaint
@@ -862,6 +899,30 @@ const ACADEMY_TOOLS: ToolDef[] = [
   },
 ];
 
+const NEW_NIGERIAN_TOOLS: ToolDef[] = [
+  {
+    name: 'share_new_nigerian_registration_link',
+    description: 'Share the exact "Becoming a New Nigerian" registration form link. Call this fresh every time a link belongs in your reply — never type the URL from memory.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'capture_new_nigerian_lead',
+    description: 'Record a "Becoming a New Nigerian" enquiry for the team to follow up on: when someone wants to be contacted directly, asks something the facts cannot resolve, OR simply to log an email/detail they gave you after a normal, already-resolved exchange. Ask for an email so the team can follow up.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        interest: { type: 'string', description: 'What they asked about / why they are interested' },
+        name: { type: 'string' },
+        email: { type: 'string', description: "The person's email, if they gave one" },
+        location: { type: 'string' },
+        motivation: { type: 'string', description: 'What draws them to the mindset/community idea, in their own words, if they shared it' },
+        contactPreference: { type: 'string' },
+      },
+      required: ['interest'],
+    },
+  },
+];
+
 const ESCALATE_TOOL: ToolDef = {
   name: 'escalate_to_human',
   description:
@@ -890,6 +951,9 @@ export function toolsForBrand(brand: WaBrand): ToolDef[] {
   }
   if (brand === 'AI_ACADEMY') {
     return [...ACADEMY_TOOLS, ESCALATE_TOOL];
+  }
+  if (brand === 'NEW_NIGERIAN') {
+    return [...NEW_NIGERIAN_TOOLS, ESCALATE_TOOL];
   }
   // UNKNOWN — the persona asks which service they mean; only escalation is
   // available until the brand is pinned.
@@ -940,6 +1004,10 @@ export async function runTool(
         return await shareTeensTrack(input as any);
       case 'capture_academy_lead':
         return await captureAcademyLead(input as any, ctx);
+      case 'share_new_nigerian_registration_link':
+        return await shareNewNigerianRegistrationLink();
+      case 'capture_new_nigerian_lead':
+        return await captureNewNigerianLead(input as any, ctx);
       case 'escalate_to_human':
         return await escalateToHuman(input as any, ctx, brand);
       default:

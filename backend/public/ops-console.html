@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>WhatsApp ops console</title>
 <style>
-  :root { --line:#e3e3e0; --ink:#1f2420; --soft:#6b7280; --ec:#047857; --aia:#7c3aed; --bg:#f7f6f3; }
+  :root { --line:#e3e3e0; --ink:#1f2420; --soft:#6b7280; --ec:#047857; --aia:#7c3aed; --nn:#0e7490; --bg:#f7f6f3; }
   * { box-sizing: border-box; }
   [hidden] { display:none !important; }
   body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:var(--bg); }
@@ -32,6 +32,7 @@
   .badge { font-size:11px; padding:1px 6px; border-radius:999px; border:1px solid var(--line); color:var(--soft); }
   .badge.ec { color:var(--ec); border-color:#a7f3d0; background:#ecfdf5; }
   .badge.aia { color:var(--aia); border-color:#ddd6fe; background:#f5f3ff; }
+  .badge.nn { color:var(--nn); border-color:#a5f3fc; background:#ecfeff; }
   .badge.human { color:#b45309; border-color:#fde68a; background:#fffbeb; }
   .badge.ai { color:#1d4ed8; border-color:#bfdbfe; background:#eff6ff; }
   .badge.closed { color:#6b7280; }
@@ -77,6 +78,7 @@
         <option value="">All brands</option>
         <option value="ESTATECOPILOT">EstateCopilot</option>
         <option value="AI_ACADEMY">AI Academy</option>
+        <option value="NEW_NIGERIAN">Becoming a New Nigerian</option>
         <option value="UNKNOWN">Unknown</option>
       </select>
     </div>
@@ -116,7 +118,8 @@ document.getElementById('keySave').onclick = () => {
 };
 
 const brandBadge = (b) => b === 'ESTATECOPILOT' ? '<span class="badge ec">EC</span>'
-  : b === 'AI_ACADEMY' ? '<span class="badge aia">AIA</span>' : '<span class="badge">?</span>';
+  : b === 'AI_ACADEMY' ? '<span class="badge aia">AIA</span>'
+  : b === 'NEW_NIGERIAN' ? '<span class="badge nn">BNN</span>' : '<span class="badge">?</span>';
 const stateBadge = (s) => s === 'HUMAN_ACTIVE' ? '<span class="badge human">human</span>'
   : s === 'AI_ACTIVE' ? '<span class="badge ai">AI</span>'
   : s === 'CLOSED' ? '<span class="badge closed">closed</span>'
