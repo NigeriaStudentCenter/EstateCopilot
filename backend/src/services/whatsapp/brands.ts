@@ -176,14 +176,6 @@ const ACADEMY_HINTS =
 const NEW_NIGERIAN_HINTS =
   /\b(new nigerian|becoming an?( new)? nigerian|nation.?building|return to nigeria|mindset shift|value.?oriented|procedural compliance|civic (duty|responsibility)|change nigeria|rebuild nigeria|nigerian (identity|image)|community of nigerians|patriot)\b/i;
 
-// True when the message opens with a deliberate brand tag (a campaign link,
-// or someone typing "[EC]"/"[AIA]"/"[BNN]" on purpose) — as opposed to a
-// weak keyword guess. Used to let a returning conversation re-home even
-// mid-thread, since a tag is an unambiguous, deliberate signal.
-export function hasExplicitBrandTag(text: string): boolean {
-  return TAG_PATTERNS.some(({ re }) => re.test(text));
-}
-
 export function detectBrand(text: string, hint?: string): WaBrand {
   const hinted = (hint ?? '').toUpperCase();
   if (hinted === 'ESTATECOPILOT' || hinted === 'AI_ACADEMY' || hinted === 'NEW_NIGERIAN') return hinted as WaBrand;

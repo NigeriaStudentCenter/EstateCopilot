@@ -13,7 +13,7 @@
 
 import { env } from '../../config/env.js';
 import { notifyOps } from '../../lib/notifyOps.js';
-import { detectBrand, stripBrandTag, hasExplicitBrandTag, brandProfile, type WaBrand } from './brands.js';
+import { detectBrand, stripBrandTag, brandProfile, type WaBrand } from './brands.js';
 import {
   loadConversation,
   history,
@@ -29,39 +29,33 @@ import { isOptOut, recordOptOut } from './consent.js';
 const MAX_STEPS = 4; // model <-> tool round trips before we send whatever we have
 const REPLY_MAX_TOKENS = 700;
 const USER_CONTENT_CAP = 2000; // guard against a giant paste blowing the context
-// A conversation idle this long is treated as possibly a fresh topic — see
-// resolveBrand(). Matches the same 24h window WhatsApp itself uses for the
-// customer-service messaging window (WaConversation.lastInboundAt).
-const BRAND_STALE_MS = 24 * 60 * 60 * 1000;
 
 const COMPLEX_RE =
   /\b(lawyer|legal|court|sue|lawsuit|refund|charge ?back|scam|fraud|steal|stolen|complain|complaint|angry|disappointed|unacceptable|manager|supervisor|ceo|owner|police|sue you|report you)\b/i;
 
-// A conversation's brand pins the first time we're confident about it, so a
-// mid-conversation topic swerve doesn't silently re-home an active thread —
-// that's the persona's job (escalate_to_human / "that's not something I
-// cover"). But a pin that never expires breaks badly for a RETURNING
-// customer weeks later asking about something else entirely (confirmed live,
-// 2026-09-19: a contact's AI_ACADEMY conversation from 9 days earlier forced
-// a brand-new "becoming a Nigerian" message through the AI Academy persona).
-// So: an explicit tag always wins (a deliberate signal, even mid-thread);
-// otherwise a stale conversation (no inbound in BRAND_STALE_MS) gets a fresh
-// read if the new message unambiguously points elsewhere.
+// A conversation's brand used to pin permanently the first time it was
+// detected, on the theory that a mid-conversation topic swerve should be the
+// persona's job to redirect, not a silent re-home. In practice the persona
+// doesn't redirect well — it just says "that's not something I handle" (or,
+// worse, guesses at an answer outside its facts) — and a real customer who
+// asks about something completely different expects the agent to just
+// follow them there, not wait out a cooldown or know to type a hidden tag.
+// A first attempt gated re-detection behind a 24h idle window; confirmed
+// live (2026-09-19) that's still too conservative — a customer switching
+// topics minutes apart got stuck on the wrong brand twice in a row.
+//
+// So: every turn, re-run detectBrand() on the CURRENT message. detectBrand
+// already only returns a real brand when exactly one brand's signal (an
+// explicit tag, or a keyword regex) matches — anything ambiguous or
+// brand-silent (a bare "ok", a name, an address) returns UNKNOWN, and an
+// UNKNOWN reading here means "no new signal this turn," so the conversation
+// stays on its current brand. A confident signal for a DIFFERENT brand wins
+// immediately, on any turn — that's a deliberate design choice: someone
+// asking a specific, unambiguous question about a different service almost
+// always wants to talk about that service now.
 export function resolveBrand(convo: Conversation, rawText: string, brandHint?: string): WaBrand {
-  if (convo.brand === 'UNKNOWN') return detectBrand(rawText, brandHint);
-
-  if (brandHint || hasExplicitBrandTag(rawText)) {
-    const tagged = detectBrand(rawText, brandHint);
-    if (tagged !== 'UNKNOWN') return tagged;
-  }
-
-  const idleMs = convo.lastInboundAt ? Date.now() - new Date(convo.lastInboundAt).getTime() : Infinity;
-  if (idleMs >= BRAND_STALE_MS) {
-    const fresh = detectBrand(rawText, brandHint);
-    if (fresh !== 'UNKNOWN') return fresh;
-  }
-
-  return convo.brand;
+  const detected = detectBrand(rawText, brandHint);
+  return detected !== 'UNKNOWN' ? detected : convo.brand;
 }
 
 export interface AgentResult {
