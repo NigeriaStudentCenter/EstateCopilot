@@ -27,6 +27,7 @@ const PropertiesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [rateDrafts, setRateDrafts] = useState<Record<string, { nightlyRate: string; weeklyRate: string }>>({});
   const [newImageUrl, setNewImageUrl] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -84,6 +85,31 @@ const PropertiesPage: React.FC = () => {
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save description');
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleSaveRates(property: Property) {
+    const draft = rateDrafts[property.id];
+    if (!draft) return;
+    const nightlyRate = Number(draft.nightlyRate);
+    if (!nightlyRate || nightlyRate <= 0) {
+      setError('Nightly rate must be a positive number');
+      return;
+    }
+    const weeklyRate = draft.weeklyRate ? Number(draft.weeklyRate) : undefined;
+    setSavingId(property.id);
+    try {
+      await api.updateProperty(property.id, { nightlyRate, weeklyRate });
+      setRateDrafts((prev) => {
+        const next = { ...prev };
+        delete next[property.id];
+        return next;
+      });
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save rates');
     } finally {
       setSavingId(null);
     }
@@ -326,8 +352,10 @@ const PropertiesPage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900">{p.title}</h3>
                 <p className="text-sm text-gray-500">{p.address}, {p.lga}, {p.state}</p>
                 <p className="text-sm text-gray-700 mt-1 font-medium">
-                  {p.propertyType === 'SHORT_LET' && p.nightlyRate
-                    ? `${currencyFormatter.format(p.nightlyRate)}/night`
+                  {p.propertyType === 'SHORT_LET'
+                    ? p.nightlyRate
+                      ? `${currencyFormatter.format(p.nightlyRate)}/night`
+                      : <span className="text-amber-700 font-normal">No nightly rate set — won't take bookings yet</span>
                     : `${currencyFormatter.format(p.rentAmount)}/yr`}
                   {p.propertyType === 'SHORT_LET' && p.weeklyRate && (
                     <span className="text-gray-400 font-normal"> · {currencyFormatter.format(p.weeklyRate)}/week</span>
@@ -342,6 +370,43 @@ const PropertiesPage: React.FC = () => {
                 {p.isAdvertised ? 'Advertised' : 'Not listed'}
               </span>
             </div>
+
+            {p.propertyType === 'SHORT_LET' && (
+              <div className="border-t border-gray-100 pt-4">
+                <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Nightly / weekly rate</label>
+                <div className="flex flex-col md:flex-row gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={rateDrafts[p.id]?.nightlyRate ?? (p.nightlyRate ?? '')}
+                    onChange={(e) => {
+                      const current = rateDrafts[p.id] ?? { nightlyRate: p.nightlyRate?.toString() ?? '', weeklyRate: p.weeklyRate?.toString() ?? '' };
+                      setRateDrafts((prev) => ({ ...prev, [p.id]: { ...current, nightlyRate: e.target.value } }));
+                    }}
+                    placeholder="Nightly rate (₦)"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    value={rateDrafts[p.id]?.weeklyRate ?? (p.weeklyRate ?? '')}
+                    onChange={(e) => {
+                      const current = rateDrafts[p.id] ?? { nightlyRate: p.nightlyRate?.toString() ?? '', weeklyRate: p.weeklyRate?.toString() ?? '' };
+                      setRateDrafts((prev) => ({ ...prev, [p.id]: { ...current, weeklyRate: e.target.value } }));
+                    }}
+                    placeholder="Weekly rate (₦, optional)"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={() => handleSaveRates(p)}
+                    disabled={savingId === p.id || !rateDrafts[p.id]}
+                    className="text-sm font-medium bg-gray-900 text-white px-3 py-1.5 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    {savingId === p.id ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-gray-500 uppercase mb-1">

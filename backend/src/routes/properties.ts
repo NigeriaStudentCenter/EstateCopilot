@@ -131,6 +131,11 @@ const updateSchema = z.object({
   isAdvertised: z.boolean().optional(),
   listingDescription: z.string().optional(),
   imageUrls: z.array(z.string().url()).max(10).optional(),
+  // Editable after creation too — a property can be marked SHORT_LET (or
+  // switch back) without a nightly rate ever having been set at create time,
+  // and the short-let booking flow needs one before it'll quote anything.
+  nightlyRate: z.number().int().positive().optional(),
+  weeklyRate: z.number().int().positive().optional(),
 });
 
 // Toggling isAdvertised is what actually publishes/unpublishes a property on

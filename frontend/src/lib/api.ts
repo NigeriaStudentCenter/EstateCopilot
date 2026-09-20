@@ -76,7 +76,10 @@ export const api = {
     cautionDepositAmount: number;
     municipalId?: string;
   }) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(data) }),
-  updateProperty: (propertyId: string, data: { isAdvertised?: boolean; listingDescription?: string; imageUrls?: string[] }) =>
+  updateProperty: (
+    propertyId: string,
+    data: { isAdvertised?: boolean; listingDescription?: string; imageUrls?: string[]; nightlyRate?: number; weeklyRate?: number },
+  ) =>
     request(`/api/properties/${propertyId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   uploadPropertyImages: async (propertyId: string, files: File[]) => {
     const form = new FormData();
