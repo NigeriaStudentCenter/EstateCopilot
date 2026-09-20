@@ -11,6 +11,8 @@ export interface Property {
   lga: string; // Eti-Osa, Ikeja, AMAC, etc. — drives Tenement Rate lookup
   propertyType: PropertyStatus;
   rentAmount: number;
+  nightlyRate?: number; // SHORT_LET only
+  weeklyRate?: number; // SHORT_LET only
   cautionDepositAmount: number;
   municipalId?: string; // Tenement Rate / property ID with the LGA
   imageUrls?: string[];
@@ -125,5 +127,26 @@ export interface RepairQuote {
   amount: number;
   message?: string;
   status: 'SUBMITTED' | 'ACCEPTED' | 'DECLINED';
+  createdAt: string;
+}
+
+export type ShortLetRateType = 'NIGHTLY' | 'WEEKLY';
+export type ShortLetBookingStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+
+export interface ShortLetBooking {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  guestName: string;
+  guestPhone: string;
+  guestEmail: string;
+  checkIn: string; // ISO date
+  checkOut: string; // ISO date
+  nights: number;
+  rateType: ShortLetRateType;
+  totalAmount: number;
+  status: ShortLetBookingStatus;
+  paymentRef?: string;
+  paymentLink?: string;
   createdAt: string;
 }

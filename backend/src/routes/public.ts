@@ -13,6 +13,9 @@ import { TRADES, isTradeId, tradeLabel, type TradeId } from '../lib/trades.js';
 import { computeArtisanScore, bayesianRating } from '../lib/artisanScore.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { createMockLead } from '../lib/mockArtisanLeads.js';
+import { createMockShortLetBooking, isRangeAvailable, blockedRangesFor } from '../lib/mockShortLet.js';
+import { quoteStay, InvalidStayError } from '../lib/shortLetPricing.js';
+import { createPaymentRequest } from '../services/paystackPaymentRequest.js';
 
 // Everything in this file is unauthenticated — it's what the public
 // marketing site (properties page, handyman marketplace page) talks to.
@@ -142,6 +145,163 @@ publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
   });
 
   res.status(201).json(booking);
+});
+
+// ---- Short-let stays -------------------------------------------------------
+
+// Ranges already spoken for (PENDING_PAYMENT or CONFIRMED), for the guest
+// picker to warn about before they even request a quote.
+publicRouter.get('/public/properties/:id/short-let-availability', async (req, res) => {
+  if (env.mockMode) {
+    return res.json(blockedRangesFor(req.params.id));
+  }
+  const bookings = await prisma.shortLetBooking.findMany({
+    where: { propertyId: req.params.id, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
+    select: { checkIn: true, checkOut: true },
+  });
+  res.json(bookings.map((b) => ({ checkIn: b.checkIn.toISOString(), checkOut: b.checkOut.toISOString() })));
+});
+
+const stayDatesSchema = z.object({
+  checkIn: z.string(),
+  checkOut: z.string(),
+});
+
+async function loadShortLetProperty(id: string) {
+  if (env.mockMode) {
+    const property = MOCK_PROPERTIES.find((p) => p.id === id && p.isAdvertised);
+    return property && property.propertyType === 'SHORT_LET' && property.nightlyRate ? property : null;
+  }
+  const property = await prisma.property.findFirst({ where: { id, isAdvertised: true, propertyType: 'SHORT_LET' } });
+  return property && property.nightlyRate ? property : null;
+}
+
+async function checkAvailable(propertyId: string, checkIn: Date, checkOut: Date) {
+  if (env.mockMode) return isRangeAvailable(propertyId, checkIn, checkOut);
+  const clash = await prisma.shortLetBooking.findFirst({
+    where: {
+      propertyId,
+      status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] },
+      checkIn: { lt: checkOut },
+      checkOut: { gt: checkIn },
+    },
+  });
+  return !clash;
+}
+
+// Live price + availability check as the guest picks dates — called before
+// they see a "pay to confirm" button, and re-checked at booking time below
+// since dates can be claimed by someone else in between.
+publicRouter.post('/public/properties/:id/short-let-quote', async (req, res) => {
+  const parsed = stayDatesSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const property = await loadShortLetProperty(req.params.id);
+  if (!property) return res.status(404).json({ error: 'Short-let listing not found' });
+
+  const checkIn = new Date(parsed.data.checkIn);
+  const checkOut = new Date(parsed.data.checkOut);
+
+  let quote;
+  try {
+    quote = quoteStay({ nightlyRate: property.nightlyRate!, weeklyRate: property.weeklyRate }, checkIn, checkOut);
+  } catch (err) {
+    if (err instanceof InvalidStayError) return res.status(400).json({ error: err.message });
+    throw err;
+  }
+
+  const available = await checkAvailable(property.id, checkIn, checkOut);
+  if (!available) {
+    return res.status(409).json({ error: 'Those dates are no longer available for this property.' });
+  }
+
+  res.json(quote);
+});
+
+const shortLetBookingSchema = stayDatesSchema.extend({
+  guestName: z.string().min(2),
+  guestPhone: z.string().min(7),
+  guestEmail: z.string().email(),
+});
+
+publicRouter.post('/public/properties/:id/short-let-bookings', async (req, res) => {
+  const parsed = shortLetBookingSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { guestName, guestPhone, guestEmail } = parsed.data;
+
+  const property = await loadShortLetProperty(req.params.id);
+  if (!property) return res.status(404).json({ error: 'Short-let listing not found' });
+
+  const checkIn = new Date(parsed.data.checkIn);
+  const checkOut = new Date(parsed.data.checkOut);
+
+  let quote;
+  try {
+    quote = quoteStay({ nightlyRate: property.nightlyRate!, weeklyRate: property.weeklyRate }, checkIn, checkOut);
+  } catch (err) {
+    if (err instanceof InvalidStayError) return res.status(400).json({ error: err.message });
+    throw err;
+  }
+
+  // Re-check right before creating the row — the quote step above can go
+  // stale if someone else books the same nights in between.
+  const available = await checkAvailable(property.id, checkIn, checkOut);
+  if (!available) {
+    return res.status(409).json({ error: 'Those dates were just booked by someone else — try different dates.' });
+  }
+
+  const paymentRequest = await createPaymentRequest({
+    tenantEmail: guestEmail,
+    amount: quote.totalAmount,
+    dueDate: checkIn.toISOString().slice(0, 10),
+    description: `${property.title} — ${quote.nights} night${quote.nights === 1 ? '' : 's'} (${checkIn.toDateString()} to ${checkOut.toDateString()})`,
+  });
+
+  let booking;
+  if (env.mockMode) {
+    booking = createMockShortLetBooking({
+      propertyId: property.id,
+      guestName,
+      guestPhone,
+      guestEmail,
+      checkIn: checkIn.toISOString(),
+      checkOut: checkOut.toISOString(),
+      nights: quote.nights,
+      rateType: quote.rateType,
+      totalAmount: quote.totalAmount,
+      paymentRef: paymentRequest.requestCode,
+      paymentLink: paymentRequest.paymentLink,
+    });
+  } else {
+    booking = await prisma.shortLetBooking.create({
+      data: {
+        propertyId: property.id,
+        guestName,
+        guestPhone,
+        guestEmail,
+        checkIn,
+        checkOut,
+        nights: quote.nights,
+        rateType: quote.rateType,
+        totalAmount: quote.totalAmount,
+        paymentRef: paymentRequest.requestCode,
+        paymentLink: paymentRequest.paymentLink,
+      },
+    });
+  }
+
+  await notifyOps(
+    `New short-let booking request: ${property.title}`,
+    `${guestName} (${guestPhone}, ${guestEmail}) requested ${quote.nights} night(s) from ${checkIn.toDateString()} to ${checkOut.toDateString()} — ₦${(quote.totalAmount / 100).toLocaleString()}. Payment link sent; booking confirms once they pay.`,
+  );
+
+  res.status(201).json({
+    bookingId: booking.id,
+    paymentLink: paymentRequest.paymentLink,
+    nights: quote.nights,
+    totalAmount: quote.totalAmount,
+    rateType: quote.rateType,
+  });
 });
 
 // ---- Handyman marketplace -------------------------------------------------

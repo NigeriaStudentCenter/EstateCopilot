@@ -6,8 +6,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`${options?.method ?? 'GET'} ${path} failed: ${res.status} ${body}`);
+    let message = `${options?.method ?? 'GET'} ${path} failed: ${res.status}`;
+    try {
+      const body = await res.json();
+      message = body.error ?? message;
+    } catch {
+      // non-JSON error body — keep the generic message
+    }
+    throw new Error(message);
   }
   return res.json() as Promise<T>;
 }
@@ -20,6 +26,22 @@ export const api = {
     propertyId: string,
     data: { name: string; phone: string; email?: string; scheduledFor: string; notes?: string },
   ) => request(`/api/public/properties/${propertyId}/book-viewing`, { method: 'POST', body: JSON.stringify(data) }),
+
+  getShortLetAvailability: (propertyId: string) =>
+    request<{ checkIn: string; checkOut: string }[]>(`/api/public/properties/${propertyId}/short-let-availability`),
+  getShortLetQuote: (propertyId: string, checkIn: string, checkOut: string) =>
+    request<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY'; weeks: number; extraNights: number; totalAmount: number }>(
+      `/api/public/properties/${propertyId}/short-let-quote`,
+      { method: 'POST', body: JSON.stringify({ checkIn, checkOut }) },
+    ),
+  bookShortLet: (
+    propertyId: string,
+    data: { checkIn: string; checkOut: string; guestName: string; guestPhone: string; guestEmail: string },
+  ) =>
+    request<{ bookingId: string; paymentLink: string; nights: number; totalAmount: number; rateType: string }>(
+      `/api/public/properties/${propertyId}/short-let-bookings`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
 
   // ---- Artisan directory (Phase 2) ----
   getArtisanTrades: () =>

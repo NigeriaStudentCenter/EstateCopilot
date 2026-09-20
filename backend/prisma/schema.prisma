@@ -12,6 +12,18 @@ enum PropertyType {
   SHORT_LET
 }
 
+enum ShortLetRateType {
+  NIGHTLY
+  WEEKLY
+}
+
+enum ShortLetBookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
 enum LeaseStatus {
   ACTIVE
   PENDING
@@ -159,6 +171,8 @@ model Property {
   lga                  String
   propertyType         PropertyType
   rentAmount           Int
+  nightlyRate          Int? // SHORT_LET only — per-night price, same unit as rentAmount (naira)
+  weeklyRate           Int? // SHORT_LET only — discounted price for a full 7-night block, same unit as rentAmount
   cautionDepositAmount Int
   municipalId          String? // Tenement Rate ID with the LGA
   discoProvider        String? // EKEDC / IKEDC / AEDC / PHED etc.
@@ -174,7 +188,32 @@ model Property {
   levies               Levy[]
   maintenanceTickets   MaintenanceTicket[]
   bookings             Booking[]
+  shortLetBookings     ShortLetBooking[]
   createdAt            DateTime     @default(now())
+}
+
+// Nightly/weekly stay booking for a SHORT_LET property — deliberately not a
+// Tenancy: a weekend guest doesn't need BVN/guarantor KYC or a dedicated
+// virtual account, just a date range, a total price, and a one-off payment
+// link. checkIn/checkOut overlap is checked at quote- and booking-time (see
+// lib/shortLet.ts) against every PENDING_PAYMENT or CONFIRMED row for the
+// same property, so two guests can never be sold the same nights.
+model ShortLetBooking {
+  id          String                @id @default(cuid())
+  propertyId  String
+  property    Property              @relation(fields: [propertyId], references: [id])
+  guestName   String
+  guestPhone  String
+  guestEmail  String
+  checkIn     DateTime
+  checkOut    DateTime
+  nights      Int
+  rateType    ShortLetRateType
+  totalAmount Int // full stay, same unit as Property.rentAmount (naira)
+  status      ShortLetBookingStatus @default(PENDING_PAYMENT)
+  paymentRef  String?               @unique // Paystack payment-request offline_reference; the webhook reconciles on this
+  paymentLink String?
+  createdAt   DateTime              @default(now())
 }
 
 model Tenant {

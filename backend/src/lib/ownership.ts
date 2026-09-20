@@ -11,6 +11,7 @@ import { MOCK_TENANCIES } from './mockTenancies.js';
 import { mockTickets } from './mockMaintenance.js';
 import { mockQuotes } from './mockBookings.js';
 import { mockLegalRequests, mockLegalQuotes } from './mockLegal.js';
+import { mockShortLetBookings } from './mockShortLet.js';
 
 export function propertyLandlordId(propertyId?: string): string | undefined {
   return propertyId ? MOCK_PROPERTIES.find((p) => p.id === propertyId)?.landlordId : undefined;
@@ -51,4 +52,10 @@ export function legalQuoteLandlordId(quoteId?: string): string | undefined {
   if (!quoteId) return undefined;
   const quote = mockLegalQuotes.find((q) => q.id === quoteId);
   return quote ? legalRequestLandlordId(quote.legalRequestId) : undefined;
+}
+
+export function shortLetBookingLandlordId(bookingId?: string): string | undefined {
+  if (!bookingId) return undefined;
+  const booking = mockShortLetBookings.find((b) => b.id === bookingId);
+  return booking ? propertyLandlordId(booking.propertyId) : undefined;
 }

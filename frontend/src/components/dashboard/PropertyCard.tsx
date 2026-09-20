@@ -31,8 +31,9 @@ const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
             {property.propertyType === 'LONG_TERM' ? 'Long-Term Lease' : 'Short-Let'}
           </span>
           <span className="text-sm font-medium text-gray-700">
-            {currencyFormatter.format(property.rentAmount)}
-            {property.propertyType === 'LONG_TERM' && '/yr'}
+            {property.propertyType === 'SHORT_LET' && property.nightlyRate
+              ? `${currencyFormatter.format(property.nightlyRate)}/night`
+              : `${currencyFormatter.format(property.rentAmount)}/yr`}
           </span>
         </div>
         <h3 className="text-lg font-semibold text-gray-900 truncate">{property.title}</h3>

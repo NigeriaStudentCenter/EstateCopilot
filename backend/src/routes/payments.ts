@@ -9,6 +9,7 @@ import { mockLandlords } from '../lib/mockLandlords.js';
 import { MOCK_TENANCIES } from '../lib/mockTenancies.js';
 import { tenancyLandlordId } from '../lib/ownership.js';
 import { recordMockPayment, mockPaymentsForTenancies } from '../lib/mockPayments.js';
+import { mockShortLetBookings } from '../lib/mockShortLet.js';
 
 export const paymentsRouter = Router();
 
@@ -110,6 +111,20 @@ async function reconcileTenancy(data: any): Promise<string | undefined> {
   return undefined;
 }
 
+// Short-let stays aren't tenancies, so a charge that doesn't match one above
+// is checked against pending stay bookings next — matched by the payment
+// request reference we generated and stored at booking time (routes/public.ts),
+// which is far more reliable than trying to match a one-off guest by email.
+async function reconcileShortLetBooking(providerRef: string | undefined): Promise<string | undefined> {
+  if (!providerRef) return undefined;
+  if (env.mockMode) {
+    const b = mockShortLetBookings.find((x) => x.paymentRef === providerRef && x.status === 'PENDING_PAYMENT');
+    return b?.id;
+  }
+  const b = await prisma.shortLetBooking.findFirst({ where: { paymentRef: providerRef, status: 'PENDING_PAYMENT' } });
+  return b?.id;
+}
+
 // Paystack webhook — a receipt notification. Because the dedicated virtual
 // account is tied to the landlord's own subaccount, Paystack has already
 // settled the money directly to their bank; there's no split to compute and
@@ -138,8 +153,18 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
     const providerRef: string | undefined = data?.reference;
 
     if (!tenancyId) {
-      console.warn(`[payments] charge.success not reconciled to a tenancy (ref=${providerRef}, email=${data?.customer?.email})`);
-      return res.json({ received: true, reconciled: false });
+      const bookingId = await reconcileShortLetBooking(providerRef);
+      if (!bookingId) {
+        console.warn(`[payments] charge.success not reconciled to a tenancy or short-let booking (ref=${providerRef}, email=${data?.customer?.email})`);
+        return res.json({ received: true, reconciled: false });
+      }
+      if (env.mockMode) {
+        const booking = mockShortLetBookings.find((b) => b.id === bookingId);
+        if (booking) booking.status = 'CONFIRMED';
+      } else {
+        await prisma.shortLetBooking.update({ where: { id: bookingId }, data: { status: 'CONFIRMED' } });
+      }
+      return res.json({ received: true, reconciled: true, kind: 'short-let-booking' });
     }
 
     if (env.mockMode) {

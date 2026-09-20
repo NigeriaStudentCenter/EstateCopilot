@@ -9,6 +9,7 @@ import TenanciesPage from './pages/TenanciesPage';
 import AiInboxPage from './pages/AiInboxPage';
 import PropertiesPage from './pages/PropertiesPage';
 import BookingsPage from './pages/BookingsPage';
+import ShortLetPage from './pages/ShortLetPage';
 import SettingsPage from './pages/SettingsPage';
 import FinanceLeviesPage from './pages/FinanceLeviesPage';
 
@@ -33,6 +34,7 @@ const Dashboard: React.FC<DashboardProps> = ({ landlord, onLogout }) => {
           {view === 'AI Inbox' && <AiInboxPage />}
           {view === 'Properties' && <PropertiesPage />}
           {view === 'Bookings' && <BookingsPage />}
+          {view === 'Short Lets' && <ShortLetPage />}
           {view === 'Tenant Vetting' && <TenantVettingPage />}
           {view === 'Finance & Levies' && <FinanceLeviesPage />}
           {view === 'Settings' && <SettingsPage />}

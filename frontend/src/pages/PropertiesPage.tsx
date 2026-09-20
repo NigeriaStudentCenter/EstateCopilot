@@ -16,6 +16,8 @@ const emptyNewProperty = {
   lga: '',
   propertyType: 'LONG_TERM' as 'LONG_TERM' | 'SHORT_LET',
   rentAmount: '',
+  nightlyRate: '',
+  weeklyRate: '',
   cautionDepositAmount: '',
   municipalId: '',
 };
@@ -149,13 +151,20 @@ const PropertiesPage: React.FC = () => {
     setCreating(true);
     setError(null);
     try {
+      const isShortLet = newProperty.propertyType === 'SHORT_LET';
+      const nightlyRate = isShortLet ? Number(newProperty.nightlyRate) : undefined;
       await api.createProperty({
         title: newProperty.title.trim(),
         address: newProperty.address.trim(),
         state: newProperty.state.trim(),
         lga: newProperty.lga.trim(),
         propertyType: newProperty.propertyType,
-        rentAmount: Number(newProperty.rentAmount),
+        // SHORT_LET properties are priced per night — rentAmount just mirrors
+        // that so every property still has a single "headline price" other
+        // parts of the app (e.g. a plain rentAmount read) can fall back to.
+        rentAmount: isShortLet ? nightlyRate! : Number(newProperty.rentAmount),
+        nightlyRate,
+        weeklyRate: isShortLet && newProperty.weeklyRate ? Number(newProperty.weeklyRate) : undefined,
         cautionDepositAmount: Number(newProperty.cautionDepositAmount || 0),
         municipalId: newProperty.municipalId.trim() || undefined,
       });
@@ -259,15 +268,37 @@ const PropertiesPage: React.FC = () => {
               placeholder="Tenement/Municipal ID (optional)"
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
             />
-            <input
-              type="number"
-              min={1}
-              value={newProperty.rentAmount}
-              onChange={(e) => setNewProperty((p) => ({ ...p, rentAmount: e.target.value }))}
-              placeholder="Rent amount (₦)"
-              required
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-            />
+            {newProperty.propertyType === 'SHORT_LET' ? (
+              <>
+                <input
+                  type="number"
+                  min={1}
+                  value={newProperty.nightlyRate}
+                  onChange={(e) => setNewProperty((p) => ({ ...p, nightlyRate: e.target.value }))}
+                  placeholder="Nightly rate (₦)"
+                  required
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  value={newProperty.weeklyRate}
+                  onChange={(e) => setNewProperty((p) => ({ ...p, weeklyRate: e.target.value }))}
+                  placeholder="Weekly rate (₦, optional — discount for 7+ nights)"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </>
+            ) : (
+              <input
+                type="number"
+                min={1}
+                value={newProperty.rentAmount}
+                onChange={(e) => setNewProperty((p) => ({ ...p, rentAmount: e.target.value }))}
+                placeholder="Rent amount (₦/yr)"
+                required
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            )}
             <input
               type="number"
               min={0}
@@ -295,7 +326,12 @@ const PropertiesPage: React.FC = () => {
                 <h3 className="font-semibold text-gray-900">{p.title}</h3>
                 <p className="text-sm text-gray-500">{p.address}, {p.lga}, {p.state}</p>
                 <p className="text-sm text-gray-700 mt-1 font-medium">
-                  {currencyFormatter.format(p.rentAmount)}{p.propertyType === 'LONG_TERM' && '/yr'}
+                  {p.propertyType === 'SHORT_LET' && p.nightlyRate
+                    ? `${currencyFormatter.format(p.nightlyRate)}/night`
+                    : `${currencyFormatter.format(p.rentAmount)}/yr`}
+                  {p.propertyType === 'SHORT_LET' && p.weeklyRate && (
+                    <span className="text-gray-400 font-normal"> · {currencyFormatter.format(p.weeklyRate)}/week</span>
+                  )}
                 </p>
               </div>
               <span

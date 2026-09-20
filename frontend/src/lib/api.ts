@@ -71,6 +71,8 @@ export const api = {
     lga: string;
     propertyType: 'LONG_TERM' | 'SHORT_LET';
     rentAmount: number;
+    nightlyRate?: number;
+    weeklyRate?: number;
     cautionDepositAmount: number;
     municipalId?: string;
   }) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(data) }),
@@ -160,6 +162,10 @@ export const api = {
   getBookings: () => request<any[]>('/api/bookings'),
   setBookingStatus: (bookingId: string, status: 'CONFIRMED' | 'CANCELLED' | 'COMPLETED') =>
     request(`/api/bookings/${bookingId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  getShortLetBookings: () => request<any[]>('/api/short-let-bookings'),
+  setShortLetBookingStatus: (bookingId: string, status: 'CANCELLED' | 'COMPLETED') =>
+    request(`/api/short-let-bookings/${bookingId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
   getLegalRequests: () => request<any[]>('/api/legal-requests'),
   createLegalRequest: (data: { propertyId: string; category: string; description: string; raisedBy?: string }) =>

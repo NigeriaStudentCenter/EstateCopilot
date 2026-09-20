@@ -80,16 +80,26 @@ propertiesRouter.get('/properties/:id', async (req: LandlordAuthedRequest, res) 
   return property ? res.json(property) : res.status(404).json({ error: 'Not found' });
 });
 
-const createSchema = z.object({
-  title: z.string().min(2),
-  address: z.string().min(4),
-  state: z.string().min(2),
-  lga: z.string().min(2),
-  propertyType: z.enum(['LONG_TERM', 'SHORT_LET']),
-  rentAmount: z.number().int().positive(),
-  cautionDepositAmount: z.number().int().min(0),
-  municipalId: z.string().optional(),
-});
+const createSchema = z
+  .object({
+    title: z.string().min(2),
+    address: z.string().min(4),
+    state: z.string().min(2),
+    lga: z.string().min(2),
+    propertyType: z.enum(['LONG_TERM', 'SHORT_LET']),
+    rentAmount: z.number().int().positive(),
+    nightlyRate: z.number().int().positive().optional(),
+    weeklyRate: z.number().int().positive().optional(),
+    cautionDepositAmount: z.number().int().min(0),
+    municipalId: z.string().optional(),
+  })
+  // SHORT_LET properties are priced by the night on the public listing —
+  // without this a landlord could publish a short-let with no per-night
+  // rate and the booking flow would have nothing to quote against.
+  .refine((data) => data.propertyType !== 'SHORT_LET' || data.nightlyRate !== undefined, {
+    message: 'nightlyRate is required for SHORT_LET properties',
+    path: ['nightlyRate'],
+  });
 
 // Lets a landlord add their own property — the piece that was missing
 // before: without this, every property a landlord could see was one of the

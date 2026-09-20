@@ -14,6 +14,8 @@ export interface MockProperty {
   lga: string;
   propertyType: 'LONG_TERM' | 'SHORT_LET';
   rentAmount: number;
+  nightlyRate?: number; // SHORT_LET only
+  weeklyRate?: number; // SHORT_LET only — discounted price for a full 7-night block
   cautionDepositAmount: number;
   municipalId?: string;
   isAdvertised: boolean;
@@ -53,6 +55,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'AMAC',
     propertyType: 'SHORT_LET',
     rentAmount: 75000,
+    nightlyRate: 75000,
+    weeklyRate: 450000,
     cautionDepositAmount: 150000,
     municipalId: 'AMAC/2024/04412',
     isAdvertised: true,
@@ -113,6 +117,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'Port Harcourt',
     propertyType: 'SHORT_LET',
     rentAmount: 60000,
+    nightlyRate: 60000,
+    weeklyRate: 360000,
     cautionDepositAmount: 100000,
     municipalId: 'PH/2024/02002',
     isAdvertised: true,
@@ -153,6 +159,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'Port Harcourt',
     propertyType: 'SHORT_LET',
     rentAmount: 45000,
+    nightlyRate: 45000,
+    weeklyRate: 270000,
     cautionDepositAmount: 90000,
     municipalId: 'PH/2024/02004',
     isAdvertised: true,
@@ -213,6 +221,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'Port Harcourt',
     propertyType: 'SHORT_LET',
     rentAmount: 55000,
+    nightlyRate: 55000,
+    weeklyRate: 330000,
     cautionDepositAmount: 110000,
     municipalId: 'PH/2024/02007',
     isAdvertised: true,
@@ -273,6 +283,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'Port Harcourt',
     propertyType: 'SHORT_LET',
     rentAmount: 50000,
+    nightlyRate: 50000,
+    weeklyRate: 300000,
     cautionDepositAmount: 100000,
     municipalId: 'PH/2024/02010',
     isAdvertised: true,
@@ -333,6 +345,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'Port Harcourt',
     propertyType: 'SHORT_LET',
     rentAmount: 40000,
+    nightlyRate: 40000,
+    weeklyRate: 240000,
     cautionDepositAmount: 80000,
     municipalId: 'PH/2024/02013',
     isAdvertised: true,
@@ -373,6 +387,8 @@ const CURATED_PROPERTIES: MockProperty[] = [
     lga: 'Port Harcourt',
     propertyType: 'SHORT_LET',
     rentAmount: 48000,
+    nightlyRate: 48000,
+    weeklyRate: 288000,
     cautionDepositAmount: 95000,
     municipalId: 'PH/2024/02015',
     isAdvertised: true,
@@ -451,6 +467,7 @@ function generatePropertiesForState(state: NigeriaState, startIndex: number, cou
     const multiplier = TIER_MULTIPLIER[state.tier];
     const rentAmount = round(template.baseRent * multiplier);
     const cautionDepositAmount = round(template.baseDeposit * multiplier);
+    const isShortLet = template.type === 'SHORT_LET';
     out.push({
       id: `p_${state.slug}_${String(n).padStart(2, '0')}`,
       landlordId: DEMO_LANDLORD_ID,
@@ -460,6 +477,7 @@ function generatePropertiesForState(state: NigeriaState, startIndex: number, cou
       lga,
       propertyType: template.type,
       rentAmount,
+      ...(isShortLet ? { nightlyRate: rentAmount, weeklyRate: round(rentAmount * 6) } : {}),
       cautionDepositAmount,
       municipalId: `${state.slug.slice(0, 3).toUpperCase()}/2024/${String(1000 + n).slice(-4)}`,
       isAdvertised: true,

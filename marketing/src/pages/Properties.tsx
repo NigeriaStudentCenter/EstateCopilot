@@ -13,6 +13,8 @@ interface Property {
   lga: string;
   propertyType: 'LONG_TERM' | 'SHORT_LET';
   rentAmount: number;
+  nightlyRate?: number;
+  weeklyRate?: number;
   listingDescription?: string;
   imageUrls?: string[];
 }
@@ -97,6 +99,155 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
   );
 };
 
+function formatDateRange(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ property, onClose }) => {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
+  const [blockedRanges, setBlockedRanges] = useState<{ checkIn: string; checkOut: string }[]>([]);
+  const [quote, setQuote] = useState<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY'; totalAmount: number } | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [waOptIn, setWaOptIn] = useState(false);
+  const [booking, setBooking] = useState(false);
+  const [bookError, setBookError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getShortLetAvailability(property.id).then(setBlockedRanges).catch(() => {});
+  }, [property.id]);
+
+  async function handleCheckAvailability(e: React.FormEvent) {
+    e.preventDefault();
+    if (!checkIn || !checkOut) return;
+    setQuoting(true);
+    setQuoteError(null);
+    setQuote(null);
+    try {
+      const q = await api.getShortLetQuote(property.id, checkIn, checkOut);
+      setQuote(q);
+    } catch (err) {
+      setQuoteError(err instanceof Error ? err.message : 'Could not check those dates — try again');
+    } finally {
+      setQuoting(false);
+    }
+  }
+
+  async function handleBook(e: React.FormEvent) {
+    e.preventDefault();
+    if (!quote || !guestName.trim() || !guestPhone.trim() || !guestEmail.trim()) return;
+    setBooking(true);
+    setBookError(null);
+    try {
+      const res = await api.bookShortLet(property.id, {
+        checkIn,
+        checkOut,
+        guestName: guestName.trim(),
+        guestPhone: guestPhone.trim(),
+        guestEmail: guestEmail.trim(),
+      });
+      if (waOptIn) {
+        api
+          .captureWhatsAppConsent({
+            phone: guestPhone.trim(),
+            brand: 'ESTATECOPILOT',
+            source: 'short_let_booking_form',
+            optInText: WHATSAPP_OPT_IN_TEXT,
+            marketingOptIn: true,
+          })
+          .catch(() => {});
+      }
+      window.location.href = res.paymentLink;
+    } catch (err) {
+      setBookError(err instanceof Error ? err.message : 'Booking failed — please try again');
+      setBooking(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-semibold text-gray-900 mb-1">Book your stay</h3>
+        <p className="text-sm text-gray-500 mb-4">{property.title}</p>
+
+        {blockedRanges.length > 0 && (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+            Currently unavailable: {blockedRanges.map((r) => `${formatDateRange(r.checkIn)}–${formatDateRange(r.checkOut)}`).join(', ')}
+          </p>
+        )}
+
+        <form onSubmit={handleCheckAvailability} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs text-gray-500">
+              Check in
+              <input
+                value={checkIn}
+                onChange={(e) => { setCheckIn(e.target.value); setQuote(null); }}
+                type="date"
+                required
+                min={todayIso}
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-gray-500">
+              Check out
+              <input
+                value={checkOut}
+                onChange={(e) => { setCheckOut(e.target.value); setQuote(null); }}
+                type="date"
+                required
+                min={checkIn || todayIso}
+                className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+          {quoteError && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{quoteError}</p>}
+          {!quote && (
+            <button
+              type="submit"
+              disabled={quoting || !checkIn || !checkOut}
+              className="w-full bg-gray-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-700 disabled:opacity-50"
+            >
+              {quoting ? 'Checking…' : 'Check availability & price'}
+            </button>
+          )}
+        </form>
+
+        {quote && (
+          <>
+            <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-900">
+              <p className="font-semibold">
+                {quote.nights} night{quote.nights === 1 ? '' : 's'} available — {currencyFormatter.format(quote.totalAmount)} total
+              </p>
+              <p className="text-xs text-emerald-700 mt-0.5">{quote.rateType === 'WEEKLY' ? 'Weekly rate applied' : 'Nightly rate applied'}</p>
+            </div>
+
+            <form onSubmit={handleBook} className="space-y-3 mt-4">
+              {bookError && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{bookError}</p>}
+              <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Your full name" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="Phone (WhatsApp)" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <input value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} type="email" placeholder="Email" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              <WhatsAppOptIn checked={waOptIn} onChange={setWaOptIn} />
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium">Cancel</button>
+                <button type="submit" disabled={booking} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
+                  {booking ? 'Redirecting…' : `Pay ${currencyFormatter.format(quote.totalAmount)}`}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Properties: React.FC = () => {
   const { stateSlug } = useParams<{ stateSlug?: string }>();
   const navigate = useNavigate();
@@ -163,7 +314,9 @@ const Properties: React.FC = () => {
                     {p.propertyType === 'LONG_TERM' ? 'Long-term lease' : 'Short-let'}
                   </span>
                   <span className="text-sm font-semibold text-gray-900">
-                    {currencyFormatter.format(p.rentAmount)}{p.propertyType === 'LONG_TERM' && '/yr'}
+                    {p.propertyType === 'SHORT_LET' && p.nightlyRate
+                      ? `${currencyFormatter.format(p.nightlyRate)}/night`
+                      : `${currencyFormatter.format(p.rentAmount)}/yr`}
                   </span>
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">{p.title}</h3>
@@ -173,7 +326,7 @@ const Properties: React.FC = () => {
                   onClick={() => setBooking(p)}
                   className="mt-auto bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700"
                 >
-                  Book a viewing
+                  {p.propertyType === 'SHORT_LET' ? 'Book your stay' : 'Book a viewing'}
                 </button>
               </div>
             </div>
@@ -181,7 +334,11 @@ const Properties: React.FC = () => {
         </div>
       )}
 
-      {booking && <BookingForm property={booking} onClose={() => setBooking(null)} />}
+      {booking && (
+        booking.propertyType === 'SHORT_LET'
+          ? <ShortLetBookingForm property={booking} onClose={() => setBooking(null)} />
+          : <BookingForm property={booking} onClose={() => setBooking(null)} />
+      )}
     </div>
   );
 };

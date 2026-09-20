@@ -14,7 +14,7 @@ const mockStats: DashboardStats = {
 
 const mockProperties: Property[] = [
   { id: 'p1', title: 'Luxury 3-Bedroom Apartment', address: 'Plot 12, Admiralty Way, Lekki Phase 1', state: 'Lagos', lga: 'Eti-Osa', propertyType: 'LONG_TERM', rentAmount: 6500000, cautionDepositAmount: 500000, municipalId: 'ETI-OSA/2024/00931' },
-  { id: 'p2', title: 'Studio Apartment', address: '18 Gana St, Maitama', state: 'FCT Abuja', lga: 'AMAC', propertyType: 'SHORT_LET', rentAmount: 75000, cautionDepositAmount: 150000, municipalId: 'AMAC/2024/04412' },
+  { id: 'p2', title: 'Studio Apartment', address: '18 Gana St, Maitama', state: 'FCT Abuja', lga: 'AMAC', propertyType: 'SHORT_LET', rentAmount: 75000, nightlyRate: 75000, weeklyRate: 450000, cautionDepositAmount: 150000, municipalId: 'AMAC/2024/04412' },
   { id: 'p3', title: 'Serviced Flat', address: 'Plot 4, Trans-Amadi Road', state: 'Rivers', lga: 'Port Harcourt', propertyType: 'LONG_TERM', rentAmount: 4800000, cautionDepositAmount: 300000, municipalId: 'PH/2024/01187' },
 ];
 
