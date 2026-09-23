@@ -1,0 +1,135 @@
+/* Fact Check page — reuses .layout/.page/.card/.desks etc. from style.css,
+   adds only what's specific to verdicts and the submission form. */
+
+.fc-submit-card {
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e5e5e5);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin: 18px 0 24px;
+}
+.fc-submit-card h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.fc-submit-card > p {
+  margin: 0 0 12px;
+  color: var(--muted, #666);
+  font-size: 0.92rem;
+}
+#fc-form textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ccc);
+  font: inherit;
+  margin-bottom: 10px;
+}
+.fc-form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.fc-form-row input {
+  flex: 1 1 200px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #ccc);
+  font: inherit;
+  box-sizing: border-box;
+}
+#fc-submit-btn {
+  background: #087443;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#fc-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.fc-form-msg {
+  margin-top: 10px;
+  font-size: 0.88rem;
+  min-height: 1.2em;
+}
+.fc-form-msg.ok {
+  color: #087443;
+}
+.fc-form-msg.err {
+  color: #b3261e;
+}
+
+.fc-card {
+  border-left: 4px solid transparent;
+}
+.fc-verdict-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+.v-true {
+  background: #e3f6ea;
+  color: #0f6b34;
+}
+.fc-card:has(.v-true) {
+  border-left-color: #0f6b34;
+}
+.v-false {
+  background: #fdeaea;
+  color: #b3261e;
+}
+.fc-card:has(.v-false) {
+  border-left-color: #b3261e;
+}
+.v-misleading {
+  background: #fff3dc;
+  color: #96660b;
+}
+.fc-card:has(.v-misleading) {
+  border-left-color: #96660b;
+}
+.v-unverifiable {
+  background: #eeeef0;
+  color: #55565c;
+}
+.fc-card:has(.v-unverifiable) {
+  border-left-color: #55565c;
+}
+.v-satire {
+  background: #eee6fb;
+  color: #5b2ca0;
+}
+.fc-card:has(.v-satire) {
+  border-left-color: #5b2ca0;
+}
+.v-context {
+  background: #e4f1fb;
+  color: #1a5c8a;
+}
+.fc-card:has(.v-context) {
+  border-left-color: #1a5c8a;
+}
+
+.fc-headline {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 4px;
+}
+.fc-claim {
+  font-style: italic;
+}
+.fc-evidence {
+  color: var(--muted, #444);
+}

@@ -199,6 +199,7 @@ const communityRailHtml = `
   <div class="rail-card community-card community-card-compact">
     <p class="community-eyebrow">Nigeria Student Ambassador</p>
     <a class="community-student-tools" href="./">📰 Read Naija Digest — every major Nigerian paper, one feed</a>
+    <a class="community-student-tools" href="./fact-check.html">🔎 Fact Check — is that claim actually true?</a>
     <a class="community-ambassador" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXloJuLeFjWtAiMlqr2n6TRRUMDcyU1BPVVpGNzNCOFlPUjI5TEk1UFpaMC4u" target="_blank" rel="noopener noreferrer">📍 Get news from your home LGA<span>Register your Local Government Area — it's free</span></a>
     <p class="community-links-label">Follow for news updates</p>
     <div class="community-links">

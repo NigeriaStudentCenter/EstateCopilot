@@ -84,6 +84,7 @@ const communityRailHtml = `
       <a class="community-live" href="https://nigeriastudentambassador.com/live" target="_blank" rel="noopener noreferrer">Watch the journey →</a>
     </div>
     <a class="community-student-tools" href="./students.html">🎓 AI Agents for Students — study, scholarships, jobs, housing</a>
+    <a class="community-student-tools" href="./fact-check.html">🔎 Fact Check — is that claim actually true?</a>
     <a class="community-ambassador" href="https://forms.office.com/Pages/ResponsePage.aspx?id=iBFpdp2b7ke7Wir-xS9NXloJuLeFjWtAiMlqr2n6TRRUMDcyU1BPVVpGNzNCOFlPUjI5TEk1UFpaMC4u" target="_blank" rel="noopener noreferrer">📍 Get news from your home LGA<span>Register your Local Government Area — it's free</span></a>
     <p class="community-links-label">Follow for news updates</p>
     <div class="community-links">
