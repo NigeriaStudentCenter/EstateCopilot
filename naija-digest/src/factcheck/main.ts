@@ -23,9 +23,27 @@ interface FactCheck {
   category: string;
   state: string;
   lga: string;
+  race_level: string;
+  candidate: string;
+  party: string;
   claim_date: string | null;
   date_checked: string | null;
 }
+
+const RACE_LEVELS = [
+  'Presidential / General Election',
+  'Senate',
+  'House of Representatives',
+  'Governorship',
+  'Local Government',
+] as const;
+const RACE_LABEL: Record<string, string> = {
+  'Presidential / General Election': 'Presidential',
+  Senate: 'Senate',
+  'House of Representatives': 'House of Reps',
+  Governorship: 'Governorship',
+  'Local Government': 'Local Govt',
+};
 
 const VERDICTS = ['True', 'False', 'Misleading', 'Unverifiable', 'Satire', 'Needs Context'] as const;
 const VERDICT_CLASS: Record<string, string> = {
@@ -113,6 +131,12 @@ async function main() {
           </form>
         </div>
 
+        <div class="fc-elections-card">
+          <h2>🗳️ Elections</h2>
+          <p>Checked now, before any vote happens — candidate records, credentials and eligibility, party and endorsement claims, and INEC/process rumours, across every race from the ward to the presidency.</p>
+          <div class="desks" id="race-filters" role="tablist" aria-label="Filter by election race"></div>
+        </div>
+
         <div class="desks" id="verdict-filters" role="tablist" aria-label="Filter by verdict"></div>
         <p class="updated" id="fc-status">Loading fact-checks…</p>
         <div class="cards" id="fc-cards"></div>
@@ -169,13 +193,15 @@ async function main() {
     }
   });
 
-  /* ---------- Verdict list ---------- */
+  /* ---------- Verdict + race list ---------- */
   const cardsEl = document.getElementById('fc-cards')!;
   const statusEl = document.getElementById('fc-status')!;
   const filtersEl = document.getElementById('verdict-filters')!;
+  const raceFiltersEl = document.getElementById('race-filters')!;
 
   let items: FactCheck[] = [];
   let activeVerdict = 'all';
+  let activeRace = 'all';
 
   function renderFilters() {
     const all = [{ id: 'all', label: 'All' }, ...VERDICTS.map((v) => ({ id: v, label: v }))];
@@ -183,7 +209,7 @@ async function main() {
       .map(
         (f) => `
         <button class="desk-pill" data-verdict="${f.id}" role="tab" aria-pressed="${f.id === activeVerdict}">
-          ${f.label}${f.id !== 'all' ? ` (${items.filter((i) => i.verdict === f.id).length})` : ''}
+          ${f.label}${f.id !== 'all' ? ` (${items.filter((i) => i.verdict === f.id && (activeRace === 'all' || i.race_level === activeRace)).length})` : ''}
         </button>`,
       )
       .join('');
@@ -196,14 +222,41 @@ async function main() {
     });
   }
 
+  function renderRaceFilters() {
+    const all = [
+      { id: 'all', label: 'All races' },
+      ...RACE_LEVELS.map((r) => ({ id: r, label: RACE_LABEL[r] })),
+    ];
+    raceFiltersEl.innerHTML = all
+      .map(
+        (f) => `
+        <button class="desk-pill" data-race="${f.id}" role="tab" aria-pressed="${f.id === activeRace}">
+          ${f.label}${f.id !== 'all' ? ` (${items.filter((i) => i.race_level === f.id).length})` : ''}
+        </button>`,
+      )
+      .join('');
+    raceFiltersEl.querySelectorAll<HTMLButtonElement>('.desk-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeRace = btn.dataset.race!;
+        renderFilters();
+        renderRaceFilters();
+        renderCards();
+      });
+    });
+  }
+
   function cardHtml(item: FactCheck): string {
     const vClass = VERDICT_CLASS[item.verdict] || 'v-unverifiable';
     const icon = VERDICT_ICON[item.verdict] || '?';
     const where = [item.lga, item.state].filter(Boolean).join(', ');
+    const race = item.race_level && item.race_level !== 'N/A' ? RACE_LABEL[item.race_level] || item.race_level : '';
+    const who = [item.candidate, item.party].filter(Boolean).join(' · ');
     return `
       <article class="card fc-card">
         <span class="fc-verdict-badge ${vClass}">${icon} ${escapeHtml(item.verdict)}</span>
+        ${race ? `<span class="fc-race-badge">🗳️ ${escapeHtml(race)}</span>` : ''}
         <p class="headline fc-headline">${escapeHtml(item.headline)}</p>
+        ${who ? `<p class="fc-candidate">${escapeHtml(who)}</p>` : ''}
         <p class="summary fc-claim"><strong>Claim:</strong> ${escapeHtml(item.claim)}</p>
         <p class="summary fc-evidence">${escapeHtml(item.evidence)}</p>
         <div class="meta">
@@ -217,9 +270,11 @@ async function main() {
   }
 
   function renderCards() {
-    const filtered = activeVerdict === 'all' ? items : items.filter((i) => i.verdict === activeVerdict);
+    let filtered = activeVerdict === 'all' ? items : items.filter((i) => i.verdict === activeVerdict);
+    if (activeRace !== 'all') filtered = filtered.filter((i) => i.race_level === activeRace);
     if (!filtered.length) {
-      cardsEl.innerHTML = `<p class="empty">No fact-checks ${activeVerdict === 'all' ? 'published yet' : `with verdict "${escapeHtml(activeVerdict)}"`} — check back soon.</p>`;
+      const what = activeRace !== 'all' ? `for ${RACE_LABEL[activeRace] || activeRace}` : activeVerdict !== 'all' ? `with verdict "${escapeHtml(activeVerdict)}"` : '';
+      cardsEl.innerHTML = `<p class="empty">No fact-checks ${what || 'published yet'} — check back soon.</p>`;
       return;
     }
     cardsEl.innerHTML = filtered.map(cardHtml).join('');
@@ -237,6 +292,7 @@ async function main() {
   }
 
   renderFilters();
+  renderRaceFilters();
   renderCards();
 }
 
