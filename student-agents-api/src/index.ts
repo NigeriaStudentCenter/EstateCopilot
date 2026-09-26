@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { timingSafeEqual } from 'node:crypto';
 import { RateLimiter } from './ratelimit.js';
 import type { Provider, RunRequest, Tier } from './providers/types.js';
 import { createAnthropicProvider } from './providers/anthropic.js';
@@ -31,6 +32,17 @@ switch (PROVIDER_NAME) {
 
 const limiter = new RateLimiter(RATE_LIMIT_PER_HOUR);
 
+// Trusted server callers (the AI Academy app's backend) send this key. All
+// their traffic comes from one IP, so they skip the per-IP limit here and
+// apply their own per-signed-in-learner limit instead.
+const TRUSTED_CALLER_KEY = process.env.TRUSTED_CALLER_KEY || '';
+function isTrustedCaller(header: string | undefined): boolean {
+  if (!TRUSTED_CALLER_KEY || !header) return false;
+  const a = Buffer.from(header);
+  const b = Buffer.from(TRUSTED_CALLER_KEY);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
 const app = express();
 app.set('trust proxy', 1); // App Service sits behind a proxy; use X-Forwarded-For
 app.use(cors({ origin: ALLOWED_ORIGINS }));
@@ -54,7 +66,7 @@ app.post('/run', async (req, res) => {
   }
 
   const ip = req.ip || 'unknown';
-  if (!limiter.tryConsume(ip)) {
+  if (!isTrustedCaller(req.get('x-trusted-caller')) && !limiter.tryConsume(ip)) {
     return res.status(429).json({ error: "You've used this a lot in a short time — try again in a little while." });
   }
 
