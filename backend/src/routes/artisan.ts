@@ -298,6 +298,8 @@ artisanRouter.post('/artisan/me/verify', requireArtisanAuth, async (req: Artisan
     [parsed.data.kind === 'NIN' ? 'nin' : 'bvn']: parsed.data.idNumber,
     fullName: a.name,
   });
+  // Couldn't check (provider down / not connected): say so — don't record a fail or a pass.
+  if (check.errored) return res.status(503).json({ error: 'ID verification is not available right now — please try again later.' });
   const status = check.status === 'VERIFIED' ? 'VERIFIED' : 'FAILED';
   const now = new Date();
 

@@ -45,7 +45,18 @@ export async function verifyNinBvn(params: {
 }): Promise<NinBvnCheckResult> {
   const configured = Boolean(env.smileId.apiKey && env.smileId.partnerId);
 
-  if (env.mockMode || !configured) {
+  // Live system without a provider: never claim "verified". Report it as a
+  // check we couldn't do (errored), so callers show "not checked yet".
+  if (!env.mockMode && !configured) {
+    return {
+      status: 'FAILED',
+      reason: 'ID verification is not connected yet',
+      provider: 'smileid',
+      errored: true,
+    };
+  }
+
+  if (env.mockMode) {
     const looksValid = Boolean(params.nin || params.bvn) && params.fullName.trim().length > 3;
     return looksValid
       ? { status: 'VERIFIED', matchedName: params.fullName, provider: 'mock' }

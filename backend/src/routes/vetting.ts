@@ -24,6 +24,7 @@ vettingRouter.post('/vetting/tenant', async (req, res) => {
   const { fullName, nin, bvn } = parsed.data;
 
   const identity = await verifyNinBvn({ nin, bvn, fullName });
+  if (identity.errored) return res.status(503).json({ error: 'ID verification is not available right now — please try again later.' });
   const risk = bvn ? await assessBankStatementRisk(bvn) : undefined;
 
   res.json({

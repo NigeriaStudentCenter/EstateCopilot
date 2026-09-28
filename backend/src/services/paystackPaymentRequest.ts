@@ -10,7 +10,7 @@ export interface PaymentRequest {
 // Docs: https://paystack.com/docs/payments/payment-requests
 export async function createPaymentRequest(params: {
   tenantEmail: string;
-  amount: number; // kobo
+  amount: number; // naira — converted to kobo for Paystack below
   dueDate: string; // ISO date
   description: string;
 }): Promise<PaymentRequest> {
@@ -30,7 +30,7 @@ export async function createPaymentRequest(params: {
     },
     body: JSON.stringify({
       customer: params.tenantEmail,
-      amount: params.amount,
+      amount: Math.round(params.amount * 100), // Paystack wants kobo; every caller works in naira
       due_date: params.dueDate,
       description: params.description,
     }),

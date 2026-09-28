@@ -316,7 +316,7 @@ publicRouter.post('/public/properties/:id/short-let-bookings', async (req, res) 
 
   await notifyOps(
     `New short-let booking request: ${property.title}`,
-    `${guestName} (${guestPhone}, ${guestEmail}) requested ${quote.nights} night(s) from ${checkIn.toDateString()} to ${checkOut.toDateString()} — ₦${(quote.totalAmount / 100).toLocaleString()}. Payment link sent; booking confirms once they pay.`,
+    `${guestName} (${guestPhone}, ${guestEmail}) requested ${quote.nights} night(s) from ${checkIn.toDateString()} to ${checkOut.toDateString()} — ₦${quote.totalAmount.toLocaleString()}. Payment link sent; booking confirms once they pay.`,
   );
 
   res.status(201).json({
