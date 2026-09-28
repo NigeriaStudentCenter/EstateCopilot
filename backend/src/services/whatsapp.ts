@@ -121,3 +121,39 @@ export async function sendWhatsAppMedia(
   const data = (await response.json()) as { messages?: { id: string }[] };
   return { sent: true, id: data.messages?.[0]?.id };
 }
+
+// One-time sign-in code via an approved AUTHENTICATION template (Meta requires
+// one to message someone who hasn't written to us first). Authentication
+// templates take the code as the body parameter AND as the copy-code button's
+// parameter. Docs: https://developers.facebook.com/docs/whatsapp/business-management-api/authentication-templates
+export async function sendWhatsAppAuthCode(to: string, code: string): Promise<{ sent: boolean }> {
+  if (env.mockMode || !env.whatsapp.metaToken || !env.whatsapp.metaPhoneNumberId) {
+    console.log(`[whatsapp:mock:otp] -> ${to}: ${code}`);
+    return { sent: !env.mockMode ? false : true };
+  }
+  const response = await fetch(
+    `https://graph.facebook.com/${env.whatsapp.graphVersion}/${env.whatsapp.metaPhoneNumberId}/messages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.whatsapp.metaToken}` },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: env.artisanAuth.otpWhatsappTemplate,
+          language: { code: env.artisanAuth.otpTemplateLanguage },
+          components: [
+            { type: 'body', parameters: [{ type: 'text', text: code }] },
+            { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: code }] },
+          ],
+        },
+      }),
+    },
+  );
+  if (!response.ok) {
+    console.error(`[whatsapp:otp] send failed (${response.status}) -> ${to}: ${(await response.text().catch(() => '')).slice(0, 300)}`);
+    return { sent: false };
+  }
+  return { sent: true };
+}

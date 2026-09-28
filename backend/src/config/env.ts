@@ -83,9 +83,16 @@ export const env = {
   },
   artisanAuth: {
     jwtSecret: process.env.ARTISAN_JWT_SECRET ?? 'dev-only-insecure-secret-change-me',
-    // No SMS provider wired yet — when OTP_PROVIDER is unset the code is a fixed
-    // 000000 and returned in the request so the flow is usable end-to-end.
-    otpProvider: process.env.OTP_PROVIDER,
+    // Sign-in codes are random and sent by WhatsApp using an approved
+    // AUTHENTICATION template (Meta). Mock mode keeps the fixed 000000.
+    otpWhatsappTemplate: process.env.WA_OTP_TEMPLATE ?? 'estatecopilot_login_code',
+    otpTemplateLanguage: process.env.WA_OTP_TEMPLATE_LANG ?? 'en',
+    // App Store review / QA only: "phone:code" pairs that accept a fixed code
+    // without WhatsApp (reviewers can't receive messages). Comma-separated.
+    testLogins: (process.env.ARTISAN_TEST_LOGINS ?? '')
+      .split(',')
+      .map((p) => p.trim().split(':'))
+      .filter((p): p is [string, string] => p.length === 2 && /^\d{7,15}$/.test(p[0]) && /^\d{6}$/.test(p[1])),
   },
   subscription: {
     monthlyAmountKobo: Number(process.env.LANDLORD_SUBSCRIPTION_AMOUNT_KOBO ?? 1_000_000), // ₦10,000

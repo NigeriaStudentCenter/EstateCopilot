@@ -568,6 +568,8 @@ model ArtisanOtp {
   phone     String   @id
   code      String
   expiresAt DateTime
+  attempts  Int      @default(0) // wrong guesses; the code is burned after 5
+  createdAt DateTime @default(now()) // resend cooldown
 }
 
 model Artisan {

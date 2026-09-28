@@ -48,8 +48,10 @@ artisanRouter.post('/artisan-auth/otp/request', async (req, res) => {
   const parsed = z.object({ phone: z.string().min(7) }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Enter a valid phone number' });
   const phone = normalizePhone(parsed.data.phone);
-  const { devOtp } = await issueOtp(phone);
-  res.json({ sent: true, ...(devOtp ? { devOtp } : {}) });
+  const result = await issueOtp(phone);
+  if (!result.ok) return res.status(result.status).json({ error: result.error });
+  // devOtp only ever comes back in mock mode (local dev) — never in production.
+  res.json({ sent: true, ...(result.devOtp ? { devOtp: result.devOtp } : {}) });
 });
 
 const verifySchema = z.object({
