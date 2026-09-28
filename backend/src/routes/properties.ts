@@ -91,6 +91,13 @@ const createSchema = z
     rentAmount: z.number().int().positive(),
     nightlyRate: z.number().int().positive().optional(),
     weeklyRate: z.number().int().positive().optional(),
+    // Stays marketplace (SHORT_LET): monthly tier, what's let, who it suits.
+    monthlyRate: z.number().int().positive().nullable().optional(),
+    stayUnitType: z.enum(['ENTIRE_PLACE', 'PRIVATE_ROOM', 'SHARED_ROOM']).nullable().optional(),
+    studentFriendly: z.boolean().optional(),
+    nearUniversity: z.string().trim().max(80).nullable().optional(),
+    maxGuests: z.number().int().min(1).max(30).nullable().optional(),
+    amenities: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
     cautionDepositAmount: z.number().int().min(0),
     municipalId: z.string().optional(),
   })
@@ -137,6 +144,13 @@ const updateSchema = z.object({
   // and the short-let booking flow needs one before it'll quote anything.
   nightlyRate: z.number().int().positive().optional(),
   weeklyRate: z.number().int().positive().optional(),
+  // Stays marketplace (SHORT_LET): monthly tier, what's let, who it suits.
+  monthlyRate: z.number().int().positive().nullable().optional(),
+  stayUnitType: z.enum(['ENTIRE_PLACE', 'PRIVATE_ROOM', 'SHARED_ROOM']).nullable().optional(),
+  studentFriendly: z.boolean().optional(),
+  nearUniversity: z.string().trim().max(80).nullable().optional(),
+  maxGuests: z.number().int().min(1).max(30).nullable().optional(),
+  amenities: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   // Agent marketplace: whether registered agents may market it (and get an
   // alert when it's listed), and the agency fee the tenant pays them.
   agentsAllowed: z.boolean().optional(),

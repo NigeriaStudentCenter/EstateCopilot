@@ -34,7 +34,7 @@ const Dashboard: React.FC<DashboardProps> = ({ landlord, onLogout }) => {
           {view === 'AI Inbox' && <AiInboxPage />}
           {view === 'Properties' && <PropertiesPage />}
           {view === 'Bookings' && <BookingsPage />}
-          {view === 'Short Lets' && <ShortLetPage />}
+          {view === 'Stays' && <ShortLetPage />}
           {view === 'Tenant Vetting' && <TenantVettingPage />}
           {view === 'Finance & Levies' && <FinanceLeviesPage />}
           {view === 'Settings' && <SettingsPage />}

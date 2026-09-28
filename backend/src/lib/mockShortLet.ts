@@ -11,9 +11,17 @@ export interface MockShortLetBooking {
   checkIn: string; // ISO date
   checkOut: string; // ISO date
   nights: number;
-  rateType: 'NIGHTLY' | 'WEEKLY';
+  rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY';
   totalAmount: number;
-  status: 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  status: 'AWAITING_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  idCheck?: 'VERIFIED' | 'NOT_CHECKED';
+  idType?: string;
+  idLast4?: string;
+  idVerifiedName?: string;
+  purpose?: 'DAILY' | 'STUDENT';
+  studentInstitution?: string;
+  studentIdKey?: string;
+  hostNote?: string;
   paymentRef?: string;
   paymentLink?: string;
   createdAt: string;
@@ -22,7 +30,7 @@ export interface MockShortLetBooking {
 export const mockShortLetBookings: MockShortLetBooking[] = [];
 
 export function createMockShortLetBooking(
-  data: Omit<MockShortLetBooking, 'id' | 'status' | 'createdAt'>,
+  data: Omit<MockShortLetBooking, 'id' | 'status' | 'createdAt'> & { status?: MockShortLetBooking['status'] },
 ): MockShortLetBooking {
   const booking: MockShortLetBooking = {
     id: `slb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -39,19 +47,21 @@ export function createMockShortLetBooking(
 // payment link is still open. Stale PENDING_PAYMENT rows aren't auto-expired
 // yet (a follow-up would TTL them after ~30 min), so today an abandoned
 // checkout can hold dates until a landlord manually cancels it.
+const HOLDS_DATES = new Set(['AWAITING_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED']);
+
 export function isRangeAvailable(propertyId: string, checkIn: Date, checkOut: Date, excludeBookingId?: string): boolean {
   return !mockShortLetBookings.some(
     (b) =>
       b.propertyId === propertyId &&
       b.id !== excludeBookingId &&
-      (b.status === 'PENDING_PAYMENT' || b.status === 'CONFIRMED') &&
+      HOLDS_DATES.has(b.status) &&
       rangesOverlap(checkIn, checkOut, new Date(b.checkIn), new Date(b.checkOut)),
   );
 }
 
 export function blockedRangesFor(propertyId: string): { checkIn: string; checkOut: string }[] {
   return mockShortLetBookings
-    .filter((b) => b.propertyId === propertyId && (b.status === 'PENDING_PAYMENT' || b.status === 'CONFIRMED'))
+    .filter((b) => b.propertyId === propertyId && HOLDS_DATES.has(b.status))
     .map((b) => ({ checkIn: b.checkIn, checkOut: b.checkOut }));
 }
 

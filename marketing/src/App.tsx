@@ -42,6 +42,7 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={isOnPropertiesSubdomain ? <Properties /> : <Home />} />
           <Route path="/properties" element={<Properties />} />
+          <Route path="/stays" element={<Properties staysMode />} />
           <Route path="/properties/:stateSlug" element={<Properties />} />
           <Route path="/handymen" element={<Handymen />} />
           <Route path="/handymen/:stateSlug" element={<Handymen />} />

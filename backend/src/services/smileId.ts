@@ -38,6 +38,11 @@ function splitName(fullName: string): { first_name: string; last_name: string } 
   return { first_name: parts[0], last_name: parts.slice(1).join(' ') };
 }
 
+/** True when BVN/NIN checks actually hit a registry (or we're in mock mode). */
+export function idVerificationLive(): boolean {
+  return env.mockMode || Boolean(env.smileId.apiKey && env.smileId.partnerId);
+}
+
 export async function verifyNinBvn(params: {
   nin?: string;
   bvn?: string;

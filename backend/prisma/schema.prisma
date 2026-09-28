@@ -15,9 +15,32 @@ enum PropertyType {
 enum ShortLetRateType {
   NIGHTLY
   WEEKLY
+  MONTHLY // 28+ nights — student terms/semesters, long work trips
+}
+
+// Stays marketplace: what the guest actually gets.
+enum StayUnitType {
+  ENTIRE_PLACE
+  PRIVATE_ROOM
+  SHARED_ROOM
+}
+
+// Why the guest is staying. STUDENT bookings are request-to-book: the host
+// checks the student ID before a payment link is issued.
+enum StayPurpose {
+  DAILY
+  STUDENT
+}
+
+// Result of the guest's BVN/NIN check at booking time. NOT_CHECKED only
+// happens while no ID provider is connected — hosts see it flagged.
+enum GuestIdCheck {
+  VERIFIED
+  NOT_CHECKED
 }
 
 enum ShortLetBookingStatus {
+  AWAITING_APPROVAL // student stay: host reviewing the student ID; dates are held
   PENDING_PAYMENT
   CONFIRMED
   CANCELLED
@@ -261,6 +284,12 @@ model Property {
   rentAmount           Int
   nightlyRate          Int? // SHORT_LET only — per-night price, same unit as rentAmount (naira)
   weeklyRate           Int? // SHORT_LET only — discounted price for a full 7-night block, same unit as rentAmount
+  monthlyRate          Int? // SHORT_LET only — price per 28-night block (student terms, long stays)
+  stayUnitType         StayUnitType? // SHORT_LET only — whole place, a private room, or a shared room
+  studentFriendly      Boolean             @default(false) // SHORT_LET only — accepts STUDENT bookings (student ID checked by host)
+  nearUniversity       String? // e.g. "UNILAG, Akoka" — what students search by
+  maxGuests            Int?
+  amenities            String[]            @default([])
   cautionDepositAmount Int
   municipalId          String? // Tenement Rate ID with the LGA
   discoProvider        String? // EKEDC / IKEDC / AEDC / PHED etc.
@@ -304,6 +333,20 @@ model ShortLetBooking {
   status      ShortLetBookingStatus @default(PENDING_PAYMENT)
   paymentRef  String?               @unique // Paystack payment-request offline_reference; the webhook reconciles on this
   paymentLink String?
+
+  // Guest identity — checked against BVN/NIN before any payment link. The
+  // ID number itself is never stored, only the type, last 4 digits and the
+  // name the registry returned.
+  idCheck        GuestIdCheck @default(NOT_CHECKED)
+  idType         String? // BVN | NIN
+  idLast4        String?
+  idVerifiedName String?
+
+  purpose            StayPurpose @default(DAILY)
+  studentInstitution String?
+  studentIdKey       String? // private blob key of the student ID photo — served only to the host
+  hostNote           String? // reason given when the host declines
+
   createdAt   DateTime              @default(now())
 }
 

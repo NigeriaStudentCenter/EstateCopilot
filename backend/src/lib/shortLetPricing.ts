@@ -1,22 +1,26 @@
 // Pure pricing/date math for short-let stays — shared by the quote and
 // booking endpoints so a guest is always quoted exactly what they'll be
-// charged. Weekly rate (if the property has one) is applied to every full
-// 7-night block, with any remainder priced per night.
+// charged. The cheapest applicable tier wins: a monthly rate (per 28-night
+// block — student terms, long stays) for 28+ nights, then a weekly rate for
+// every full 7-night block, with any remainder priced per week/night.
 
 export interface ShortLetRateInput {
   nightlyRate: number;
   weeklyRate?: number | null;
+  monthlyRate?: number | null;
 }
 
 export interface ShortLetQuote {
   nights: number;
-  rateType: 'NIGHTLY' | 'WEEKLY';
+  rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY';
+  months: number;
   weeks: number;
   extraNights: number;
   totalAmount: number;
 }
 
 const MS_PER_NIGHT = 24 * 60 * 60 * 1000;
+export const MONTH_NIGHTS = 28;
 
 export function nightsBetween(checkIn: Date, checkOut: Date): number {
   return Math.round((checkOut.getTime() - checkIn.getTime()) / MS_PER_NIGHT);
@@ -42,12 +46,28 @@ export function quoteStay(rates: ShortLetRateInput, checkIn: Date, checkOut: Dat
   validateStayDates(checkIn, checkOut);
   const nights = nightsBetween(checkIn, checkOut);
 
+  if (rates.monthlyRate && nights >= MONTH_NIGHTS) {
+    const months = Math.floor(nights / MONTH_NIGHTS);
+    const rest = nights % MONTH_NIGHTS;
+    const weeks = rates.weeklyRate ? Math.floor(rest / 7) : 0;
+    const extraNights = rest - weeks * 7;
+    return {
+      nights,
+      rateType: 'MONTHLY',
+      months,
+      weeks,
+      extraNights,
+      totalAmount: months * rates.monthlyRate + weeks * (rates.weeklyRate ?? 0) + extraNights * rates.nightlyRate,
+    };
+  }
+
   if (rates.weeklyRate && nights >= 7) {
     const weeks = Math.floor(nights / 7);
     const extraNights = nights % 7;
     return {
       nights,
       rateType: 'WEEKLY',
+      months: 0,
       weeks,
       extraNights,
       totalAmount: weeks * rates.weeklyRate + extraNights * rates.nightlyRate,
@@ -57,6 +77,7 @@ export function quoteStay(rates: ShortLetRateInput, checkIn: Date, checkOut: Dat
   return {
     nights,
     rateType: 'NIGHTLY',
+    months: 0,
     weeks: 0,
     extraNights: nights,
     totalAmount: nights * rates.nightlyRate,

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import StaySettings from '../components/dashboard/StaySettings';
 import { api } from '../lib/api';
 import { Property } from '../types';
 import { compressImage } from '../lib/compressImage';
@@ -421,6 +422,10 @@ const PropertiesPage: React.FC = () => {
                   </button>
                 </div>
               </div>
+            )}
+
+            {p.propertyType === 'SHORT_LET' && (
+              <StaySettings property={p} onSaved={refresh} onError={setError} />
             )}
 
             <div>

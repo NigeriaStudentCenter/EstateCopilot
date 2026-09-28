@@ -13,6 +13,12 @@ export interface Property {
   rentAmount: number;
   nightlyRate?: number; // SHORT_LET only
   weeklyRate?: number; // SHORT_LET only
+  monthlyRate?: number | null; // SHORT_LET only — per 28-night block
+  stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
+  studentFriendly?: boolean;
+  nearUniversity?: string | null;
+  maxGuests?: number | null;
+  amenities?: string[];
   cautionDepositAmount: number;
   municipalId?: string; // Tenement Rate / property ID with the LGA
   imageUrls?: string[];
@@ -147,8 +153,8 @@ export interface AgentDeal {
   createdAt: string;
 }
 
-export type ShortLetRateType = 'NIGHTLY' | 'WEEKLY';
-export type ShortLetBookingStatus = 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+export type ShortLetRateType = 'NIGHTLY' | 'WEEKLY' | 'MONTHLY';
+export type ShortLetBookingStatus = 'AWAITING_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
 export interface ShortLetBooking {
   id: string;
@@ -165,5 +171,13 @@ export interface ShortLetBooking {
   status: ShortLetBookingStatus;
   paymentRef?: string;
   paymentLink?: string;
+  idCheck?: 'VERIFIED' | 'NOT_CHECKED';
+  idType?: 'BVN' | 'NIN' | null;
+  idLast4?: string | null;
+  idVerifiedName?: string | null;
+  purpose?: 'DAILY' | 'STUDENT';
+  studentInstitution?: string | null;
+  hasStudentId?: boolean;
+  hostNote?: string | null;
   createdAt: string;
 }

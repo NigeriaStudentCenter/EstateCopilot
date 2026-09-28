@@ -43,3 +43,4 @@ nsa-onboarding/*.zip
 
 # Property photos written locally when no blob store is configured
 backend/uploads/
+backend/private-uploads/

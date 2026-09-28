@@ -73,6 +73,12 @@ export const api = {
     rentAmount: number;
     nightlyRate?: number;
     weeklyRate?: number;
+    monthlyRate?: number | null;
+    stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
+    studentFriendly?: boolean;
+    nearUniversity?: string | null;
+    maxGuests?: number | null;
+    amenities?: string[];
     cautionDepositAmount: number;
     municipalId?: string;
   }) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(data) }),
@@ -84,6 +90,12 @@ export const api = {
       imageUrls?: string[];
       nightlyRate?: number;
       weeklyRate?: number;
+      monthlyRate?: number | null;
+      stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
+      studentFriendly?: boolean;
+      nearUniversity?: string | null;
+      maxGuests?: number | null;
+      amenities?: string[];
       agentsAllowed?: boolean;
       agentFeePercent?: number;
     },
@@ -181,6 +193,20 @@ export const api = {
   getShortLetBookings: () => request<any[]>('/api/short-let-bookings'),
   setShortLetBookingStatus: (bookingId: string, status: 'CANCELLED' | 'COMPLETED') =>
     request(`/api/short-let-bookings/${bookingId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+
+  approveStayRequest: (bookingId: string) =>
+    request(`/api/short-let-bookings/${bookingId}/approve`, { method: 'POST', body: '{}' }),
+  declineStayRequest: (bookingId: string, reason?: string) =>
+    request(`/api/short-let-bookings/${bookingId}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  // Private: fetched with the landlord's token and shown via an object URL.
+  getStudentIdBlob: async (bookingId: string) => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/short-let-bookings/${bookingId}/student-id`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new ApiError(res.status, 'Could not load the student ID');
+    return res.blob();
+  },
 
   getLegalRequests: () => request<any[]>('/api/legal-requests'),
   createLegalRequest: (data: { propertyId: string; category: string; description: string; raisedBy?: string }) =>

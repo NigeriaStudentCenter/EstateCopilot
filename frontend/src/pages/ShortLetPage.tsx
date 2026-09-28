@@ -5,6 +5,7 @@ import { Property, ShortLetBooking } from '../types';
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 
 const statusStyles: Record<string, string> = {
+  AWAITING_APPROVAL: 'bg-indigo-100 text-indigo-800',
   PENDING_PAYMENT: 'bg-amber-100 text-amber-900',
   CONFIRMED: 'bg-emerald-100 text-emerald-800',
   CANCELLED: 'bg-gray-100 text-gray-500',
@@ -12,6 +13,7 @@ const statusStyles: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
+  AWAITING_APPROVAL: 'Needs your approval',
   PENDING_PAYMENT: 'Awaiting payment',
   CONFIRMED: 'Confirmed',
   CANCELLED: 'Cancelled',
@@ -42,7 +44,7 @@ const Calendar: React.FC<{ month: Date; bookings: ShortLetBooking[] }> = ({ mont
   const bookedNights = useMemo(() => {
     const map = new Map<string, ShortLetBooking>();
     for (const b of bookings) {
-      if (b.status !== 'CONFIRMED' && b.status !== 'PENDING_PAYMENT') continue;
+      if (b.status !== 'CONFIRMED' && b.status !== 'PENDING_PAYMENT' && b.status !== 'AWAITING_APPROVAL') continue;
       for (const day of nightsCovered(b)) map.set(day, b);
     }
     return map;
@@ -73,7 +75,7 @@ const Calendar: React.FC<{ month: Date; bookings: ShortLetBooking[] }> = ({ mont
           if (!date) return <div key={i} className="aspect-square" />;
           const key = isoDateOnly(date);
           const booking = bookedNights.get(key);
-          const isPending = booking?.status === 'PENDING_PAYMENT';
+          const isPending = booking?.status === 'PENDING_PAYMENT' || booking?.status === 'AWAITING_APPROVAL';
           return (
             <div
               key={i}
@@ -93,8 +95,51 @@ const Calendar: React.FC<{ month: Date; bookings: ShortLetBooking[] }> = ({ mont
       </div>
       <div className="flex items-center gap-4 mt-3 text-[11px] text-gray-500">
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-emerald-600 inline-block" /> Booked</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-200 inline-block" /> Awaiting payment</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-200 inline-block" /> Held (awaiting payment or your approval)</span>
         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gray-50 border border-gray-200 inline-block" /> Open</span>
+      </div>
+    </div>
+  );
+};
+
+// Who the guest is: every booking carries a BVN/NIN check result. We only
+// ever hold the last 4 digits and the name the registry returned.
+const IdBadge: React.FC<{ b: ShortLetBooking }> = ({ b }) =>
+  b.idCheck === 'VERIFIED' ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+      ✓ {b.idType} verified{b.idVerifiedName ? ` · ${b.idVerifiedName}` : ''}
+    </span>
+  ) : b.idType ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-900 border border-amber-200" title="ID checks aren't connected yet — confirm the guest's ID at check-in.">
+      ⚠ {b.idType} ••••{b.idLast4} · not checked yet
+    </span>
+  ) : (
+    <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">No ID on file</span>
+  );
+
+const StudentIdViewer: React.FC<{ bookingId: string; onClose: () => void }> = ({ bookingId, onClose }) => {
+  const [url, setUrl] = useState<string | null>(null);
+  const [type, setType] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    api.getStudentIdBlob(bookingId)
+      .then((blob) => { objectUrl = URL.createObjectURL(blob); setType(blob.type); setUrl(objectUrl); })
+      .catch((e) => setErr(e instanceof Error ? e.message : 'Could not load the student ID'));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [bookingId]);
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="bg-white rounded-xl max-w-lg w-full p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900">Student ID</h3>
+          <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-800">Close</button>
+        </div>
+        {err ? <p className="text-sm text-red-700">{err}</p>
+          : !url ? <p className="text-sm text-gray-500">Loading…</p>
+          : type === 'application/pdf' ? <iframe src={url} title="Student ID" className="w-full h-[70vh] rounded" />
+          : <img src={url} alt="Student ID card" className="w-full max-h-[70vh] object-contain rounded bg-gray-50" />}
+        <p className="text-[11px] text-gray-400 mt-3">Only you can see this. Check the name matches the booking and the card is current.</p>
       </div>
     </div>
   );
@@ -106,6 +151,7 @@ const ShortLetPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [viewingIdFor, setViewingIdFor] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
@@ -137,6 +183,26 @@ const ShortLetPage: React.FC = () => {
     }
   }
 
+  async function handleRequest(b: ShortLetBooking, approve: boolean) {
+    let reason: string | undefined;
+    if (!approve) {
+      const r = window.prompt(`Decline ${b.guestName}'s request? Add a short note for them (optional):`, '');
+      if (r === null) return;
+      reason = r.trim() || undefined;
+    }
+    setActingOn(b.id);
+    try {
+      if (approve) await api.approveStayRequest(b.id);
+      else await api.declineStayRequest(b.id, reason);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update the request');
+    } finally {
+      setActingOn(null);
+    }
+  }
+
+  const awaiting = bookings.filter((b) => b.status === 'AWAITING_APPROVAL');
   const calendarBookings = bookings.filter((b) => b.propertyId === selectedPropertyId);
 
   if (loading) return <div className="text-sm text-gray-500">Loading short-let bookings…</div>;
@@ -144,12 +210,41 @@ const ShortLetPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Short Lets</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Stays</h2>
         <p className="text-sm text-gray-600 mt-1">
-          Nightly and weekly stay bookings across your short-let properties — guests pay upfront through Paystack,
+          Nightly, weekly and monthly stays across your short-let properties. Every guest is checked against their BVN or
+          NIN before booking; student stays wait for you to approve their student ID. Guests pay upfront through Paystack,
           and a booking is confirmed automatically the moment that clears.
         </p>
       </div>
+
+      {awaiting.length > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
+          <h3 className="font-semibold text-indigo-900 mb-3">🎓 Student stay requests ({awaiting.length})</h3>
+          <ul className="space-y-3">
+            {awaiting.map((b) => (
+              <li key={b.id} className="bg-white rounded-lg border border-indigo-100 p-4 flex flex-wrap items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="font-semibold text-gray-900">{b.guestName} <span className="font-normal text-gray-500">· {b.studentInstitution}</span></p>
+                  <p className="text-sm text-gray-600">
+                    {b.propertyTitle} · {new Date(b.checkIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} →{' '}
+                    {new Date(b.checkOut).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {b.nights} nights · {currencyFormatter.format(b.totalAmount)}
+                  </p>
+                  <IdBadge b={b} />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {b.hasStudentId && (
+                    <button onClick={() => setViewingIdFor(b.id)} className="px-3 py-1.5 rounded-lg text-sm border border-gray-300 hover:bg-gray-50">View student ID</button>
+                  )}
+                  <button onClick={() => handleRequest(b, false)} disabled={actingOn === b.id} className="px-3 py-1.5 rounded-lg text-sm border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50">Decline</button>
+                  <button onClick={() => handleRequest(b, true)} disabled={actingOn === b.id} className="px-3 py-1.5 rounded-lg text-sm bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">Approve & send payment link</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {viewingIdFor && <StudentIdViewer bookingId={viewingIdFor} onClose={() => setViewingIdFor(null)} />}
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3">{error}</div>}
 
@@ -211,6 +306,16 @@ const ShortLetPage: React.FC = () => {
                     {' · '}{b.nights} night{b.nights === 1 ? '' : 's'} · {currencyFormatter.format(b.totalAmount)}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">{b.guestPhone}{b.guestEmail ? ` · ${b.guestEmail}` : ''}</p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <IdBadge b={b} />
+                    {b.purpose === 'STUDENT' && (
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-indigo-50 text-indigo-800">🎓 Student · {b.studentInstitution}</span>
+                    )}
+                    {b.hasStudentId && (
+                      <button onClick={() => setViewingIdFor(b.id)} className="text-[11px] text-indigo-700 hover:underline">View student ID</button>
+                    )}
+                    {b.hostNote && <span className="text-[11px] text-gray-500">Your note: {b.hostNote}</span>}
+                  </div>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles[b.status]}`}>

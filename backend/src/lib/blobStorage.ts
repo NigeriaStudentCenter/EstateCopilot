@@ -91,3 +91,52 @@ export function isOwnImage(url: string): boolean {
 }
 
 export const localUploadsMount = { route: '/uploads', dir: path.resolve(process.cwd(), 'uploads') };
+
+// ---- Private documents (guest student IDs) --------------------------------
+// Never publicly readable: a separate container with no public access in
+// Azure, and a folder outside the /uploads static mount locally. Only served
+// back through an authenticated route that streams the bytes.
+const PRIVATE_CONTAINER = 'private-docs';
+const PRIVATE_LOCAL_DIR = path.resolve(process.cwd(), 'private-uploads');
+let privateContainerPromise: Promise<import('@azure/storage-blob').ContainerClient> | null = null;
+
+async function getPrivateContainer() {
+  if (!privateContainerPromise) {
+    privateContainerPromise = (async () => {
+      const { BlobServiceClient } = await import('@azure/storage-blob');
+      const svc = BlobServiceClient.fromConnectionString(env.storage.connectionString!);
+      const container = svc.getContainerClient(PRIVATE_CONTAINER);
+      await container.createIfNotExists(); // no `access` => private
+      return container;
+    })();
+  }
+  return privateContainerPromise;
+}
+
+/** Store a private document; returns its key (not a URL). */
+export async function putPrivateDoc(buffer: Buffer, ext: string, contentType: string): Promise<string> {
+  const key = `${Date.now().toString(36)}-${crypto.randomBytes(12).toString('hex')}.${ext}`;
+  if (env.storage.connectionString) {
+    const container = await getPrivateContainer();
+    await container.getBlockBlobClient(key).uploadData(buffer, { blobHTTPHeaders: { blobContentType: contentType } });
+    return key;
+  }
+  await fs.mkdir(PRIVATE_LOCAL_DIR, { recursive: true });
+  await fs.writeFile(path.join(PRIVATE_LOCAL_DIR, key), buffer);
+  return key;
+}
+
+/** Read a private document back, or null if it's gone. */
+export async function getPrivateDoc(key: string): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const safeKey = path.basename(key);
+  const contentType = safeKey.endsWith('.png') ? 'image/png' : safeKey.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg';
+  try {
+    if (env.storage.connectionString) {
+      const container = await getPrivateContainer();
+      return { buffer: await container.getBlockBlobClient(safeKey).downloadToBuffer(), contentType };
+    }
+    return { buffer: await fs.readFile(path.join(PRIVATE_LOCAL_DIR, safeKey)), contentType };
+  } catch {
+    return null;
+  }
+}

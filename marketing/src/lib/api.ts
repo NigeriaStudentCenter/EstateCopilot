@@ -21,7 +21,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   getStates: () => request<{ name: string; slug: string; propertyCount: number; jobCount: number }[]>('/api/public/states'),
 
-  getProperties: (state?: string) => request<any[]>(`/api/public/properties${state ? `?state=${state}` : ''}`),
+  getProperties: (state?: string, filters: { stays?: boolean; student?: boolean; unit?: string; near?: string } = {}) => {
+    const q = new URLSearchParams();
+    if (state) q.set('state', state);
+    if (filters.stays) q.set('stays', '1');
+    if (filters.student) q.set('student', '1');
+    if (filters.unit) q.set('unit', filters.unit);
+    if (filters.near) q.set('near', filters.near);
+    const qs = q.toString();
+    return request<any[]>(`/api/public/properties${qs ? `?${qs}` : ''}`);
+  },
   bookPropertyViewing: (
     propertyId: string,
     data: { name: string; phone: string; email?: string; scheduledFor: string; notes?: string; agentCode?: string },
@@ -30,18 +39,22 @@ export const api = {
   getShortLetAvailability: (propertyId: string) =>
     request<{ checkIn: string; checkOut: string }[]>(`/api/public/properties/${propertyId}/short-let-availability`),
   getShortLetQuote: (propertyId: string, checkIn: string, checkOut: string) =>
-    request<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY'; weeks: number; extraNights: number; totalAmount: number }>(
+    request<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY'; months: number; weeks: number; extraNights: number; totalAmount: number; studentFriendly: boolean }>(
       `/api/public/properties/${propertyId}/short-let-quote`,
       { method: 'POST', body: JSON.stringify({ checkIn, checkOut }) },
     ),
-  bookShortLet: (
-    propertyId: string,
-    data: { checkIn: string; checkOut: string; guestName: string; guestPhone: string; guestEmail: string },
-  ) =>
-    request<{ bookingId: string; paymentLink: string; nights: number; totalAmount: number; rateType: string }>(
-      `/api/public/properties/${propertyId}/short-let-bookings`,
-      { method: 'POST', body: JSON.stringify(data) },
-    ),
+  // Multipart so a student can attach their student ID card; daily stays
+  // send the same form without the file. Every guest gives a BVN or NIN.
+  bookShortLet: async (propertyId: string, form: FormData) => {
+    const res = await fetch(`${API_BASE}/api/public/properties/${propertyId}/short-let-bookings`, { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = body?.error;
+      const msg = typeof err === 'string' ? err : Object.values(err?.fieldErrors ?? {}).flat()[0] ?? 'Booking failed — please try again';
+      throw new Error(String(msg));
+    }
+    return body as { bookingId: string; status: 'AWAITING_APPROVAL' | 'PENDING_PAYMENT'; paymentLink: string | null; nights: number; totalAmount: number; rateType: string; idCheck: 'VERIFIED' | 'NOT_CHECKED' };
+  },
 
   // ---- Artisan directory (Phase 2) ----
   getArtisanTrades: () =>

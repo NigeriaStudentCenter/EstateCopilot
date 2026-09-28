@@ -18,6 +18,10 @@ import { quoteStay, InvalidStayError } from '../lib/shortLetPricing.js';
 import { createPaymentRequest } from '../services/paystackPaymentRequest.js';
 import { notDemoProperty } from '../lib/demo.js';
 import { alertAgent } from '../services/agentAlerts.js';
+import { checkGuestId } from '../services/guestId.js';
+import { putPrivateDoc } from '../lib/blobStorage.js';
+import { notify as notifyPush } from '../services/push.js';
+import multer from 'multer';
 
 // Everything in this file is unauthenticated — it's what the public
 // marketing site (properties page, handyman marketplace page) talks to.
@@ -70,23 +74,62 @@ publicRouter.get('/public/states', async (_req, res) => {
   res.json(states);
 });
 
+// Internal fields (meter number, tenement-rate ID, owner ids) never leave
+// the landlord's own dashboard.
+function toPublicListing<T extends Record<string, any>>(p: T) {
+  const { meterNumber, municipalId, discoProvider, landlordId, agentId, ...rest } = p;
+  return rest;
+}
+
+// Filters: ?state=lagos  &stays=1 (short-lets only)  &student=1 (student-
+// friendly stays)  &unit=PRIVATE_ROOM  &near=unilag (school/area text).
 publicRouter.get('/public/properties', async (req, res) => {
   const state = stateBySlug(req.query.state as string | undefined);
+  const staysOnly = req.query.stays === '1' || req.query.student === '1' || Boolean(req.query.unit);
+  const studentOnly = req.query.student === '1';
+  const unit = ['ENTIRE_PLACE', 'PRIVATE_ROOM', 'SHARED_ROOM'].includes(String(req.query.unit)) ? (String(req.query.unit) as 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM') : undefined;
+  const near = typeof req.query.near === 'string' && req.query.near.trim() ? req.query.near.trim().slice(0, 60) : undefined;
   if (env.mockMode) {
-    return res.json(MOCK_PROPERTIES.filter((p) => p.isAdvertised && (!state || p.state === state.name)));
+    const nearLc = near?.toLowerCase();
+    return res.json(
+      MOCK_PROPERTIES.filter((p: any) =>
+        p.isAdvertised &&
+        (!state || p.state === state.name) &&
+        (!staysOnly || p.propertyType === 'SHORT_LET') &&
+        (!studentOnly || p.studentFriendly) &&
+        (!unit || p.stayUnitType === unit) &&
+        (!nearLc || `${p.nearUniversity ?? ''} ${p.lga} ${p.address}`.toLowerCase().includes(nearLc)),
+      ).map(toPublicListing),
+    );
   }
   // The shared demo landlord's listings are fictional — never on the real marketplace.
-  const properties = await prisma.property.findMany({ where: { isAdvertised: true, ...(state ? { state: state.name } : {}), ...(await notDemoProperty()) } });
-  res.json(properties);
+  const properties = await prisma.property.findMany({
+    where: {
+      isAdvertised: true,
+      ...(state ? { state: state.name } : {}),
+      ...(staysOnly ? { propertyType: 'SHORT_LET' as const } : {}),
+      ...(studentOnly ? { studentFriendly: true } : {}),
+      ...(unit ? { stayUnitType: unit } : {}),
+      ...(near
+        ? { OR: [
+            { nearUniversity: { contains: near, mode: 'insensitive' as const } },
+            { lga: { contains: near, mode: 'insensitive' as const } },
+            { address: { contains: near, mode: 'insensitive' as const } },
+          ] }
+        : {}),
+      ...(await notDemoProperty()),
+    },
+  });
+  res.json(properties.map(toPublicListing));
 });
 
 publicRouter.get('/public/properties/:id', async (req, res) => {
   if (env.mockMode) {
     const property = MOCK_PROPERTIES.find((p) => p.id === req.params.id && p.isAdvertised);
-    return property ? res.json(property) : res.status(404).json({ error: 'Listing not found' });
+    return property ? res.json(toPublicListing(property)) : res.status(404).json({ error: 'Listing not found' });
   }
   const property = await prisma.property.findFirst({ where: { id: req.params.id, isAdvertised: true, ...(await notDemoProperty()) } });
-  return property ? res.json(property) : res.status(404).json({ error: 'Listing not found' });
+  return property ? res.json(toPublicListing(property)) : res.status(404).json({ error: 'Listing not found' });
 });
 
 const viewingSchema = z.object({
@@ -172,15 +215,23 @@ publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
 });
 
 // ---- Short-let stays -------------------------------------------------------
+// Daily stays and student stays (an Airbnb-style marketplace), with every
+// guest checked against BVN/NIN before a payment link exists.
+//   DAILY   — instant book: ID check -> payment link -> CONFIRMED on payment.
+//   STUDENT — request to book (studentFriendly listings only): ID check +
+//             student ID photo -> AWAITING_APPROVAL (dates held) -> host
+//             approves in the portal/app -> payment link emailed.
 
-// Ranges already spoken for (PENDING_PAYMENT or CONFIRMED), for the guest
-// picker to warn about before they even request a quote.
+const HOLDS_DATES = ['AWAITING_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED'] as const;
+
+// Ranges already spoken for, for the guest picker to warn about before they
+// even request a quote.
 publicRouter.get('/public/properties/:id/short-let-availability', async (req, res) => {
   if (env.mockMode) {
     return res.json(blockedRangesFor(req.params.id));
   }
   const bookings = await prisma.shortLetBooking.findMany({
-    where: { propertyId: req.params.id, status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] } },
+    where: { propertyId: req.params.id, status: { in: [...HOLDS_DATES] } },
     select: { checkIn: true, checkOut: true },
   });
   res.json(bookings.map((b) => ({ checkIn: b.checkIn.toISOString(), checkOut: b.checkOut.toISOString() })));
@@ -194,10 +245,14 @@ const stayDatesSchema = z.object({
 async function loadShortLetProperty(id: string) {
   if (env.mockMode) {
     const property = MOCK_PROPERTIES.find((p) => p.id === id && p.isAdvertised);
-    return property && property.propertyType === 'SHORT_LET' && property.nightlyRate ? property : null;
+    return property && property.propertyType === 'SHORT_LET' && property.nightlyRate ? (property as any) : null;
   }
   const property = await prisma.property.findFirst({ where: { id, isAdvertised: true, propertyType: 'SHORT_LET' } });
   return property && property.nightlyRate ? property : null;
+}
+
+function ratesOf(property: { nightlyRate: number | null; weeklyRate?: number | null; monthlyRate?: number | null }) {
+  return { nightlyRate: property.nightlyRate!, weeklyRate: property.weeklyRate, monthlyRate: property.monthlyRate };
 }
 
 async function checkAvailable(propertyId: string, checkIn: Date, checkOut: Date) {
@@ -205,7 +260,7 @@ async function checkAvailable(propertyId: string, checkIn: Date, checkOut: Date)
   const clash = await prisma.shortLetBooking.findFirst({
     where: {
       propertyId,
-      status: { in: ['PENDING_PAYMENT', 'CONFIRMED'] },
+      status: { in: [...HOLDS_DATES] },
       checkIn: { lt: checkOut },
       checkOut: { gt: checkIn },
     },
@@ -228,7 +283,7 @@ publicRouter.post('/public/properties/:id/short-let-quote', async (req, res) => 
 
   let quote;
   try {
-    quote = quoteStay({ nightlyRate: property.nightlyRate!, weeklyRate: property.weeklyRate }, checkIn, checkOut);
+    quote = quoteStay(ratesOf(property), checkIn, checkOut);
   } catch (err) {
     if (err instanceof InvalidStayError) return res.status(400).json({ error: err.message });
     throw err;
@@ -239,94 +294,142 @@ publicRouter.post('/public/properties/:id/short-let-quote', async (req, res) => 
     return res.status(409).json({ error: 'Those dates are no longer available for this property.' });
   }
 
-  res.json(quote);
+  res.json({ ...quote, studentFriendly: Boolean(property.studentFriendly) });
 });
 
 const shortLetBookingSchema = stayDatesSchema.extend({
-  guestName: z.string().min(2),
-  guestPhone: z.string().min(7),
-  guestEmail: z.string().email(),
+  guestName: z.string().trim().min(2),
+  guestPhone: z.string().trim().min(7),
+  guestEmail: z.string().trim().email(),
+  idType: z.enum(['BVN', 'NIN']),
+  idNumber: z.string().trim().regex(/^\d{11}$/, 'BVN and NIN are both 11 digits'),
+  purpose: z.enum(['DAILY', 'STUDENT']).default('DAILY'),
+  studentInstitution: z.string().trim().min(2).max(120).optional(),
 });
 
-publicRouter.post('/public/properties/:id/short-let-bookings', async (req, res) => {
-  const parsed = shortLetBookingSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const { guestName, guestPhone, guestEmail } = parsed.data;
+const STUDENT_ID_MIME = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/heif', 'application/pdf']);
+const studentIdUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 6 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => cb(null, STUDENT_ID_MIME.has(file.mimetype)),
+});
 
-  const property = await loadShortLetProperty(req.params.id);
-  if (!property) return res.status(404).json({ error: 'Short-let listing not found' });
+function stayLabel(nights: number, checkIn: Date, checkOut: Date) {
+  return `${nights} night${nights === 1 ? '' : 's'} (${checkIn.toDateString()} to ${checkOut.toDateString()})`;
+}
 
-  const checkIn = new Date(parsed.data.checkIn);
-  const checkOut = new Date(parsed.data.checkOut);
+// JSON for daily stays; multipart (field "studentId" = photo/PDF of the
+// student ID card) for student stays.
+publicRouter.post(
+  '/public/properties/:id/short-let-bookings',
+  (req, res, next) => {
+    studentIdUpload.single('studentId')(req, res, (err: unknown) => {
+      if (err) return res.status(400).json({ error: 'Student ID must be a photo or PDF under 6 MB.' });
+      next();
+    });
+  },
+  async (req, res) => {
+    const parsed = shortLetBookingSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const { guestName, guestPhone, guestEmail, idType, idNumber, purpose, studentInstitution } = parsed.data;
 
-  let quote;
-  try {
-    quote = quoteStay({ nightlyRate: property.nightlyRate!, weeklyRate: property.weeklyRate }, checkIn, checkOut);
-  } catch (err) {
-    if (err instanceof InvalidStayError) return res.status(400).json({ error: err.message });
-    throw err;
-  }
+    const property = await loadShortLetProperty(req.params.id);
+    if (!property) return res.status(404).json({ error: 'Short-let listing not found' });
 
-  // Re-check right before creating the row — the quote step above can go
-  // stale if someone else books the same nights in between.
-  const available = await checkAvailable(property.id, checkIn, checkOut);
-  if (!available) {
-    return res.status(409).json({ error: 'Those dates were just booked by someone else — try different dates.' });
-  }
+    const isStudent = purpose === 'STUDENT';
+    if (isStudent) {
+      if (!property.studentFriendly) {
+        return res.status(400).json({ error: 'This place does not take student bookings — book it as a regular stay.' });
+      }
+      if (!studentInstitution) return res.status(400).json({ error: 'Tell the host which school you attend.' });
+      if (!req.file) return res.status(400).json({ error: 'Upload a photo of your student ID card.' });
+    }
 
-  const paymentRequest = await createPaymentRequest({
-    tenantEmail: guestEmail,
-    amount: quote.totalAmount,
-    dueDate: checkIn.toISOString().slice(0, 10),
-    description: `${property.title} — ${quote.nights} night${quote.nights === 1 ? '' : 's'} (${checkIn.toDateString()} to ${checkOut.toDateString()})`,
-  });
+    const checkIn = new Date(parsed.data.checkIn);
+    const checkOut = new Date(parsed.data.checkOut);
 
-  let booking;
-  if (env.mockMode) {
-    booking = createMockShortLetBooking({
+    let quote;
+    try {
+      quote = quoteStay(ratesOf(property), checkIn, checkOut);
+    } catch (err) {
+      if (err instanceof InvalidStayError) return res.status(400).json({ error: err.message });
+      throw err;
+    }
+
+    // Re-check right before creating the row — the quote step above can go
+    // stale if someone else books the same nights in between.
+    const available = await checkAvailable(property.id, checkIn, checkOut);
+    if (!available) {
+      return res.status(409).json({ error: 'Those dates were just booked by someone else — try different dates.' });
+    }
+
+    // Identity first: no payment link (or host request) for a guest whose
+    // BVN/NIN doesn't match their name.
+    const id = await checkGuestId({ idType, idNumber, fullName: guestName });
+    if (!id.ok) return res.status(id.httpStatus).json({ error: id.error });
+    const identity = { idCheck: id.idCheck, idType: id.idType, idLast4: id.idLast4, idVerifiedName: id.idVerifiedName };
+
+    const studentIdKey = isStudent && req.file
+      ? await putPrivateDoc(
+          req.file.buffer,
+          req.file.mimetype === 'application/pdf' ? 'pdf' : req.file.mimetype === 'image/png' ? 'png' : 'jpg',
+          req.file.mimetype,
+        )
+      : undefined;
+
+    // Student stays wait for the host; daily stays get a payment link now.
+    const paymentRequest = isStudent
+      ? null
+      : await createPaymentRequest({
+          tenantEmail: guestEmail,
+          amount: quote.totalAmount,
+          dueDate: checkIn.toISOString().slice(0, 10),
+          description: `${property.title} — ${stayLabel(quote.nights, checkIn, checkOut)}`,
+        });
+
+    const data = {
       propertyId: property.id,
       guestName,
       guestPhone,
       guestEmail,
-      checkIn: checkIn.toISOString(),
-      checkOut: checkOut.toISOString(),
       nights: quote.nights,
       rateType: quote.rateType,
       totalAmount: quote.totalAmount,
-      paymentRef: paymentRequest.requestCode,
-      paymentLink: paymentRequest.paymentLink,
-    });
-  } else {
-    booking = await prisma.shortLetBooking.create({
-      data: {
-        propertyId: property.id,
-        guestName,
-        guestPhone,
-        guestEmail,
-        checkIn,
-        checkOut,
-        nights: quote.nights,
-        rateType: quote.rateType,
-        totalAmount: quote.totalAmount,
-        paymentRef: paymentRequest.requestCode,
-        paymentLink: paymentRequest.paymentLink,
-      },
-    });
-  }
+      status: isStudent ? ('AWAITING_APPROVAL' as const) : ('PENDING_PAYMENT' as const),
+      paymentRef: paymentRequest?.requestCode,
+      paymentLink: paymentRequest?.paymentLink,
+      ...identity,
+      purpose,
+      studentInstitution: isStudent ? studentInstitution : undefined,
+      studentIdKey,
+    };
+    const booking = env.mockMode
+      ? createMockShortLetBooking({ ...data, checkIn: checkIn.toISOString(), checkOut: checkOut.toISOString() })
+      : await prisma.shortLetBooking.create({ data: { ...data, checkIn, checkOut } });
 
-  await notifyOps(
-    `New short-let booking request: ${property.title}`,
-    `${guestName} (${guestPhone}, ${guestEmail}) requested ${quote.nights} night(s) from ${checkIn.toDateString()} to ${checkOut.toDateString()} — ₦${quote.totalAmount.toLocaleString()}. Payment link sent; booking confirms once they pay.`,
-  );
+    const idLine = identity.idCheck === 'VERIFIED' ? `${idType} verified (${identity.idVerifiedName})` : `${idType} ending ${identity.idLast4} — not checked yet`;
+    await notifyOps(
+      `New ${isStudent ? 'student stay request' : 'short-let booking'}: ${property.title}`,
+      `${guestName} (${guestPhone}, ${guestEmail}) — ${stayLabel(quote.nights, checkIn, checkOut)}, ₦${quote.totalAmount.toLocaleString()}. ${idLine}.` +
+        (isStudent ? ` Student at ${studentInstitution}; waiting for the host to check their student ID.` : ' Payment link sent; booking confirms once they pay.'),
+    );
+    if (!env.mockMode && property.landlordId) {
+      await notifyPush('landlord', property.landlordId, isStudent
+        ? { title: 'Student stay request', body: `${guestName} (${studentInstitution}) wants ${property.title} — check their student ID.`, screen: 'stays' }
+        : { title: 'New stay booking', body: `${guestName} booked ${property.title} for ${quote.nights} night${quote.nights === 1 ? '' : 's'} (awaiting payment).`, screen: 'stays' });
+    }
 
-  res.status(201).json({
-    bookingId: booking.id,
-    paymentLink: paymentRequest.paymentLink,
-    nights: quote.nights,
-    totalAmount: quote.totalAmount,
-    rateType: quote.rateType,
-  });
-});
+    res.status(201).json({
+      bookingId: booking.id,
+      status: booking.status,
+      paymentLink: paymentRequest?.paymentLink ?? null,
+      nights: quote.nights,
+      totalAmount: quote.totalAmount,
+      rateType: quote.rateType,
+      idCheck: identity.idCheck,
+    });
+  },
+);
 
 // ---- Handyman marketplace -------------------------------------------------
 

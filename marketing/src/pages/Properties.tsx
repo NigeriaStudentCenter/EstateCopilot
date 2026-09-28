@@ -16,9 +16,17 @@ interface Property {
   rentAmount: number;
   nightlyRate?: number;
   weeklyRate?: number;
+  monthlyRate?: number | null;
+  stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
+  studentFriendly?: boolean;
+  nearUniversity?: string | null;
+  maxGuests?: number | null;
+  amenities?: string[];
   listingDescription?: string;
   imageUrls?: string[];
 }
+
+const UNIT_LABEL: Record<string, string> = { ENTIRE_PLACE: 'Entire place', PRIVATE_ROOM: 'Private room', SHARED_ROOM: 'Shared room' };
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 
@@ -120,7 +128,7 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [blockedRanges, setBlockedRanges] = useState<{ checkIn: string; checkOut: string }[]>([]);
-  const [quote, setQuote] = useState<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY'; totalAmount: number } | null>(null);
+  const [quote, setQuote] = useState<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY'; totalAmount: number } | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
@@ -130,6 +138,14 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
   const [waOptIn, setWaOptIn] = useState(false);
   const [booking, setBooking] = useState(false);
   const [bookError, setBookError] = useState<string | null>(null);
+  // Every guest is checked against BVN or NIN before any payment link.
+  const [idType, setIdType] = useState<'BVN' | 'NIN'>('NIN');
+  const [idNumber, setIdNumber] = useState('');
+  // Student stays (student-friendly listings): request to book with a student ID.
+  const [isStudent, setIsStudent] = useState(false);
+  const [institution, setInstitution] = useState(property.nearUniversity?.split(',')[0] ?? '');
+  const [studentIdFile, setStudentIdFile] = useState<File | null>(null);
+  const [requested, setRequested] = useState(false);
 
   useEffect(() => {
     api.getShortLetAvailability(property.id).then(setBlockedRanges).catch(() => {});
@@ -154,16 +170,31 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
   async function handleBook(e: React.FormEvent) {
     e.preventDefault();
     if (!quote || !guestName.trim() || !guestPhone.trim() || !guestEmail.trim()) return;
+    if (idNumber.replace(/\D/g, '').length !== 11) {
+      setBookError(`Your ${idType} is 11 digits.`);
+      return;
+    }
+    if (isStudent && (!institution.trim() || !studentIdFile)) {
+      setBookError('Add your school and a photo of your student ID card.');
+      return;
+    }
     setBooking(true);
     setBookError(null);
     try {
-      const res = await api.bookShortLet(property.id, {
-        checkIn,
-        checkOut,
-        guestName: guestName.trim(),
-        guestPhone: guestPhone.trim(),
-        guestEmail: guestEmail.trim(),
-      });
+      const form = new FormData();
+      form.append('checkIn', checkIn);
+      form.append('checkOut', checkOut);
+      form.append('guestName', guestName.trim());
+      form.append('guestPhone', guestPhone.trim());
+      form.append('guestEmail', guestEmail.trim());
+      form.append('idType', idType);
+      form.append('idNumber', idNumber.replace(/\D/g, ''));
+      if (isStudent) {
+        form.append('purpose', 'STUDENT');
+        form.append('studentInstitution', institution.trim());
+        if (studentIdFile) form.append('studentId', studentIdFile);
+      }
+      const res = await api.bookShortLet(property.id, form);
       if (waOptIn) {
         api
           .captureWhatsAppConsent({
@@ -175,7 +206,12 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
           })
           .catch(() => {});
       }
-      window.location.href = res.paymentLink;
+      if (res.paymentLink) {
+        window.location.href = res.paymentLink;
+      } else {
+        setRequested(true);
+        setBooking(false);
+      }
     } catch (err) {
       setBookError(err instanceof Error ? err.message : 'Booking failed — please try again');
       setBooking(false);
@@ -187,6 +223,16 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
       <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-semibold text-gray-900 mb-1">Book your stay</h3>
         <p className="text-sm text-gray-500 mb-4">{property.title}</p>
+
+        {requested ? (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-900">
+              <p className="font-semibold">Request sent — your dates are held</p>
+              <p className="mt-1">The host is checking your student ID. Once they approve, we'll email a payment link to <strong>{guestEmail}</strong>. Your stay is confirmed when payment clears.</p>
+            </div>
+            <button onClick={onClose} className="w-full bg-gray-900 text-white py-2 rounded-lg text-sm font-medium">Done</button>
+          </div>
+        ) : (<>
 
         {blockedRanges.length > 0 && (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
@@ -237,7 +283,7 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
               <p className="font-semibold">
                 {quote.nights} night{quote.nights === 1 ? '' : 's'} available — {currencyFormatter.format(quote.totalAmount)} total
               </p>
-              <p className="text-xs text-emerald-700 mt-0.5">{quote.rateType === 'WEEKLY' ? 'Weekly rate applied' : 'Nightly rate applied'}</p>
+              <p className="text-xs text-emerald-700 mt-0.5">{quote.rateType === 'MONTHLY' ? 'Monthly rate applied' : quote.rateType === 'WEEKLY' ? 'Weekly rate applied' : 'Nightly rate applied'}</p>
             </div>
 
             <form onSubmit={handleBook} className="space-y-3 mt-4">
@@ -245,30 +291,76 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
               <input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Your full name" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               <input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder="Phone (WhatsApp)" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
               <input value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} type="email" placeholder="Email" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+
+              <fieldset className="border border-gray-200 rounded-lg p-3 space-y-2">
+                <legend className="text-xs font-semibold text-gray-700 px-1">Verify your identity</legend>
+                <p className="text-xs text-gray-500">Every guest on EstateCopilot is checked against their BVN or NIN. We confirm it matches your name — we never store the number or show it to the host.</p>
+                <div className="flex gap-2">
+                  <select value={idType} onChange={(e) => setIdType(e.target.value as 'BVN' | 'NIN')} className="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                    <option value="NIN">NIN</option>
+                    <option value="BVN">BVN</option>
+                  </select>
+                  <input value={idNumber} onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 11))} inputMode="numeric" placeholder={`11-digit ${idType}`} required className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm tracking-wider" />
+                </div>
+                <p className="text-[11px] text-gray-400">Use your name exactly as it appears on your {idType === 'BVN' ? 'bank records' : 'NIN slip'}.</p>
+              </fieldset>
+
+              {property.studentFriendly && (
+                <fieldset className="border border-indigo-200 bg-indigo-50/40 rounded-lg p-3 space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-indigo-900">
+                    <input type="checkbox" checked={isStudent} onChange={(e) => setIsStudent(e.target.checked)} />
+                    I'm a student
+                  </label>
+                  {isStudent && (
+                    <>
+                      <input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="School (e.g. UNILAG, YABATECH)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
+                      <label className="block text-xs text-gray-600">
+                        Photo of your student ID card
+                        <input type="file" accept="image/*,application/pdf" onChange={(e) => setStudentIdFile(e.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs" />
+                      </label>
+                      <p className="text-[11px] text-indigo-800">Student stays are request-to-book: the host checks your student ID first, then you get a payment link by email. Only the host sees the card.</p>
+                    </>
+                  )}
+                </fieldset>
+              )}
+
               <WhatsAppOptIn checked={waOptIn} onChange={setWaOptIn} />
               <div className="flex gap-3">
                 <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium">Cancel</button>
                 <button type="submit" disabled={booking} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50">
-                  {booking ? 'Redirecting…' : `Pay ${currencyFormatter.format(quote.totalAmount)}`}
+                  {booking ? (isStudent ? 'Sending…' : 'Verifying…') : isStudent ? 'Request to book' : `Verify & pay ${currencyFormatter.format(quote.totalAmount)}`}
                 </button>
               </div>
             </form>
           </>
         )}
+        </>)}
       </div>
     </div>
   );
 };
 
-const Properties: React.FC = () => {
+const Properties: React.FC<{ staysMode?: boolean }> = ({ staysMode = false }) => {
   const { stateSlug } = useParams<{ stateSlug?: string }>();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const kind = params.get('student') === '1' ? 'student' : staysMode || params.get('stays') === '1' ? 'stays' : 'all';
+  const unit = params.get('unit') ?? '';
+  const near = params.get('near') ?? '';
+  const [nearDraft, setNearDraft] = useState(near);
+  function setFilter(next: Record<string, string | null>) {
+    const p = new URLSearchParams(params);
+    for (const [k, v] of Object.entries(next)) {
+      if (v) p.set(k, v); else p.delete(k);
+    }
+    setParams(p, { replace: true });
+  }
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Property | null>(null);
   const [stateName, setStateName] = useState<string | null>(null);
-  const [search] = useSearchParams();
+  const search = params;
   const highlightId = search.get('listing');
   const [agent, setAgent] = useState<SharingAgent | null>(null);
 
@@ -286,7 +378,7 @@ const Properties: React.FC = () => {
 
   useEffect(() => {
     setLoading(true);
-    api.getProperties(stateSlug)
+    api.getProperties(stateSlug, { stays: kind === 'stays', student: kind === 'student', unit: unit || undefined, near: near || undefined })
       .then((data) => setProperties(data as Property[]))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load listings'))
       .finally(() => setLoading(false));
@@ -295,19 +387,26 @@ const Properties: React.FC = () => {
     } else {
       setStateName(null);
     }
-  }, [stateSlug]);
+  }, [stateSlug, kind, unit, near]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
-      <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">Vacant properties</p>
+      <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">{kind === 'all' ? 'Vacant properties' : kind === 'student' ? 'Student stays' : 'Stays'}</p>
       <h1 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-        {stateName ? `Available now in ${stateName}` : 'Available now, listed by verified landlords'}
+        {kind === 'student'
+          ? `Rooms and short stays for students${stateName ? ` in ${stateName}` : ''}`
+          : kind === 'stays'
+            ? `Book a stay by the night, week or month${stateName ? ` in ${stateName}` : ''}`
+            : stateName ? `Available now in ${stateName}` : 'Available now, listed by verified landlords'}
       </h1>
-      <p className="text-gray-600 max-w-2xl mb-6">
+      {kind !== 'all' && (
+        <p className="text-sm text-gray-600 max-w-2xl mb-3">Every guest is verified with their BVN or NIN before a booking is taken — so hosts know exactly who is staying.</p>
+      )}
+      {kind === 'all' && <p className="text-gray-600 max-w-2xl mb-6">
         {agent
           ? 'Pick a time that works and request a viewing — your agent gets it instantly and will arrange it with you.'
           : "Pick a time that works and request a viewing — the landlord's team gets notified instantly and will confirm directly with you."}
-      </p>
+      </p>}
       {search.get('paid') === 'agent-fee' && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm rounded-lg px-4 py-3 mb-6">
           ✓ Thank you — your agent fee payment was received. Your agent and landlord have been notified.
@@ -322,11 +421,37 @@ const Properties: React.FC = () => {
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {([['all', 'All listings'], ['stays', 'Stays'], ['student', 'Student stays']] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => k === 'all' && staysMode ? navigate(stateSlug ? `/properties/${stateSlug}` : '/properties') : setFilter({ stays: k === 'stays' ? '1' : null, student: k === 'student' ? '1' : null, ...(k === 'all' ? { unit: null, near: null } : {}) })}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium border ${kind === k ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}`}
+          >
+            {label}
+          </button>
+        ))}
+        {kind !== 'all' && (
+          <>
+            <select value={unit} onChange={(e) => setFilter({ unit: e.target.value || null })} className="border border-gray-300 rounded-full px-3 py-1.5 text-sm bg-white">
+              <option value="">Any room type</option>
+              <option value="ENTIRE_PLACE">Entire place</option>
+              <option value="PRIVATE_ROOM">Private room</option>
+              <option value="SHARED_ROOM">Shared room</option>
+            </select>
+            <form onSubmit={(e) => { e.preventDefault(); setFilter({ near: nearDraft.trim() || null }); }} className="flex">
+              <input value={nearDraft} onChange={(e) => setNearDraft(e.target.value)} placeholder={kind === 'student' ? 'Near school (e.g. UNILAG)' : 'Area or school'} className="border border-gray-300 rounded-l-full px-3 py-1.5 text-sm w-48" />
+              <button className="border border-l-0 border-gray-300 rounded-r-full px-3 text-sm bg-white hover:bg-gray-50">Search</button>
+            </form>
+          </>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3 mb-10">
         <span className="text-xs font-medium text-gray-500 uppercase">Filter by state</span>
         <StateSelect
           value={stateSlug ?? ''}
-          onChange={(slug) => navigate(slug ? `/properties/${slug}` : '/properties')}
+          onChange={(slug) => navigate({ pathname: slug ? `/properties/${slug}` : staysMode ? '/stays' : '/properties', search: params.toString() })}
           countKey="propertyCount"
         />
         {stateSlug && (
@@ -342,7 +467,7 @@ const Properties: React.FC = () => {
         <p className="text-sm text-gray-500">Loading listings…</p>
       ) : properties.length === 0 ? (
         <div className="border border-gray-200 rounded-xl p-12 text-center text-gray-500">
-          No properties are listed publicly right now — check back soon.
+          {kind === 'all' ? 'No properties are listed publicly right now — check back soon.' : 'No stays match those filters yet — try another area or room type.'}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -362,6 +487,16 @@ const Properties: React.FC = () => {
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-1">{p.title}</h3>
                 <p className="text-sm text-gray-500 mb-3">{p.address}, {p.lga}</p>
+                {p.propertyType === 'SHORT_LET' && (p.stayUnitType || p.studentFriendly || p.monthlyRate) && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {p.stayUnitType && <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{UNIT_LABEL[p.stayUnitType]}{p.maxGuests ? ` · up to ${p.maxGuests}` : ''}</span>}
+                    {p.studentFriendly && <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">🎓 Student-friendly{p.nearUniversity ? ` · near ${p.nearUniversity}` : ''}</span>}
+                    {p.monthlyRate ? <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-800">{currencyFormatter.format(p.monthlyRate)}/month</span> : null}
+                  </div>
+                )}
+                {p.amenities && p.amenities.length > 0 && (
+                  <p className="text-xs text-gray-500 mb-3">{p.amenities.slice(0, 5).join(' · ')}</p>
+                )}
                 {p.listingDescription && <p className="text-sm text-gray-600 mb-4 flex-1">{p.listingDescription}</p>}
                 <button
                   onClick={() => setBooking(p)}
