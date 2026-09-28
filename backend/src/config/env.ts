@@ -160,6 +160,9 @@ export const env = {
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean),
     resetHourLagos: Number(process.env.DEMO_RESET_HOUR ?? 3), // 03:00 West Africa Time
+    // DEMO_BLOCK_ACTIONS=false opens every feature on the demo login (for
+    // internal testing). The nightly reset and marketplace hiding still apply.
+    blockActions: process.env.DEMO_BLOCK_ACTIONS !== 'false',
   },
   ops: {
     // Where "someone booked a viewing / a handyman wants to visit" alerts go.

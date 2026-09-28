@@ -45,6 +45,7 @@ const BLOCKED: Array<[string, RegExp]> = [
 ];
 
 export function demoGuard(req: Request, res: Response, next: NextFunction) {
+  if (!env.demo.blockActions) return next();
   if (!BLOCKED.some(([m, re]) => m === req.method && re.test(req.path))) return next();
   const h = req.get('authorization');
   const token = h?.startsWith('Bearer ') ? h.slice(7) : undefined;

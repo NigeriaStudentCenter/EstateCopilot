@@ -12,7 +12,7 @@ import { mockAgreements } from '../lib/mockAgreements.js';
 import { toTenancyDto, toInstallmentDto } from '../lib/dto.js';
 import multer from 'multer';
 import sharp from 'sharp';
-import { putPropertyImage } from '../lib/blobStorage.js';
+import { putPropertyImage, putMedia } from '../lib/blobStorage.js';
 import { tenancyLandlordId } from '../lib/ownership.js';
 import { mockLandlords } from '../lib/mockLandlords.js';
 import { notify } from '../services/push.js';
@@ -306,4 +306,47 @@ tenantPortalRouter.post('/tenant/maintenance/:id/photos', (req: AuthedRequest, r
     console.error('[tenant] repair photo upload failed:', e);
     res.status(422).json({ error: 'Could not process one of those photos — try a different one.' });
   }
+});
+
+// POST /tenant/maintenance/:id/voice — a voice note describing the problem
+// (multipart field "audio", one m4a/aac recording, max 3 per repair). For
+// tenants who'd rather say it than type it; the landlord can play it back.
+const AUDIO_MIME = new Set(['audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/x-wav']);
+const voiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => cb(null, AUDIO_MIME.has(file.mimetype)),
+});
+
+tenantPortalRouter.post('/tenant/maintenance/:id/voice', (req: AuthedRequest, res, next) => {
+  voiceUpload.single('audio')(req, res, (err: unknown) => {
+    if (err) return res.status(400).json({ error: 'Voice notes must be under 5 MB.' });
+    next();
+  });
+}, async (req: AuthedRequest, res) => {
+  const { tenancyId } = req.tenant!;
+  const file = req.file;
+  if (!file) return res.status(400).json({ error: 'No recording received' });
+
+  let ticket: any;
+  if (env.mockMode) {
+    const tenancy = MOCK_TENANCIES.find((t) => t.id === tenancyId);
+    ticket = mockTickets.find((t) => t.id === req.params.id && t.propertyId === tenancy?.propertyId);
+  } else {
+    const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId } });
+    ticket = tenancy ? await prisma.maintenanceTicket.findFirst({ where: { id: req.params.id, propertyId: tenancy.propertyId } }) : null;
+  }
+  if (!ticket) return res.status(404).json({ error: 'Repair not found' });
+  const existing: string[] = ticket.voiceNoteUrls ?? [];
+  if (existing.length >= 3) return res.status(400).json({ error: 'A repair can have at most 3 voice notes.' });
+
+  const ext = file.mimetype.includes('wav') ? 'wav' : file.mimetype.includes('mpeg') ? 'mp3' : 'm4a';
+  const stored = await putMedia(file.buffer, ext, ext === 'm4a' ? 'audio/mp4' : file.mimetype);
+  const voiceNoteUrls = [...existing, stored.url];
+  if (env.mockMode) {
+    ticket.voiceNoteUrls = voiceNoteUrls;
+    return res.status(201).json(ticket);
+  }
+  const updated = await prisma.maintenanceTicket.update({ where: { id: ticket.id }, data: { voiceNoteUrls } });
+  res.status(201).json(updated);
 });

@@ -48,6 +48,20 @@ export async function putPropertyImage(buffer: Buffer): Promise<StoredImage> {
   return { url: `${env.storage.publicApiUrl}${LOCAL_PREFIX}${key}`, key };
 }
 
+/** Stores any other media (e.g. a repair voice note) under the same container. */
+export async function putMedia(buffer: Buffer, ext: string, contentType: string): Promise<StoredImage> {
+  const key = `${Date.now().toString(36)}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+  if (env.storage.connectionString) {
+    const container = await getContainer();
+    const blob = container.getBlockBlobClient(key);
+    await blob.uploadData(buffer, { blobHTTPHeaders: { blobContentType: contentType } });
+    return { url: blob.url, key };
+  }
+  await fs.mkdir(LOCAL_DIR, { recursive: true });
+  await fs.writeFile(path.join(LOCAL_DIR, key), buffer);
+  return { url: `${env.storage.publicApiUrl}${LOCAL_PREFIX}${key}`, key };
+}
+
 /** Best-effort delete of an image we previously stored. Ignores anything that
  *  isn't one of ours (e.g. a pasted third-party URL) and any not-found error. */
 export async function deletePropertyImage(url: string): Promise<void> {

@@ -446,6 +446,7 @@ model MaintenanceTicket {
   artisanName       String?
   artisanPhone      String?
   proofPhotoUrls    String[]
+  voiceNoteUrls     String[] // tenant's spoken description of the problem (m4a), from the app
   tenantSignedOff   Boolean              @default(false)
   createdAt         DateTime             @default(now())
   resolvedAt        DateTime?
