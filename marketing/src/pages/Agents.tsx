@@ -42,6 +42,9 @@ const Agents: React.FC = () => {
                 <Link to="/agents/login" className="border border-emerald-300 text-white px-6 py-3 rounded-lg font-semibold hover:bg-emerald-700">
                   Agent sign in
                 </Link>
+                <a href="/guides/agent-guide.html" className="text-emerald-100 underline underline-offset-4 px-2 py-3 font-medium hover:text-white">
+                  Read the agent guide
+                </a>
               </>
             )}
           </div>
