@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import calendar
 import concurrent.futures as cf
+import html
 import re
 import time
 from typing import Any
@@ -35,6 +36,12 @@ def _cached(key: str, ttl: int, load):
 
 def _clean(text: str, limit: int = 280) -> str:
     text = _TAG_RE.sub(" ", text or "")
+    # Some feeds double-encode punctuation ("Arsenal&#8217;s" arrives as text).
+    for _ in range(2):
+        decoded = html.unescape(text)
+        if decoded == text:
+            break
+        text = decoded
     text = re.sub(r"\s+", " ", text).strip()
     return text if len(text) <= limit else text[: limit - 1].rsplit(" ", 1)[0] + "…"
 
