@@ -40,7 +40,8 @@ export function normalizePhone(raw: string): string {
 /** WhatsApp needs the international form: a local Nigerian 0803… becomes 234803…. */
 const toWhatsApp = (phone: string) => (phone.startsWith('0') && phone.length === 11 ? `234${phone.slice(1)}` : phone);
 
-const testCodeFor = (phone: string) => env.artisanAuth.testLogins.find(([p]) => p === phone)?.[1];
+// Matches whichever way the number was typed (08000000001 or 2348000000001).
+const testCodeFor = (phone: string) => env.artisanAuth.testLogins.find(([p]) => p === phone || p === toWhatsApp(phone))?.[1];
 
 export type IssueResult =
   | { ok: true; devOtp?: string }
