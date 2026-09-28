@@ -320,7 +320,9 @@ landlordAuthRouter.get('/landlord/me', requireLandlordAuth, async (req: Landlord
     });
   }
   const landlord = await prisma.landlord.findUnique({ where: { id: req.landlord!.landlordId } });
-  res.json({ ...landlord, monthlyAmountKobo: env.subscription.monthlyAmountKobo, paystackConnected: !!landlord?.paystackSubaccountCode });
+  // Never send the password hash or payment-provider codes to the client.
+  const { passwordHash: _hash, paystackSubaccountCode, paystackCustomerCode: _cust, paystackSubscriptionCode: _sub, ...safe } = landlord ?? ({} as any);
+  res.json({ ...safe, monthlyAmountKobo: env.subscription.monthlyAmountKobo, paystackConnected: !!paystackSubaccountCode });
 });
 
 const bankDetailsSchema = z.object({

@@ -14,6 +14,7 @@ import multer from 'multer';
 import sharp from 'sharp';
 import { putPropertyImage } from '../lib/blobStorage.js';
 import { tenancyLandlordId } from '../lib/ownership.js';
+import { mockLandlords } from '../lib/mockLandlords.js';
 import { notify } from '../services/push.js';
 
 export const tenantPortalRouter = Router();
@@ -109,19 +110,22 @@ async function logInboundAndDraft(params: {
   const { tenancyId, name, body, channel, repairContext } = params;
   let entry;
   let propertyTitle = '';
+  let landlordName: string | undefined;
   if (env.mockMode) {
     const tenancy = MOCK_TENANCIES.find((t) => t.id === tenancyId);
     propertyTitle = tenancy?.propertyTitle ?? '';
+    landlordName = mockLandlords.get(tenancyLandlordId(tenancyId) ?? '')?.name;
     entry = logMockCorrespondence(tenancyId, { channel, direction: 'INBOUND', author: name, body });
   } else {
-    const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId }, include: { property: true } });
+    const tenancy = await prisma.tenancy.findUnique({ where: { id: tenancyId }, include: { property: { include: { landlord: true } } } });
     propertyTitle = tenancy?.property?.title ?? '';
+    landlordName = tenancy?.property?.landlord?.name;
     entry = await prisma.correspondence.create({
       data: { tenancyId, channel, direction: 'INBOUND', author: name, body },
     });
   }
 
-  const suggestedBody = await draftReply({ tenantName: name, propertyTitle, tenantMessage: body, repairContext });
+  const suggestedBody = await draftReply({ tenantName: name, propertyTitle, tenantMessage: body, repairContext, landlordName });
 
   if (env.mockMode) {
     createMockDraft({ tenancyId, inReplyToBody: body, suggestedBody });

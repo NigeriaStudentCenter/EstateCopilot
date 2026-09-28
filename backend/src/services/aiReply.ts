@@ -2,6 +2,7 @@ import { env } from '../config/env.js';
 
 export interface DraftReplyParams {
   tenantName: string;
+  landlordName?: string; // signs the reply; falls back to env.ai.landlordDisplayName
   propertyTitle: string;
   tenantMessage: string;
   // When the message came from a categorized repair report, the AI is told
@@ -35,7 +36,7 @@ export async function draftReply(params: DraftReplyParams): Promise<string> {
       model: 'claude-sonnet-4-5',
       max_tokens: 300,
       system:
-        `You draft short, warm, professional email replies on behalf of a Nigerian residential landlord named ${env.ai.landlordDisplayName}. ` +
+        `You draft short, warm, professional email replies on behalf of a Nigerian residential landlord named ${params.landlordName || env.ai.landlordDisplayName}. ` +
         'Acknowledge the tenant\'s message, address it directly and concretely, and never invent facts (payment amounts, dates, repair timelines) you were not given. ' +
         'Sign off with the landlord\'s first name. Keep it under 120 words.',
       messages: [
@@ -56,9 +57,9 @@ export async function draftReply(params: DraftReplyParams): Promise<string> {
   return text?.trim() || mockDraft(params);
 }
 
-function mockDraft({ tenantName, propertyTitle, tenantMessage, repairContext }: DraftReplyParams): string {
+function mockDraft({ tenantName, propertyTitle, tenantMessage, repairContext, landlordName }: DraftReplyParams): string {
   const lower = tenantMessage.toLowerCase();
-  const landlord = env.ai.landlordDisplayName.split(' ')[0];
+  const landlord = (landlordName || env.ai.landlordDisplayName).split(' ')[0];
 
   if (repairContext) {
     if (repairContext.responsibility === 'LANDLORD') {
