@@ -19,6 +19,7 @@ interface Property {
   monthlyRate?: number | null;
   stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
   studentFriendly?: boolean;
+  dailyStays?: boolean; // false = students only
   nearUniversity?: string | null;
   maxGuests?: number | null;
   amenities?: string[];
@@ -142,7 +143,8 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
   const [idType, setIdType] = useState<'BVN' | 'NIN'>('NIN');
   const [idNumber, setIdNumber] = useState('');
   // Student stays (student-friendly listings): request to book with a student ID.
-  const [isStudent, setIsStudent] = useState(false);
+  const studentsOnly = property.studentFriendly === true && property.dailyStays === false;
+  const [isStudent, setIsStudent] = useState(studentsOnly);
   const [institution, setInstitution] = useState(property.nearUniversity?.split(',')[0] ?? '');
   const [studentIdFile, setStudentIdFile] = useState<File | null>(null);
   const [requested, setRequested] = useState(false);
@@ -307,10 +309,14 @@ const ShortLetBookingForm: React.FC<{ property: Property; onClose: () => void }>
 
               {property.studentFriendly && (
                 <fieldset className="border border-indigo-200 bg-indigo-50/40 rounded-lg p-3 space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-medium text-indigo-900">
-                    <input type="checkbox" checked={isStudent} onChange={(e) => setIsStudent(e.target.checked)} />
-                    I'm a student
-                  </label>
+                  {studentsOnly ? (
+                    <p className="text-sm font-medium text-indigo-900">🎓 Students only — add your school and student ID</p>
+                  ) : (
+                    <label className="flex items-center gap-2 text-sm font-medium text-indigo-900">
+                      <input type="checkbox" checked={isStudent} onChange={(e) => setIsStudent(e.target.checked)} />
+                      I'm a student
+                    </label>
+                  )}
                   {isStudent && (
                     <>
                       <input value={institution} onChange={(e) => setInstitution(e.target.value)} placeholder="School (e.g. UNILAG, YABATECH)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white" />
@@ -391,7 +397,7 @@ const Properties: React.FC<{ staysMode?: boolean }> = ({ staysMode = false }) =>
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
-      <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">{kind === 'all' ? 'Vacant properties' : kind === 'student' ? 'Student stays' : 'Stays'}</p>
+      <p className="text-sm font-semibold text-emerald-700 uppercase tracking-wide mb-2">{kind === 'all' ? 'Vacant properties' : kind === 'student' ? 'Student stays' : 'Daily stays'}</p>
       <h1 className="font-serif text-3xl md:text-4xl font-bold text-gray-900 mb-3">
         {kind === 'student'
           ? `Rooms and short stays for students${stateName ? ` in ${stateName}` : ''}`
@@ -422,7 +428,7 @@ const Properties: React.FC<{ staysMode?: boolean }> = ({ staysMode = false }) =>
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        {([['all', 'All listings'], ['stays', 'Stays'], ['student', 'Student stays']] as const).map(([k, label]) => (
+        {([['all', 'All listings'], ['stays', 'Daily stays'], ['student', 'Student stays']] as const).map(([k, label]) => (
           <button
             key={k}
             onClick={() => k === 'all' && staysMode ? navigate(stateSlug ? `/properties/${stateSlug}` : '/properties') : setFilter({ stays: k === 'stays' ? '1' : null, student: k === 'student' ? '1' : null, ...(k === 'all' ? { unit: null, near: null } : {}) })}
@@ -490,7 +496,7 @@ const Properties: React.FC<{ staysMode?: boolean }> = ({ staysMode = false }) =>
                 {p.propertyType === 'SHORT_LET' && (p.stayUnitType || p.studentFriendly || p.monthlyRate) && (
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {p.stayUnitType && <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">{UNIT_LABEL[p.stayUnitType]}{p.maxGuests ? ` · up to ${p.maxGuests}` : ''}</span>}
-                    {p.studentFriendly && <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">🎓 Student-friendly{p.nearUniversity ? ` · near ${p.nearUniversity}` : ''}</span>}
+                    {p.studentFriendly && <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">🎓 {p.dailyStays === false ? 'Students only' : 'Students welcome'}{p.nearUniversity ? ` · near ${p.nearUniversity}` : ''}</span>}
                     {p.monthlyRate ? <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-800">{currencyFormatter.format(p.monthlyRate)}/month</span> : null}
                   </div>
                 )}
@@ -502,7 +508,7 @@ const Properties: React.FC<{ staysMode?: boolean }> = ({ staysMode = false }) =>
                   onClick={() => setBooking(p)}
                   className="mt-auto bg-emerald-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-emerald-700"
                 >
-                  {p.propertyType === 'SHORT_LET' ? 'Book your stay' : 'Book a viewing'}
+                  {p.propertyType === 'SHORT_LET' ? (p.studentFriendly && p.dailyStays === false ? 'Request to book' : 'Book your stay') : 'Book a viewing'}
                 </button>
               </div>
             </div>

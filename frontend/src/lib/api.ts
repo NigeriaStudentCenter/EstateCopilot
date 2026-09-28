@@ -76,6 +76,7 @@ export const api = {
     monthlyRate?: number | null;
     stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
     studentFriendly?: boolean;
+    dailyStays?: boolean;
     nearUniversity?: string | null;
     maxGuests?: number | null;
     amenities?: string[];
@@ -93,6 +94,7 @@ export const api = {
       monthlyRate?: number | null;
       stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
       studentFriendly?: boolean;
+      dailyStays?: boolean;
       nearUniversity?: string | null;
       maxGuests?: number | null;
       amenities?: string[];

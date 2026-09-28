@@ -15,7 +15,8 @@ export interface Property {
   weeklyRate?: number; // SHORT_LET only
   monthlyRate?: number | null; // SHORT_LET only — per 28-night block
   stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
-  studentFriendly?: boolean;
+  studentFriendly?: boolean; // listed in Student stays
+  dailyStays?: boolean; // listed in Daily stays (false = students only)
   nearUniversity?: string | null;
   maxGuests?: number | null;
   amenities?: string[];

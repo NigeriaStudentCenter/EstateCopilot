@@ -81,12 +81,14 @@ function toPublicListing<T extends Record<string, any>>(p: T) {
   return rest;
 }
 
-// Filters: ?state=lagos  &stays=1 (short-lets only)  &student=1 (student-
-// friendly stays)  &unit=PRIVATE_ROOM  &near=unilag (school/area text).
+// Filters: ?state=lagos  &stays=1 (Daily stays section)  &student=1 (Student
+// stays section)  &unit=PRIVATE_ROOM  &near=unilag (school/area text). A
+// landlord picks which section(s) each short-let appears in.
 publicRouter.get('/public/properties', async (req, res) => {
   const state = stateBySlug(req.query.state as string | undefined);
-  const staysOnly = req.query.stays === '1' || req.query.student === '1' || Boolean(req.query.unit);
   const studentOnly = req.query.student === '1';
+  const dailyOnly = req.query.stays === '1' && !studentOnly;
+  const staysOnly = dailyOnly || studentOnly || Boolean(req.query.unit);
   const unit = ['ENTIRE_PLACE', 'PRIVATE_ROOM', 'SHARED_ROOM'].includes(String(req.query.unit)) ? (String(req.query.unit) as 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM') : undefined;
   const near = typeof req.query.near === 'string' && req.query.near.trim() ? req.query.near.trim().slice(0, 60) : undefined;
   if (env.mockMode) {
@@ -97,6 +99,7 @@ publicRouter.get('/public/properties', async (req, res) => {
         (!state || p.state === state.name) &&
         (!staysOnly || p.propertyType === 'SHORT_LET') &&
         (!studentOnly || p.studentFriendly) &&
+        (!dailyOnly || p.dailyStays !== false) &&
         (!unit || p.stayUnitType === unit) &&
         (!nearLc || `${p.nearUniversity ?? ''} ${p.lga} ${p.address}`.toLowerCase().includes(nearLc)),
       ).map(toPublicListing),
@@ -109,6 +112,7 @@ publicRouter.get('/public/properties', async (req, res) => {
       ...(state ? { state: state.name } : {}),
       ...(staysOnly ? { propertyType: 'SHORT_LET' as const } : {}),
       ...(studentOnly ? { studentFriendly: true } : {}),
+      ...(dailyOnly ? { dailyStays: true } : {}),
       ...(unit ? { stayUnitType: unit } : {}),
       ...(near
         ? { OR: [
@@ -294,7 +298,7 @@ publicRouter.post('/public/properties/:id/short-let-quote', async (req, res) => 
     return res.status(409).json({ error: 'Those dates are no longer available for this property.' });
   }
 
-  res.json({ ...quote, studentFriendly: Boolean(property.studentFriendly) });
+  res.json({ ...quote, studentFriendly: Boolean(property.studentFriendly), dailyStays: property.dailyStays !== false });
 });
 
 const shortLetBookingSchema = stayDatesSchema.extend({
@@ -337,6 +341,9 @@ publicRouter.post(
     if (!property) return res.status(404).json({ error: 'Short-let listing not found' });
 
     const isStudent = purpose === 'STUDENT';
+    if (!isStudent && property.dailyStays === false) {
+      return res.status(400).json({ error: 'This place is for students only — book it as a student with your student ID.' });
+    }
     if (isStudent) {
       if (!property.studentFriendly) {
         return res.status(400).json({ error: 'This place does not take student bookings — book it as a regular stay.' });

@@ -286,7 +286,8 @@ model Property {
   weeklyRate           Int? // SHORT_LET only — discounted price for a full 7-night block, same unit as rentAmount
   monthlyRate          Int? // SHORT_LET only — price per 28-night block (student terms, long stays)
   stayUnitType         StayUnitType? // SHORT_LET only — whole place, a private room, or a shared room
-  studentFriendly      Boolean             @default(false) // SHORT_LET only — accepts STUDENT bookings (student ID checked by host)
+  studentFriendly      Boolean             @default(false) // SHORT_LET only — listed in the Student stays section; accepts STUDENT bookings (student ID checked by host)
+  dailyStays           Boolean             @default(true) // SHORT_LET only — listed in the Daily stays section; false = students only
   nearUniversity       String? // e.g. "UNILAG, Akoka" — what students search by
   maxGuests            Int?
   amenities            String[]            @default([])

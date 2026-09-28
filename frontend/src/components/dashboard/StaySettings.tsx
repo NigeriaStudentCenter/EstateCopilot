@@ -10,7 +10,12 @@ const AMENITY_SUGGESTIONS = ['Wi-Fi', 'Generator', 'Inverter/solar', 'Air condit
 const StaySettings: React.FC<{ property: Property; onSaved: () => void; onError: (msg: string) => void }> = ({ property, onSaved, onError }) => {
   const [monthlyRate, setMonthlyRate] = useState(property.monthlyRate?.toString() ?? '');
   const [unit, setUnit] = useState(property.stayUnitType ?? '');
-  const [studentFriendly, setStudentFriendly] = useState(Boolean(property.studentFriendly));
+  // Which marketplace section(s) it appears in.
+  type Audience = 'DAILY' | 'STUDENT' | 'BOTH';
+  const [audience, setAudience] = useState<Audience>(
+    property.studentFriendly ? (property.dailyStays === false ? 'STUDENT' : 'BOTH') : 'DAILY',
+  );
+  const studentFriendly = audience !== 'DAILY';
   const [nearUniversity, setNearUniversity] = useState(property.nearUniversity ?? '');
   const [maxGuests, setMaxGuests] = useState(property.maxGuests?.toString() ?? '');
   const [amenities, setAmenities] = useState<string[]>(property.amenities ?? []);
@@ -29,6 +34,7 @@ const StaySettings: React.FC<{ property: Property; onSaved: () => void; onError:
         monthlyRate: monthlyRate ? Number(monthlyRate) : null,
         stayUnitType: (unit || null) as Property['stayUnitType'],
         studentFriendly,
+        dailyStays: audience !== 'STUDENT',
         nearUniversity: nearUniversity.trim() || null,
         maxGuests: maxGuests ? Number(maxGuests) : null,
         amenities,
@@ -57,10 +63,21 @@ const StaySettings: React.FC<{ property: Property; onSaved: () => void; onError:
         </select>
         <input type="number" min={1} max={30} value={maxGuests} onChange={(e) => touch(setMaxGuests)(e.target.value)} placeholder="Max guests" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" checked={studentFriendly} onChange={(e) => touch(setStudentFriendly)(e.target.checked)} />
-        Accept student stays <span className="text-xs text-gray-400">(students send their student ID; you approve before they pay)</span>
-      </label>
+      <div>
+        <p className="text-sm text-gray-700 mb-1.5">Who is it for?</p>
+        <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden text-sm">
+          {([['DAILY', 'Daily guests'], ['STUDENT', 'Students'], ['BOTH', 'Both']] as const).map(([v, label]) => (
+            <button key={v} type="button" onClick={() => touch(setAudience)(v)} className={`px-3 py-1.5 ${audience === v ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400 mt-1">
+          {audience === 'DAILY' && 'Listed under Daily stays. Guests verify with BVN/NIN and book instantly.'}
+          {audience === 'STUDENT' && 'Listed under Student stays only. Students send their student ID; you approve before they pay.'}
+          {audience === 'BOTH' && 'Listed in both sections: daily guests book instantly, students send their ID for your approval.'}
+        </p>
+      </div>
       {studentFriendly && (
         <input value={nearUniversity} onChange={(e) => touch(setNearUniversity)(e.target.value)} placeholder="Nearest school, e.g. UNILAG, Akoka" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
       )}

@@ -35,7 +35,7 @@ const NavBar: React.FC = () => {
             <NavLink to="/" end className={navLinkClass}>Home</NavLink>
           )}
           <a href={PROPERTIES_MARKETPLACE_URL} className="text-sm font-medium text-gray-600 hover:text-gray-900">Vacant Properties</a>
-          <a href={`${PROPERTIES_MARKETPLACE_URL}/stays`} className="text-sm font-medium text-gray-600 hover:text-gray-900">Stays</a>
+          <a href={`${PROPERTIES_MARKETPLACE_URL}/stays`} className="text-sm font-medium text-gray-600 hover:text-gray-900">Daily &amp; student stays</a>
           <NavLink to="/artisans" className={navLinkClass}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className={navLinkClass}>For Artisans</NavLink>
           <NavLink to="/legal-team" className={navLinkClass}>For Lawyers</NavLink>

@@ -17,7 +17,7 @@ interface Snapshot {
 
 const PROPERTY_FIELDS = [
   'title', 'address', 'state', 'lga', 'propertyType', 'rentAmount', 'nightlyRate', 'weeklyRate', 'monthlyRate',
-  'stayUnitType', 'studentFriendly', 'nearUniversity', 'maxGuests', 'amenities',
+  'stayUnitType', 'studentFriendly', 'dailyStays', 'nearUniversity', 'maxGuests', 'amenities',
   'cautionDepositAmount', 'municipalId', 'discoProvider', 'meterNumber', 'isAdvertised',
   'listingDescription', 'imageUrls', 'agentsAllowed', 'agentFeePercent',
 ] as const;
