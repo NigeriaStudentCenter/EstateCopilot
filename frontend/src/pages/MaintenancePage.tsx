@@ -124,7 +124,9 @@ const MaintenancePage: React.FC = () => {
   async function handleAcceptQuote(quoteId: string, ticketId: string) {
     setBusyId(quoteId);
     try {
-      await api.acceptQuote(quoteId);
+      const res = (await api.acceptQuote(quoteId)) as { payment?: { paymentLink?: string } | null };
+      // Registered artisan: pay through EstateCopilot straight away (Paystack).
+      if (res?.payment?.paymentLink) window.open(res.payment.paymentLink, '_blank', 'noopener');
       const data = await api.getQuotes(ticketId);
       setQuotes(data as RepairQuote[]);
       await refresh();
@@ -302,7 +304,20 @@ const MaintenancePage: React.FC = () => {
                               {q.message && <p className="text-xs text-gray-400 italic">"{q.message}"</p>}
                             </div>
                             {q.status === 'ACCEPTED' ? (
-                              <span className="text-xs font-medium text-emerald-700">✓ Accepted</span>
+                              q.payment?.status === 'PAID' ? (
+                                <span className="text-xs font-medium text-emerald-700">✓ Accepted · Paid</span>
+                              ) : q.payment?.paymentLink ? (
+                                <a
+                                  href={q.payment.paymentLink}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs font-medium bg-emerald-600 text-white px-3 py-1 rounded-lg hover:bg-emerald-700 whitespace-nowrap"
+                                >
+                                  Pay ₦{q.payment.amount.toLocaleString()}
+                                </a>
+                              ) : (
+                                <span className="text-xs font-medium text-emerald-700">✓ Accepted</span>
+                              )
                             ) : (
                               <button
                                 onClick={() => handleAcceptQuote(q.id, t.id)}

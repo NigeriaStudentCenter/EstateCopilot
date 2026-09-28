@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { agentApi, getAgentCode } from '../lib/agent';
 import PropertyGallery from '../components/PropertyGallery';
 import StateSelect from '../components/StateSelect';
 import WhatsAppOptIn, { WHATSAPP_OPT_IN_TEXT } from '../components/WhatsAppOptIn';
@@ -21,7 +22,9 @@ interface Property {
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 
-const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ property, onClose }) => {
+type SharingAgent = { code: string; name: string; agencyName: string | null };
+
+const BookingForm: React.FC<{ property: Property; onClose: () => void; agent?: SharingAgent | null }> = ({ property, onClose, agent }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -40,7 +43,7 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
     setError(null);
     try {
       const scheduledFor = new Date(`${date}T${time}:00`).toISOString();
-      await api.bookPropertyViewing(property.id, { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined, scheduledFor, notes: notes.trim() || undefined });
+      await api.bookPropertyViewing(property.id, { name: name.trim(), phone: phone.trim(), email: email.trim() || undefined, scheduledFor, notes: notes.trim() || undefined, agentCode: agent?.code });
       if (waOptIn) {
         api
           .captureWhatsAppConsent({
@@ -67,13 +70,22 @@ const BookingForm: React.FC<{ property: Property; onClose: () => void }> = ({ pr
           <div className="text-center py-6">
             <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4 text-2xl">✓</div>
             <h3 className="font-semibold text-gray-900 mb-2">Viewing requested</h3>
-            <p className="text-sm text-gray-600 mb-6">We've notified the landlord's team — expect a call or WhatsApp message to confirm the time.</p>
+            <p className="text-sm text-gray-600 mb-6">
+              {agent
+                ? `We've sent your request to ${agent.name}${agent.agencyName ? ` (${agent.agencyName})` : ''} — expect a call or WhatsApp message to arrange the viewing.`
+                : "We've notified the landlord's team — expect a call or WhatsApp message to confirm the time."}
+            </p>
             <button onClick={onClose} className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium">Close</button>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
             <h3 className="font-semibold text-gray-900 mb-1">Book a viewing</h3>
             <p className="text-sm text-gray-500 mb-4">{property.title}</p>
+            {agent && (
+              <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mb-3">
+                Your agent: <strong>{agent.name}</strong>{agent.agencyName ? ` · ${agent.agencyName}` : ''}
+              </p>
+            )}
             {error && <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">{error}</p>}
             <div className="space-y-3">
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full name" required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
@@ -256,6 +268,21 @@ const Properties: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<Property | null>(null);
   const [stateName, setStateName] = useState<string | null>(null);
+  const [search] = useSearchParams();
+  const highlightId = search.get('listing');
+  const [agent, setAgent] = useState<SharingAgent | null>(null);
+
+  // Opened from an agent's share link (captured in App): show who shared it,
+  // and route viewing requests to them.
+  useEffect(() => {
+    const code = getAgentCode();
+    if (code) agentApi.byCode(code).then(setAgent).catch(() => setAgent(null));
+  }, []);
+
+  // Deep link to one listing: bring it to the top of the grid.
+  const ordered = highlightId
+    ? [...properties].sort((a, b) => (a.id === highlightId ? -1 : b.id === highlightId ? 1 : 0))
+    : properties;
 
   useEffect(() => {
     setLoading(true);
@@ -277,9 +304,23 @@ const Properties: React.FC = () => {
         {stateName ? `Available now in ${stateName}` : 'Available now, listed by verified landlords'}
       </h1>
       <p className="text-gray-600 max-w-2xl mb-6">
-        Pick a time that works and request a viewing — the landlord's team gets notified instantly and will confirm
-        directly with you.
+        {agent
+          ? 'Pick a time that works and request a viewing — your agent gets it instantly and will arrange it with you.'
+          : "Pick a time that works and request a viewing — the landlord's team gets notified instantly and will confirm directly with you."}
       </p>
+      {search.get('paid') === 'agent-fee' && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm rounded-lg px-4 py-3 mb-6">
+          ✓ Thank you — your agent fee payment was received. Your agent and landlord have been notified.
+        </div>
+      )}
+      {agent && (
+        <div className="bg-white border border-emerald-200 rounded-xl px-4 py-3 mb-6 text-sm text-gray-700 flex items-center gap-3">
+          <span className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 font-semibold flex items-center justify-center">{agent.name.charAt(0)}</span>
+          <span>
+            Shared with you by <strong>{agent.name}</strong>{agent.agencyName ? ` of ${agent.agencyName}` : ''}. Viewing requests go straight to them.
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3 mb-10">
         <span className="text-xs font-medium text-gray-500 uppercase">Filter by state</span>
@@ -305,8 +346,8 @@ const Properties: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {properties.map((p) => (
-            <div key={p.id} className="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition flex flex-col">
+          {ordered.map((p) => (
+            <div key={p.id} className={`bg-white border shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition flex flex-col ${p.id === highlightId ? 'border-emerald-400 ring-2 ring-emerald-200' : 'border-gray-100'}`}>
               <PropertyGallery images={p.imageUrls} alt={p.title} />
               <div className="p-5 flex-1 flex flex-col">
                 <div className="flex items-center justify-between mb-2">
@@ -337,7 +378,7 @@ const Properties: React.FC = () => {
       {booking && (
         booking.propertyType === 'SHORT_LET'
           ? <ShortLetBookingForm property={booking} onClose={() => setBooking(null)} />
-          : <BookingForm property={booking} onClose={() => setBooking(null)} />
+          : <BookingForm property={booking} onClose={() => setBooking(null)} agent={agent} />
       )}
     </div>
   );

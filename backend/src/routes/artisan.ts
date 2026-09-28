@@ -23,6 +23,8 @@ import { mockArtisanLeads } from '../lib/mockArtisanLeads.js';
 import { mockTickets } from '../lib/mockMaintenance.js';
 import { createMockQuote } from '../lib/mockBookings.js';
 import { notify } from '../services/push.js';
+import { resolveBankAccount, createLandlordSubaccount } from '../services/paystackSubaccount.js';
+import { NIGERIAN_BANKS } from './agents.js';
 
 export const artisanRouter = Router();
 
@@ -492,4 +494,54 @@ artisanRouter.patch('/artisan/leads/:id', requireArtisanAuth, async (req: Artisa
   if (!lead) return res.status(404).json({ error: 'Request not found' });
   const updated = await prisma.artisanLead.update({ where: { id: lead.id }, data: { status: parsed.data.status } });
   res.json(leadShape(updated));
+});
+
+// ---- payouts (marketplace payments) --------------------------------------
+// Same model as agents: jobs from registered artisans are paid to EstateCopilot
+// and split by Paystack — the artisan's share settles to this bank account.
+
+const artisanBankSchema = z.object({ bankCode: z.string().min(3), accountNumber: z.string().regex(/^\d{10}$/, 'Account numbers are 10 digits') });
+
+artisanRouter.post('/artisan/me/bank-details', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  if (env.mockMode) return res.status(503).json({ error: 'Payouts need the database (not available in mock mode).' });
+  const parsed = artisanBankSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message ?? 'Check the bank details' });
+  const bank = NIGERIAN_BANKS.find((b) => b.code === parsed.data.bankCode);
+  if (!bank) return res.status(400).json({ error: 'Pick your bank from the list' });
+  const artisan = await prisma.artisan.findUniqueOrThrow({ where: { id: req.artisan!.artisanId } });
+  let resolved;
+  try {
+    resolved = await resolveBankAccount(parsed.data.accountNumber, bank.code);
+  } catch {
+    return res.status(400).json({ error: "We couldn't verify that account number with the bank — please check it." });
+  }
+  const sub = await createLandlordSubaccount({ businessName: `Artisan ${artisan.businessName ?? artisan.name} — ${bank.name}`, bankCode: bank.code, accountNumber: parsed.data.accountNumber });
+  await prisma.artisan.update({
+    where: { id: artisan.id },
+    data: { bankAccountNumber: parsed.data.accountNumber, bankCode: bank.code, bankAccountName: resolved.accountName, paystackSubaccountCode: sub.subaccountCode },
+  });
+  res.json({ bankAccountName: resolved.accountName, bankAccountLast4: parsed.data.accountNumber.slice(-4), payoutsConnected: true });
+});
+
+artisanRouter.get('/artisan/payments', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  if (env.mockMode) return res.json({ payments: [], commissionPercent: env.marketplace.artisanCommissionPercent });
+  const payments = await prisma.artisanJobPayment.findMany({
+    where: { artisanId: req.artisan!.artisanId },
+    include: { quote: { include: { maintenanceTicket: { select: { description: true } } } } },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({
+    commissionPercent: env.marketplace.artisanCommissionPercent,
+    payments: payments.map((p) => ({
+      id: p.id,
+      job: p.quote.maintenanceTicket.description,
+      amount: p.amount,
+      artisanAmount: p.artisanAmount,
+      platformAmount: p.platformAmount,
+      status: p.status,
+      payoutMethod: p.payoutMethod,
+      paidAt: p.paidAt,
+      createdAt: p.createdAt,
+    })),
+  });
 });

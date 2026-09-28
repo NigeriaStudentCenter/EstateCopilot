@@ -10,6 +10,7 @@ import { MOCK_TENANCIES } from '../lib/mockTenancies.js';
 import { tenancyLandlordId } from '../lib/ownership.js';
 import { recordMockPayment, mockPaymentsForTenancies } from '../lib/mockPayments.js';
 import { mockShortLetBookings } from '../lib/mockShortLet.js';
+import { reconcileMarketplacePayment } from '../services/artisanPayments.js';
 
 export const paymentsRouter = Router();
 
@@ -148,9 +149,16 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
 
   try {
     const data = req.body?.data ?? {};
-    const tenancyId = await reconcileTenancy(data);
     const amount = Number(data?.amount) || 0;
     const providerRef: string | undefined = data?.reference;
+
+    // Marketplace payments (agent fees, artisan jobs) carry our own reference
+    // and are checked FIRST — otherwise a tenant paying an agent fee would be
+    // matched to their tenancy by email and logged as rent.
+    const marketplace = await reconcileMarketplacePayment(providerRef, amount);
+    if (marketplace.handled) return res.json({ received: true, reconciled: true, kind: marketplace.kind });
+
+    const tenancyId = await reconcileTenancy(data);
 
     if (!tenancyId) {
       const bookingId = await reconcileShortLetBooking(providerRef);

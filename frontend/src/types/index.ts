@@ -18,6 +18,8 @@ export interface Property {
   imageUrls?: string[];
   isAdvertised?: boolean;
   listingDescription?: string;
+  agentsAllowed?: boolean; // registered agents may market it (and get an alert when it's listed)
+  agentFeePercent?: number; // of annual rent, paid by the tenant to the agent via EstateCopilot
 }
 
 export interface Tenancy {
@@ -127,6 +129,21 @@ export interface RepairQuote {
   amount: number;
   message?: string;
   status: 'SUBMITTED' | 'ACCEPTED' | 'DECLINED';
+  createdAt: string;
+  // Registered artisans are paid through EstateCopilot (split via Paystack).
+  payment?: { paymentLink: string | null; status: 'AWAITING_PAYMENT' | 'PAID' | 'CANCELLED'; amount: number } | null;
+}
+
+export interface AgentDeal {
+  id: string;
+  status: 'PENDING_LANDLORD' | 'AWAITING_PAYMENT' | 'PAID' | 'DISPUTED' | 'CANCELLED';
+  property: { title: string; address: string; lga: string; state: string };
+  agent: { name: string; agencyName: string | null; phone: string };
+  tenantName: string;
+  tenantPhone: string;
+  tenantEmail: string;
+  annualRent: number;
+  agentFee: number;
   createdAt: string;
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { captureRef } from './lib/referral';
 import { isPropertiesHost } from './lib/links';
 import NavBar from './components/NavBar';
@@ -12,6 +12,10 @@ import ArtisanProfile from './pages/ArtisanProfile';
 import LegalTeam from './pages/LegalTeam';
 import Signup from './pages/Signup';
 import SignupCallback from './pages/SignupCallback';
+import Agents, { AgentAuth } from './pages/Agents';
+import AgentDashboard from './pages/AgentDashboard';
+import AgentDealConfirm from './pages/AgentDealConfirm';
+import { captureAgentCode } from './lib/agent';
 
 // Same build deployed to two Static Web Apps: the main marketing site, and
 // properties.estatecopilot.org — the property marketplace's own subdomain.
@@ -20,8 +24,15 @@ const isOnPropertiesSubdomain = isPropertiesHost(window.location.hostname);
 
 const App: React.FC = () => {
   // Stash ?ref= from an affiliate link before any navigation drops the query string.
+  // New page = start at the top (the router keeps the old scroll position).
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   React.useEffect(() => {
     captureRef();
+    captureAgentCode(); // ?agent=CODE from an agent's share link
   }, []);
 
   return (
@@ -40,6 +51,11 @@ const App: React.FC = () => {
           <Route path="/legal-team" element={<LegalTeam />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/signup/callback" element={<SignupCallback />} />
+          <Route path="/agents" element={<Agents />} />
+          <Route path="/agents/join" element={<AgentAuth mode="join" />} />
+          <Route path="/agents/login" element={<AgentAuth mode="login" />} />
+          <Route path="/agents/dashboard" element={<AgentDashboard />} />
+          <Route path="/agents/deal/:token" element={<AgentDealConfirm />} />
         </Routes>
       </main>
       <Footer />

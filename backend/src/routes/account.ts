@@ -10,6 +10,8 @@ import { mockTenantAccounts } from '../lib/mockTenancies.js';
 import { mockArtisans, mockArtisansByPhone } from '../lib/mockArtisans.js';
 import { notifyOps } from '../lib/notifyOps.js';
 import { forgetDevicesFor, registerDevice, type PushRole } from '../services/push.js';
+import { isDemoEmail } from '../lib/demo.js';
+import { takeDemoSnapshot } from '../services/demoReset.js';
 
 // Mobile app account endpoints: in-app account deletion (App Store 5.1.1(v))
 // and push-notification device registration. Deletion only checks that the
@@ -60,6 +62,10 @@ async function deleteLandlord(id: string): Promise<void> {
   }
   const before = await prisma.landlord.findUnique({ where: { id } });
   if (!before) return;
+  // The shared demo login really is deleted (App Store review tests this), but
+  // its snapshot must exist first so the nightly reset can bring it back.
+  const demo = isDemoEmail(before.email);
+  if (demo && !(await prisma.demoSnapshot.findUnique({ where: { landlordId: id } }))) await takeDemoSnapshot(id);
   await prisma.$transaction([
     prisma.property.updateMany({ where: { landlordId: id }, data: { isAdvertised: false } }),
     prisma.landlord.update({
@@ -78,7 +84,7 @@ async function deleteLandlord(id: string): Promise<void> {
     }),
   ]);
   // A recurring Paystack subscription is cancelled by the operator.
-  if (before.paystackSubscriptionCode || before.subscriptionStatus === 'ACTIVE') {
+  if (!demo && (before.paystackSubscriptionCode || before.subscriptionStatus === 'ACTIVE')) {
     await notifyOps(
       'Landlord deleted their account — cancel any Paystack subscription',
       `Landlord ${id} (was ${before.email}) deleted their account in the app. Paystack subscription: ${before.paystackSubscriptionCode ?? 'none recorded'}. Please make sure no further charges are taken.`,

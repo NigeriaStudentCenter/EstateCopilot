@@ -24,7 +24,7 @@ export const api = {
   getProperties: (state?: string) => request<any[]>(`/api/public/properties${state ? `?state=${state}` : ''}`),
   bookPropertyViewing: (
     propertyId: string,
-    data: { name: string; phone: string; email?: string; scheduledFor: string; notes?: string },
+    data: { name: string; phone: string; email?: string; scheduledFor: string; notes?: string; agentCode?: string },
   ) => request(`/api/public/properties/${propertyId}/book-viewing`, { method: 'POST', body: JSON.stringify(data) }),
 
   getShortLetAvailability: (propertyId: string) =>

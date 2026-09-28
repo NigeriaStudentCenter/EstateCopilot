@@ -78,7 +78,15 @@ export const api = {
   }) => request<any>('/api/properties', { method: 'POST', body: JSON.stringify(data) }),
   updateProperty: (
     propertyId: string,
-    data: { isAdvertised?: boolean; listingDescription?: string; imageUrls?: string[]; nightlyRate?: number; weeklyRate?: number },
+    data: {
+      isAdvertised?: boolean;
+      listingDescription?: string;
+      imageUrls?: string[];
+      nightlyRate?: number;
+      weeklyRate?: number;
+      agentsAllowed?: boolean;
+      agentFeePercent?: number;
+    },
   ) =>
     request(`/api/properties/${propertyId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   uploadPropertyImages: async (propertyId: string, files: File[]) => {
@@ -159,6 +167,10 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ openToMarketplace }),
     }),
+  getAgentDeals: () => request<any[]>('/api/landlord/agent-deals'),
+  confirmAgentDeal: (id: string) => request(`/api/landlord/agent-deals/${id}/confirm`, { method: 'POST' }),
+  disputeAgentDeal: (id: string, reason: string) =>
+    request(`/api/landlord/agent-deals/${id}/dispute`, { method: 'POST', body: JSON.stringify({ reason }) }),
   getQuotes: (ticketId: string) => request<any[]>(`/api/maintenance/tickets/${ticketId}/quotes`),
   acceptQuote: (quoteId: string) => request(`/api/maintenance/quotes/${quoteId}/accept`, { method: 'PATCH', body: JSON.stringify({}) }),
 

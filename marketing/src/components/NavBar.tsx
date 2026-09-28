@@ -38,6 +38,7 @@ const NavBar: React.FC = () => {
           <NavLink to="/artisans" className={navLinkClass}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className={navLinkClass}>For Artisans</NavLink>
           <NavLink to="/legal-team" className={navLinkClass}>For Lawyers</NavLink>
+          <NavLink to="/agents" className={navLinkClass}>For Agents</NavLink>
         </nav>
 
         <div className="hidden md:flex items-center gap-4">
@@ -69,6 +70,7 @@ const NavBar: React.FC = () => {
           <NavLink to="/artisans" className="block" onClick={() => setOpen(false)}>Find an Artisan</NavLink>
           <NavLink to="/handymen" className="block" onClick={() => setOpen(false)}>For Artisans</NavLink>
           <NavLink to="/legal-team" className="block" onClick={() => setOpen(false)}>For Lawyers</NavLink>
+          <NavLink to="/agents" className="block" onClick={() => setOpen(false)}>For Agents</NavLink>
           <a href={TENANT_PORTAL_URL} className="block text-sm text-gray-600">Tenant login</a>
           <a href={LANDLORD_PORTAL_URL} className="block text-sm text-gray-600">Landlord login</a>
           <Link to="/signup" onClick={() => setOpen(false)} className="block bg-emerald-600 text-white text-center px-4 py-2 rounded-lg text-sm font-semibold">

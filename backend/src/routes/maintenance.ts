@@ -8,6 +8,8 @@ import { mockTickets } from '../lib/mockMaintenance.js';
 import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.js';
 import { ticketLandlordId, quoteLandlordId, propertyLandlordId } from '../lib/ownership.js';
 import { notify } from '../services/push.js';
+import { alertArtisansOfJob } from '../services/agentAlerts.js';
+import { createArtisanJobPayment } from '../services/artisanPayments.js';
 
 export const maintenanceRouter = Router();
 
@@ -155,6 +157,9 @@ maintenanceRouter.patch('/maintenance/tickets/:id/marketplace', async (req: Land
     where: { id: req.params.id },
     data: { openToMarketplace: parsed.data.openToMarketplace },
   });
+  if (ticket.openToMarketplace && !owned.openToMarketplace) {
+    void alertArtisansOfJob(ticket.id).catch((err) => console.error('[artisans] job alert failed', err));
+  }
   res.json(ticket);
 });
 
@@ -169,6 +174,7 @@ maintenanceRouter.get('/maintenance/tickets/:id/quotes', async (req: LandlordAut
   const quotes = await prisma.repairQuote.findMany({
     where: { maintenanceTicketId: req.params.id },
     orderBy: { createdAt: 'desc' },
+    include: { payment: { select: { paymentLink: true, status: true, amount: true } } },
   });
   res.json(quotes);
 });
@@ -199,14 +205,29 @@ maintenanceRouter.patch('/maintenance/quotes/:id/accept', async (req: LandlordAu
   if (!owned) return res.status(404).json({ error: 'Not found' });
 
   const quote = await prisma.repairQuote.update({ where: { id: req.params.id }, data: { status: 'ACCEPTED' } });
-  void notify('artisan', quote.artisanId, {
-    title: 'Your quote was accepted',
-    body: `Your ₦${quote.amount.toLocaleString('en-NG')} quote was accepted. The landlord will contact you to arrange the repair.`,
-    screen: 'jobs',
-  });
   const ticket = await prisma.maintenanceTicket.update({
     where: { id: quote.maintenanceTicketId },
     data: { status: 'DISPATCHED', artisanName: quote.handymanName, artisanPhone: quote.handymanPhone },
   });
-  res.json({ quote, ticket });
+
+  // Registered artisans are paid through EstateCopilot: the landlord gets a
+  // Paystack link, and the payment is split — the artisan's share to their
+  // bank, the platform's commission kept. Walk-in quotes (no artisan account)
+  // are settled directly between landlord and handyman, as before.
+  let payment = null;
+  if (quote.artisanId) {
+    try {
+      payment = await createArtisanJobPayment(quote.id, req.landlord!.email);
+    } catch (err) {
+      console.error('[artisans] could not create job payment', err);
+    }
+  }
+  void notify('artisan', quote.artisanId, {
+    title: 'Your quote was accepted',
+    body: payment
+      ? `Your ₦${quote.amount.toLocaleString('en-NG')} quote was accepted. The landlord pays through EstateCopilot — ₦${payment.artisanAmount.toLocaleString('en-NG')} comes to your bank once they pay.`
+      : `Your ₦${quote.amount.toLocaleString('en-NG')} quote was accepted. The landlord will contact you to arrange the repair.`,
+    screen: 'jobs',
+  });
+  res.json({ quote, ticket, payment: payment && { paymentLink: payment.paymentLink, amount: payment.amount, status: payment.status } });
 });

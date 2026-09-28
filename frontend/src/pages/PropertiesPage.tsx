@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { Property } from '../types';
 import { compressImage } from '../lib/compressImage';
+import AgentDealsPanel from '../components/AgentDealsPanel';
 
 const MAX_IMAGES_PER_PROPERTY = 10;
 
@@ -71,6 +72,18 @@ const PropertiesPage: React.FC = () => {
       refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update listing');
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function handleAgentSettings(property: Property, data: { agentsAllowed?: boolean; agentFeePercent?: number }) {
+    setSavingId(property.id);
+    try {
+      await api.updateProperty(property.id, data);
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update agent settings');
     } finally {
       setSavingId(null);
     }
@@ -243,6 +256,8 @@ const PropertiesPage: React.FC = () => {
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3">{error}</div>}
+
+      <AgentDealsPanel />
 
       {showAddProperty && (
         <form onSubmit={handleCreateProperty} className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 space-y-4">
@@ -574,6 +589,35 @@ const PropertiesPage: React.FC = () => {
             >
               {savingId === p.id ? 'Saving…' : p.isAdvertised ? 'Unpublish listing' : 'Advertise on public site'}
             </button>
+
+            {p.propertyType === 'LONG_TERM' && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-gray-700 border-t border-gray-100 pt-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={p.agentsAllowed ?? true}
+                    disabled={savingId === p.id}
+                    onChange={(e) => handleAgentSettings(p, { agentsAllowed: e.target.checked })}
+                  />
+                  Let registered agents find me a tenant
+                </label>
+                {(p.agentsAllowed ?? true) && (
+                  <label className="flex items-center gap-2 text-gray-500">
+                    Agent fee (paid by tenant)
+                    <select
+                      value={p.agentFeePercent ?? 10}
+                      disabled={savingId === p.id}
+                      onChange={(e) => handleAgentSettings(p, { agentFeePercent: Number(e.target.value) })}
+                      className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-white"
+                    >
+                      {[5, 7, 10, 15].map((n) => (
+                        <option key={n} value={n}>{n}% of rent</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -7,6 +7,7 @@ import { prisma } from '../lib/prisma.js';
 import { MOCK_PROPERTIES, type MockProperty } from '../lib/mockProperties.js';
 import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.js';
 import { putPropertyImage, deletePropertyImage } from '../lib/blobStorage.js';
+import { alertAgentsOfListing } from '../services/agentAlerts.js';
 
 export const propertiesRouter = Router();
 
@@ -136,6 +137,10 @@ const updateSchema = z.object({
   // and the short-let booking flow needs one before it'll quote anything.
   nightlyRate: z.number().int().positive().optional(),
   weeklyRate: z.number().int().positive().optional(),
+  // Agent marketplace: whether registered agents may market it (and get an
+  // alert when it's listed), and the agency fee the tenant pays them.
+  agentsAllowed: z.boolean().optional(),
+  agentFeePercent: z.number().int().min(0).max(20).optional(),
 });
 
 // Toggling isAdvertised is what actually publishes/unpublishes a property on
@@ -157,6 +162,12 @@ propertiesRouter.patch('/properties/:id', async (req: LandlordAuthedRequest, res
   const owned = await prisma.property.findFirst({ where: { id: req.params.id, landlordId } });
   if (!owned) return res.status(404).json({ error: 'Not found' });
   const property = await prisma.property.update({ where: { id: req.params.id }, data: parsed.data });
+  // Just went live (or just opened to agents while live): alert agents in its state.
+  const nowListedForAgents = property.isAdvertised && property.agentsAllowed;
+  const wasListedForAgents = owned.isAdvertised && owned.agentsAllowed;
+  if (nowListedForAgents && !wasListedForAgents) {
+    void alertAgentsOfListing(property.id).catch((err) => console.error('[agents] listing alert failed', err));
+  }
   res.json(property);
 });
 

@@ -29,6 +29,7 @@ const Footer: React.FC = () => (
           <li><a href={PROPERTIES_MARKETPLACE_URL} className="hover:text-white">Vacant properties</a></li>
           <li><Link to="/artisans" className="hover:text-white">Find an artisan</Link></li>
           <li><Link to="/handymen" className="hover:text-white">Repair jobs for artisans</Link></li>
+          <li><Link to="/agents" className="hover:text-white">For estate agents</Link></li>
         </ul>
       </div>
 

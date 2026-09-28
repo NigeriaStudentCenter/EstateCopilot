@@ -29,6 +29,10 @@ import { localUploadsMount } from './lib/blobStorage.js';
 import { artisanRouter } from './routes/artisan.js';
 import { aiAcademyRouter } from './routes/aiAcademy.js';
 import { accountRouter } from './routes/account.js';
+import { agentsRouter } from './routes/agents.js';
+import { adminRouter } from './routes/admin.js';
+import { demoGuard } from './lib/demo.js';
+import { startDemoResetScheduler } from './services/demoReset.js';
 
 if (env.mockMode) {
   seedDemoLandlord();
@@ -57,6 +61,7 @@ if (!env.storage.connectionString) {
 }
 
 app.use(healthRouter);
+app.use(demoGuard); // shared demo login: block destructive / paid / outbound actions
 app.use('/api', propertiesRouter);
 app.use('/api', tenanciesRouter);
 app.use('/api', vettingRouter);
@@ -75,12 +80,15 @@ app.use('/api', legalRouter);
 app.use('/api', artisanRouter);
 app.use('/api', aiAcademyRouter);
 app.use('/api', accountRouter);
+app.use('/api', agentsRouter);
+app.use('/api', adminRouter);
 app.use(whatsappRouter); // mounted at root: /webhooks/whatsapp*
 
 app.use(errorHandler);
 
 app.listen(env.port, () => {
   console.log(`EstateCopilot backend listening on :${env.port} (MOCK_MODE=${env.mockMode})`);
+  startDemoResetScheduler();
   // Fires SCHEDULED WhatsApp campaigns when their time passes. Only when the
   // marketing agent is enabled — otherwise the campaign engine is dormant.
   if (env.whatsapp.agentEnabled) {

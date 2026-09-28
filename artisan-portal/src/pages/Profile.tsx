@@ -1,5 +1,5 @@
 import React from 'react';
-import { api, ApiError, type Me, type StateDef, type TradeDef } from '../lib/api';
+import { api, ApiError, type JobPayment, type Me, type StateDef, type TradeDef } from '../lib/api';
 import { compressImage } from '../lib/compressImage';
 import { Badge, Button, Card, Field, Screen, input } from '../lib/ui';
 
@@ -225,6 +225,7 @@ export default function Profile({
       </Card>
 
       {me.verificationTier < 1 && <Verify flash={flash} reload={reload} />}
+      <Payouts me={me} flash={flash} reload={reload} />
     </Screen>
   );
 }
@@ -276,6 +277,86 @@ function Verify({ flash, reload }: { flash: (t: string) => void; reload: () => v
         >
           {busy ? 'Checking…' : `Verify with ${kind}`}
         </Button>
+      </Card>
+    </>
+  );
+}
+
+const naira = (n: number) => `₦${n.toLocaleString('en-NG')}`;
+
+// Jobs landlords accept are paid to EstateCopilot and split by Paystack — the
+// artisan's share settles to this bank account automatically.
+function Payouts({ me, flash, reload }: { me: Me; flash: (t: string) => void; reload: () => void }) {
+  const [banks, setBanks] = React.useState<{ name: string; code: string }[]>([]);
+  const [bankCode, setBankCode] = React.useState('');
+  const [acct, setAcct] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [editing, setEditing] = React.useState(!me.paystackSubaccountCode);
+  const [pay, setPay] = React.useState<{ commissionPercent: number; payments: JobPayment[] } | null>(null);
+
+  React.useEffect(() => {
+    api.banks().then(setBanks).catch(() => {});
+    api.payments().then(setPay).catch(() => {});
+  }, []);
+
+  return (
+    <>
+      <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Get paid</h2>
+      <Card className="space-y-3 p-4">
+        <p className="text-sm text-[#42504a]">
+          When a landlord accepts your quote they pay through EstateCopilot, and your share goes straight to your bank
+          {pay ? ` — EstateCopilot keeps ${pay.commissionPercent}%.` : '.'}
+        </p>
+        {me.paystackSubaccountCode && !editing ? (
+          <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <span>✓ {me.bankAccountName} ••••{me.bankAccountNumber?.slice(-4)}</span>
+            <button className="font-semibold" onClick={() => setEditing(true)}>Change</button>
+          </div>
+        ) : (
+          <>
+            <Field label="Bank">
+              <select className={input} value={bankCode} onChange={(e) => setBankCode(e.target.value)}>
+                <option value="" disabled>Choose your bank</option>
+                {banks.map((b) => (
+                  <option key={b.code} value={b.code}>{b.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Account number">
+              <input className={input} inputMode="numeric" value={acct} onChange={(e) => setAcct(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="10 digits" />
+            </Field>
+            <Button
+              disabled={busy || !bankCode || acct.length !== 10}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const r = await api.saveBank(bankCode, acct);
+                  flash(`Payouts go to ${r.bankAccountName}`);
+                  setEditing(false);
+                  reload();
+                } catch (e) {
+                  flash(e instanceof ApiError ? e.message : 'Could not save your bank');
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? 'Checking with your bank…' : 'Save bank account'}
+            </Button>
+          </>
+        )}
+        {pay && pay.payments.length > 0 && (
+          <div className="divide-y divide-black/5 border-t border-black/5 pt-1">
+            {pay.payments.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="min-w-0 truncate text-[#42504a]">{p.job}</span>
+                <span className={`whitespace-nowrap font-semibold ${p.status === 'PAID' ? 'text-emerald-700' : 'text-[#8a948d]'}`}>
+                  {p.status === 'PAID' ? `+${naira(p.artisanAmount)}` : p.status === 'AWAITING_PAYMENT' ? `${naira(p.artisanAmount)} pending` : 'Cancelled'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </>
   );

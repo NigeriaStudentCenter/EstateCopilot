@@ -118,9 +118,41 @@ export const env = {
     landlordDisplayName: process.env.LANDLORD_DISPLAY_NAME ?? 'Aliko Hassan',
   },
   email: {
-    provider: process.env.EMAIL_PROVIDER, // "resend" — unset means mock/log-only
+    provider: process.env.EMAIL_PROVIDER, // "resend" | "graph" — unset means mock/log-only
+    // "graph" sends from a Microsoft 365 mailbox (EMAIL_FROM) with the same
+    // app registration the SharePoint mirror uses (needs Mail.Send).
+    graphTenantId: process.env.EMAIL_GRAPH_TENANT_ID ?? process.env.SHAREPOINT_TENANT_ID,
+    graphClientId: process.env.EMAIL_GRAPH_CLIENT_ID ?? process.env.SHAREPOINT_CLIENT_ID,
+    graphClientSecret: process.env.EMAIL_GRAPH_CLIENT_SECRET ?? process.env.SHAREPOINT_CLIENT_SECRET,
     apiKey: process.env.EMAIL_API_KEY,
     from: process.env.EMAIL_FROM ?? 'EstateCopilot <ops@estatecopilot.org>',
+  },
+  // Agent + artisan marketplace. Fees are paid to EstateCopilot through
+  // Paystack and split on the spot: the platform keeps its commission (a
+  // percentage of the fee / job), the rest settles to the agent's or artisan's
+  // own bank via their Paystack subaccount.
+  marketplace: {
+    agentCommissionPercent: Number(process.env.AGENT_COMMISSION_PERCENT ?? 10),
+    artisanCommissionPercent: Number(process.env.ARTISAN_COMMISSION_PERCENT ?? 10),
+    // Where agents sign up / use their dashboard, and where a share link lands.
+    siteUrl: (process.env.MARKETING_SITE_URL ?? 'https://estatecopilot.org').replace(/\/$/, ''),
+    listingsUrl: (process.env.PROPERTIES_MARKETPLACE_URL ?? 'https://properties.estatecopilot.org').replace(/\/$/, ''),
+    landlordPortalUrl: (process.env.LANDLORD_PORTAL_URL ?? 'https://landlord.estatecopilot.org').replace(/\/$/, ''),
+  },
+  agentAuth: {
+    // Separate from the landlord secret so an agent token can never be read
+    // as a landlord one (and vice versa).
+    jwtSecret: process.env.AGENT_JWT_SECRET ?? `${process.env.LANDLORD_JWT_SECRET ?? 'dev-only-insecure-secret-change-me'}:agents`,
+  },
+  demo: {
+    // Shared demo/reviewer landlord logins (App Store review, TestFlight,
+    // prospective landlords). Guarded against destructive actions, hidden from
+    // the public marketplace, and reset nightly to a saved snapshot.
+    emails: (process.env.DEMO_ACCOUNT_EMAILS ?? 'support@estatecopilot.org')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+    resetHourLagos: Number(process.env.DEMO_RESET_HOUR ?? 3), // 03:00 West Africa Time
   },
   ops: {
     // Where "someone booked a viewing / a handyman wants to visit" alerts go.

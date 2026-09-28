@@ -16,6 +16,8 @@ import { createMockLead } from '../lib/mockArtisanLeads.js';
 import { createMockShortLetBooking, isRangeAvailable, blockedRangesFor } from '../lib/mockShortLet.js';
 import { quoteStay, InvalidStayError } from '../lib/shortLetPricing.js';
 import { createPaymentRequest } from '../services/paystackPaymentRequest.js';
+import { notDemoProperty } from '../lib/demo.js';
+import { alertAgent } from '../services/agentAlerts.js';
 
 // Everything in this file is unauthenticated — it's what the public
 // marketing site (properties page, handyman marketplace page) talks to.
@@ -39,10 +41,10 @@ publicRouter.get('/public/states', async (_req, res) => {
     return res.json(states);
   }
   const [propertyCounts, jobCounts] = await Promise.all([
-    prisma.property.groupBy({ by: ['state'], where: { isAdvertised: true }, _count: { _all: true } }),
+    prisma.property.groupBy({ by: ['state'], where: { isAdvertised: true, ...(await notDemoProperty()) }, _count: { _all: true } }),
     prisma.maintenanceTicket.groupBy({
       by: ['propertyId'],
-      where: { openToMarketplace: true, status: { not: 'RESOLVED' } },
+      where: { openToMarketplace: true, status: { not: 'RESOLVED' }, property: await notDemoProperty() },
       _count: { _all: true },
     }),
   ]);
@@ -73,7 +75,8 @@ publicRouter.get('/public/properties', async (req, res) => {
   if (env.mockMode) {
     return res.json(MOCK_PROPERTIES.filter((p) => p.isAdvertised && (!state || p.state === state.name)));
   }
-  const properties = await prisma.property.findMany({ where: { isAdvertised: true, ...(state ? { state: state.name } : {}) } });
+  // The shared demo landlord's listings are fictional — never on the real marketplace.
+  const properties = await prisma.property.findMany({ where: { isAdvertised: true, ...(state ? { state: state.name } : {}), ...(await notDemoProperty()) } });
   res.json(properties);
 });
 
@@ -82,7 +85,7 @@ publicRouter.get('/public/properties/:id', async (req, res) => {
     const property = MOCK_PROPERTIES.find((p) => p.id === req.params.id && p.isAdvertised);
     return property ? res.json(property) : res.status(404).json({ error: 'Listing not found' });
   }
-  const property = await prisma.property.findFirst({ where: { id: req.params.id, isAdvertised: true } });
+  const property = await prisma.property.findFirst({ where: { id: req.params.id, isAdvertised: true, ...(await notDemoProperty()) } });
   return property ? res.json(property) : res.status(404).json({ error: 'Listing not found' });
 });
 
@@ -92,6 +95,7 @@ const viewingSchema = z.object({
   email: z.string().email().optional(),
   scheduledFor: z.string(), // ISO datetime the visitor picked
   notes: z.string().optional(),
+  agentCode: z.string().max(12).optional(), // from an agent's share link (?agent=CODE)
 });
 
 publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
@@ -99,10 +103,11 @@ publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
-  const { name, phone, email, scheduledFor, notes } = parsed.data;
+  const { name, phone, email, scheduledFor, notes, agentCode } = parsed.data;
 
   let property;
   let booking;
+  let agent: { id: string; name: string; email: string | null; agencyName: string | null } | null = null;
   if (env.mockMode) {
     property = MOCK_PROPERTIES.find((p) => p.id === req.params.id);
     if (!property) return res.status(404).json({ error: 'Listing not found' });
@@ -118,10 +123,17 @@ publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
   } else {
     property = await prisma.property.findUnique({ where: { id: req.params.id } });
     if (!property) return res.status(404).json({ error: 'Listing not found' });
+    // Attribute the viewing to the agent whose link it came through — only if
+    // they're active, cover this state, and the landlord accepts agents.
+    if (agentCode && property.agentsAllowed) {
+      const a = await prisma.agent.findUnique({ where: { code: agentCode.toUpperCase() } });
+      if (a && a.status === 'ACTIVE' && a.states.includes(property.state)) agent = a;
+    }
     booking = await prisma.booking.create({
       data: {
         type: 'PROPERTY_VIEWING',
         propertyId: property.id,
+        agentId: agent?.id,
         requesterName: name,
         requesterPhone: phone,
         requesterEmail: email,
@@ -133,8 +145,20 @@ publicRouter.post('/public/properties/:id/book-viewing', async (req, res) => {
 
   await notifyOps(
     `New viewing request: ${property.title}`,
-    `${name} (${phone}${email ? `, ${email}` : ''}) wants to view "${property.title}" on ${new Date(scheduledFor).toLocaleString('en-GB')}.${notes ? `\n\nNote: ${notes}` : ''}`,
+    `${name} (${phone}${email ? `, ${email}` : ''}) wants to view "${property.title}" on ${new Date(scheduledFor).toLocaleString('en-GB')}.${notes ? `\n\nNote: ${notes}` : ''}${agent ? `\n\nVia agent: ${agent.name}${agent.agencyName ? ` (${agent.agencyName})` : ''}` : ''}`,
   );
+  if (agent) {
+    const when = new Date(scheduledFor).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Lagos' });
+    await alertAgent(
+      agent.id,
+      { kind: 'NEW_LEAD', title: `New viewing request: ${property.title}`, body: `${name} · ${phone}${email ? ` · ${email}` : ''} · wants to view on ${when}.${notes ? ` “${notes}”` : ''}`, propertyId: property.id },
+      {
+        to: agent.email,
+        subject: `New lead: ${name} wants to view ${property.title}`,
+        text: `${name} requested a viewing of ${property.title} through your link.\n\nPhone: ${phone}${email ? `\nEmail: ${email}` : ''}\nPreferred time: ${when}${notes ? `\nNote: ${notes}` : ''}\n\nContact them now to arrange it. Track the lead and record the deal in your dashboard: ${env.marketplace.siteUrl}/agents/dashboard\n\nEstateCopilot`,
+      },
+    );
+  }
   void pushPropertyViewingBooking({
     propertyTitle: property.title,
     requesterName: name,
@@ -328,7 +352,7 @@ publicRouter.get('/public/repair-jobs', async (req, res) => {
     return res.json(jobs.map(toPublicJob));
   }
   const jobs = await prisma.maintenanceTicket.findMany({
-    where: { openToMarketplace: true, status: { not: 'RESOLVED' }, ...(state ? { property: { state: state.name } } : {}) },
+    where: { openToMarketplace: true, status: { not: 'RESOLVED' }, property: { ...(state ? { state: state.name } : {}), ...(await notDemoProperty()) } },
     include: { property: true },
     orderBy: { createdAt: 'desc' },
   });

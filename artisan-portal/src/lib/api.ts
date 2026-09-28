@@ -40,6 +40,11 @@ export interface Me {
   verificationTier: number; isListed: boolean;
   score: number; ratingAvg: number; ratingCount: number; jobsCompleted: number;
   trades: ArtisanTrade[]; credentials: Credential[]; workSamples: WorkSample[];
+  bankAccountName?: string | null; bankAccountNumber?: string | null; paystackSubaccountCode?: string | null;
+}
+export interface JobPayment {
+  id: string; job: string; amount: number; artisanAmount: number; platformAmount: number;
+  status: 'AWAITING_PAYMENT' | 'PAID' | 'CANCELLED'; payoutMethod: 'split' | 'manual' | null; paidAt: string | null; createdAt: string;
 }
 export interface Job {
   id: string; description: string; categoryLabel: string | null;
@@ -53,6 +58,13 @@ export interface Lead {
 }
 
 export const api = {
+  banks: () => request<{ name: string; code: string }[]>('/api/public/banks'),
+  saveBank: (bankCode: string, accountNumber: string) =>
+    request<{ bankAccountName: string; bankAccountLast4: string; payoutsConnected: true }>('/api/artisan/me/bank-details', {
+      method: 'POST',
+      body: JSON.stringify({ bankCode, accountNumber }),
+    }),
+  payments: () => request<{ commissionPercent: number; payments: JobPayment[] }>('/api/artisan/payments'),
   trades: () => request<TradeDef[]>('/api/artisan-meta/trades'),
   states: () => request<StateDef[]>('/api/artisan-meta/states'),
 
