@@ -12,6 +12,7 @@ import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.
 import { mockAgreements, generateAgreementContent } from '../lib/mockAgreements.js';
 import { tenancyLandlordId } from '../lib/ownership.js';
 import { toTenancyDto, toInstallmentDto, type LevyStatus } from '../lib/dto.js';
+import { notify } from '../services/push.js';
 
 async function logReminderCorrespondence(tenancyId: string, body: string) {
   if (env.mockMode) {
@@ -166,6 +167,10 @@ tenanciesRouter.post('/tenancies/:id/send-rent-reminder', async (req: LandlordAu
   const body = `Reminder: your lease renews in ${daysOut} days. Reply to this message to begin renewal or ask a question.`;
   const result = await sendWhatsAppMessage(req.body?.tenantPhone ?? '2348000000000', body);
   await logReminderCorrespondence(req.params.id, body);
+  const tenantId = env.mockMode
+    ? req.params.id // mock tenant tokens use the tenancy id
+    : (await prisma.tenancy.findUnique({ where: { id: req.params.id } }))?.tenantId;
+  void notify('tenant', tenantId, { title: 'Rent reminder', body, screen: 'home' });
   res.json(result);
 });
 

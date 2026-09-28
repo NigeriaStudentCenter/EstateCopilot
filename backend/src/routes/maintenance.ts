@@ -7,6 +7,7 @@ import { mockQuotes } from '../lib/mockBookings.js';
 import { mockTickets } from '../lib/mockMaintenance.js';
 import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.js';
 import { ticketLandlordId, quoteLandlordId, propertyLandlordId } from '../lib/ownership.js';
+import { notify } from '../services/push.js';
 
 export const maintenanceRouter = Router();
 
@@ -198,6 +199,11 @@ maintenanceRouter.patch('/maintenance/quotes/:id/accept', async (req: LandlordAu
   if (!owned) return res.status(404).json({ error: 'Not found' });
 
   const quote = await prisma.repairQuote.update({ where: { id: req.params.id }, data: { status: 'ACCEPTED' } });
+  void notify('artisan', quote.artisanId, {
+    title: 'Your quote was accepted',
+    body: `Your ₦${quote.amount.toLocaleString('en-NG')} quote was accepted. The landlord will contact you to arrange the repair.`,
+    screen: 'jobs',
+  });
   const ticket = await prisma.maintenanceTicket.update({
     where: { id: quote.maintenanceTicketId },
     data: { status: 'DISPATCHED', artisanName: quote.handymanName, artisanPhone: quote.handymanPhone },

@@ -28,6 +28,7 @@ import { seedDemoArtisan } from './lib/mockArtisans.js';
 import { localUploadsMount } from './lib/blobStorage.js';
 import { artisanRouter } from './routes/artisan.js';
 import { aiAcademyRouter } from './routes/aiAcademy.js';
+import { accountRouter } from './routes/account.js';
 
 if (env.mockMode) {
   seedDemoLandlord();
@@ -73,6 +74,7 @@ app.use('/api', shortLetRouter);
 app.use('/api', legalRouter);
 app.use('/api', artisanRouter);
 app.use('/api', aiAcademyRouter);
+app.use('/api', accountRouter);
 app.use(whatsappRouter); // mounted at root: /webhooks/whatsapp*
 
 app.use(errorHandler);

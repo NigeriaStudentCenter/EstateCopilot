@@ -22,6 +22,7 @@ import {
 import { mockArtisanLeads } from '../lib/mockArtisanLeads.js';
 import { mockTickets } from '../lib/mockMaintenance.js';
 import { createMockQuote } from '../lib/mockBookings.js';
+import { notify } from '../services/push.js';
 
 export const artisanRouter = Router();
 
@@ -427,6 +428,12 @@ artisanRouter.post('/artisan/jobs/:ticketId/quote', requireArtisanAuth, async (r
     },
   });
   await touchLastActive(a.id);
+  const prop = await prisma.property.findUnique({ where: { id: job.propertyId } });
+  void notify('landlord', prop?.landlordId, {
+    title: 'New repair quote',
+    body: `${a.name} quoted ₦${parsed.data.amount.toLocaleString('en-NG')} for "${job.description.slice(0, 80)}"`,
+    screen: 'repairs',
+  });
   res.status(201).json(quote);
 });
 

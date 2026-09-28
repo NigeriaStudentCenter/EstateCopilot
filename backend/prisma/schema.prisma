@@ -658,3 +658,17 @@ model WaCampaign {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 }
+
+// Mobile app push notifications (EstateCopilot iOS app). One row per device;
+// a device belongs to whichever account last signed in on it.
+model PushDevice {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  platform  String   // "ios" | "android"
+  role      String   // "landlord" | "tenant" | "artisan"
+  accountId String   // Landlord.id | Tenant.id | Artisan.id
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role, accountId])
+}
