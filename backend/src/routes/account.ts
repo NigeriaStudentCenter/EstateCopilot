@@ -65,7 +65,15 @@ async function deleteLandlord(id: string): Promise<void> {
   // The shared demo login really is deleted (App Store review tests this), but
   // its snapshot must exist first so the nightly reset can bring it back.
   const demo = isDemoEmail(before.email);
-  if (demo && !(await prisma.demoSnapshot.findUnique({ where: { landlordId: id } }))) await takeDemoSnapshot(id);
+  if (demo) {
+    const snap = await prisma.demoSnapshot.findUnique({ where: { landlordId: id } });
+    if (!snap) await takeDemoSnapshot(id);
+    else if (before.passwordHash) {
+      // Keep the current password in the snapshot so the reset can restore it.
+      const data = snap.data as any;
+      await prisma.demoSnapshot.update({ where: { landlordId: id }, data: { data: { ...data, landlord: { ...data.landlord, passwordHash: before.passwordHash } } } });
+    }
+  }
   await prisma.$transaction([
     prisma.property.updateMany({ where: { landlordId: id }, data: { isAdvertised: false } }),
     prisma.landlord.update({

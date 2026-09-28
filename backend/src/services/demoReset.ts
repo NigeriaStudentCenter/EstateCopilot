@@ -136,11 +136,20 @@ export async function resetDemoLandlord(landlordId: string): Promise<Record<stri
   counts.bookingsRemoved = (await prisma.booking.deleteMany({ where: { propertyId: { in: propertyIds }, createdAt: { gt: snap.takenAt } } })).count;
   await prisma.agentDeal.deleteMany({ where: { propertyId: { in: propertyIds }, createdAt: { gt: snap.takenAt } } });
 
-  const { subscriptionStatus, ...identity } = data.landlord;
+  // Password: keep the current one if the account still has it (so a password
+  // set after the snapshot is never wiped); fall back to the snapshot's copy
+  // only when the account was deleted (which nulls it). Remember whichever
+  // is kept, so a later deletion can still be undone.
+  const { subscriptionStatus, passwordHash: snapHash, ...identity } = data.landlord;
+  const current = await prisma.landlord.findUnique({ where: { id: landlordId }, select: { passwordHash: true } });
+  const passwordHash = current?.passwordHash ?? snapHash ?? null;
   await prisma.landlord.update({
     where: { id: landlordId },
-    data: { ...identity, ...(subscriptionStatus ? { subscriptionStatus: subscriptionStatus as any } : {}) },
+    data: { ...identity, passwordHash, ...(subscriptionStatus ? { subscriptionStatus: subscriptionStatus as any } : {}) },
   });
+  if (passwordHash && passwordHash !== snapHash) {
+    await prisma.demoSnapshot.update({ where: { landlordId }, data: { data: { ...data, landlord: { ...data.landlord, passwordHash } } as any } });
+  }
   return counts;
 }
 
