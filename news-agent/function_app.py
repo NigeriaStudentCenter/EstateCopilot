@@ -177,6 +177,46 @@ def news_national(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(json.dumps(rows), headers=headers)
 
 
+@app.function_name(name="sponsors")
+@app.route(route="sponsors", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def sponsors(req: func.HttpRequest) -> func.HttpResponse:
+    """GET /api/sponsors[?placement=news] — paid sponsor banners for the
+    Nigeria Student Ambassador app/site. Source: the SPONSORS_JSON app setting
+    if set (edit it in the portal, no redeploy), else agent/sponsors.json.
+    Each entry: {id, advertiser, title, body, url, imageUrl?, placements?[],
+    starts?, ends?} — expired or not-yet-started entries are filtered out.
+    Empty list = the app shows its own "Advertise with us" card instead."""
+    headers = _cors_headers(req)
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=headers)
+    import datetime as _dt
+    raw = os.environ.get("SPONSORS_JSON")
+    try:
+        if raw:
+            rows = json.loads(raw)
+        else:
+            with open(os.path.join(os.path.dirname(__file__), "agent", "sponsors.json"), encoding="utf-8") as f:
+                rows = json.load(f)
+    except Exception:
+        logging.exception("sponsors: bad sponsor data")
+        rows = []
+    placement = (req.params.get("placement") or "")[:30]
+    today = _dt.date.today().isoformat()
+    out = []
+    for r in rows if isinstance(rows, list) else []:
+        if not isinstance(r, dict) or not r.get("url") or not r.get("title") or not r.get("advertiser"):
+            continue
+        if r.get("starts") and str(r["starts"]) > today:
+            continue
+        if r.get("ends") and str(r["ends"]) < today:
+            continue
+        if placement and r.get("placements") and placement not in r["placements"]:
+            continue
+        out.append({k: r.get(k) for k in ("id", "advertiser", "title", "body", "url", "imageUrl")})
+    headers.update({"Content-Type": "application/json", "Cache-Control": "public, max-age=300"})
+    return func.HttpResponse(json.dumps(out), headers=headers)
+
+
 @app.function_name(name="news_local")
 @app.route(route="news/local", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def news_local(req: func.HttpRequest) -> func.HttpResponse:
