@@ -9,8 +9,8 @@ export const env = {
     partnerId: process.env.SMILE_ID_PARTNER_ID,
     apiKey: process.env.SMILE_ID_API_KEY,
     // "live" (api.smileidentity.com) or "sandbox" (testapi.…). Real checks need
-    // BOTH partnerId and apiKey set; with either missing, verifyNinBvn() stays
-    // on the permissive mock pass.
+    // BOTH partnerId and apiKey set; with either missing on a live system,
+    // every check reports "not connected" (never a pass).
     environment: (process.env.SMILE_ID_ENV ?? 'live').toLowerCase(),
     // Nigeria ID types on Smile ID. NIN_V2 is the current national-ID lookup;
     // override if your partner account is provisioned for a different type

@@ -20,7 +20,13 @@ export interface BvnVerificationResult {
 export async function verifyBvn(bvn: string, tenantNameOnFile: string): Promise<BvnVerificationResult> {
   const smileConfigured = Boolean(env.smileId.apiKey && env.smileId.partnerId);
 
-  if (env.mockMode || !smileConfigured) {
+  // Live system with no provider connected: never invent a result. The
+  // caller turns this into a 502 and leaves kycStatus untouched.
+  if (!env.mockMode && !smileConfigured) {
+    throw new Error('BVN verification is not connected yet — try again once ID checks are switched on.');
+  }
+
+  if (env.mockMode) {
     // Mock/demo mode: any BVN ending in an even digit "verifies", so both
     // outcomes are demoable without a real BVN or a KYC charge.
     const matched = Number(bvn[bvn.length - 1]) % 2 === 0;
