@@ -15,6 +15,8 @@ import SignupCallback from './pages/SignupCallback';
 import Agents, { AgentAuth } from './pages/Agents';
 import AgentDashboard from './pages/AgentDashboard';
 import AgentDealConfirm from './pages/AgentDealConfirm';
+import StayBooking from './pages/StayBooking';
+import StudentHub from './pages/StudentHub';
 import { captureAgentCode } from './lib/agent';
 
 // Same build deployed to two Static Web Apps: the main marketing site, and
@@ -43,6 +45,8 @@ const App: React.FC = () => {
           <Route path="/" element={isOnPropertiesSubdomain ? <Properties /> : <Home />} />
           <Route path="/properties" element={<Properties />} />
           <Route path="/stays" element={<Properties staysMode />} />
+          <Route path="/stays/booking/:token" element={<StayBooking />} />
+          <Route path="/students" element={<StudentHub />} />
           <Route path="/properties/:stateSlug" element={<Properties />} />
           <Route path="/handymen" element={<Handymen />} />
           <Route path="/handymen/:stateSlug" element={<Handymen />} />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { Property, ShortLetBooking } from '../types';
+import StayManage from '../components/dashboard/StayManage';
 
 const currencyFormatter = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
 
@@ -152,6 +153,7 @@ const ShortLetPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [actingOn, setActingOn] = useState<string | null>(null);
   const [viewingIdFor, setViewingIdFor] = useState<string | null>(null);
+  const [managing, setManaging] = useState<string | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('');
   const [viewMonth, setViewMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
@@ -245,6 +247,7 @@ const ShortLetPage: React.FC = () => {
         </div>
       )}
       {viewingIdFor && <StudentIdViewer bookingId={viewingIdFor} onClose={() => setViewingIdFor(null)} />}
+      {managing && <StayManage bookingId={managing} onClose={() => setManaging(null)} onChanged={refresh} />}
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3">{error}</div>}
 
@@ -315,12 +318,18 @@ const ShortLetPage: React.FC = () => {
                       <button onClick={() => setViewingIdFor(b.id)} className="text-[11px] text-indigo-700 hover:underline">View student ID</button>
                     )}
                     {b.hostNote && <span className="text-[11px] text-gray-500">Your note: {b.hostNote}</span>}
+                    {b.sponsorName && <span className="text-[11px] text-gray-500">Sponsor: {b.sponsorName} ({b.sponsorRelationship})</span>}
+                    {(b.depositAmount ?? 0) > 0 && b.depositStatus !== 'NONE' && (
+                      <span className="px-2 py-0.5 rounded-full text-[11px] bg-gray-100 text-gray-700">🔒 {currencyFormatter.format(b.depositAmount!)} caution fee · {b.depositStatus?.toLowerCase()}</span>
+                    )}
+                    {(b.openIssues ?? 0) > 0 && <span className="px-2 py-0.5 rounded-full text-[11px] bg-red-50 text-red-700">⚠ {b.openIssues} open problem{b.openIssues === 1 ? '' : 's'}</span>}
                   </div>
                 </div>
                 <div className="shrink-0 flex flex-col items-end gap-2">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${statusStyles[b.status]}`}>
                     {statusLabels[b.status]}
                   </span>
+                  <button onClick={() => setManaging(b.id)} className="text-xs font-medium text-emerald-700 hover:underline">Manage stay →</button>
                   {(b.status === 'PENDING_PAYMENT' || b.status === 'CONFIRMED') && (
                     <div className="flex gap-2">
                       {b.status === 'CONFIRMED' && (

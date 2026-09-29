@@ -21,13 +21,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const api = {
   getStates: () => request<{ name: string; slug: string; propertyCount: number; jobCount: number }[]>('/api/public/states'),
 
-  getProperties: (state?: string, filters: { stays?: boolean; student?: boolean; unit?: string; near?: string } = {}) => {
+  getProperties: (state?: string, filters: { stays?: boolean; student?: boolean; unit?: string; near?: string; gender?: string; inspected?: boolean; maxKm?: number } = {}) => {
     const q = new URLSearchParams();
     if (state) q.set('state', state);
     if (filters.stays) q.set('stays', '1');
     if (filters.student) q.set('student', '1');
     if (filters.unit) q.set('unit', filters.unit);
     if (filters.near) q.set('near', filters.near);
+    if (filters.gender) q.set('gender', filters.gender);
+    if (filters.inspected) q.set('inspected', '1');
+    if (filters.maxKm) q.set('maxKm', String(filters.maxKm));
     const qs = q.toString();
     return request<any[]>(`/api/public/properties${qs ? `?${qs}` : ''}`);
   },
@@ -39,10 +42,27 @@ export const api = {
   getShortLetAvailability: (propertyId: string) =>
     request<{ checkIn: string; checkOut: string }[]>(`/api/public/properties/${propertyId}/short-let-availability`),
   getShortLetQuote: (propertyId: string, checkIn: string, checkOut: string) =>
-    request<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY'; months: number; weeks: number; extraNights: number; totalAmount: number; studentFriendly: boolean }>(
+    request<{ nights: number; rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY' | 'SESSION'; months: number; weeks: number; extraNights: number; totalAmount: number; studentFriendly: boolean; dailyStays: boolean; studentDeposit: number }>(
       `/api/public/properties/${propertyId}/short-let-quote`,
       { method: 'POST', body: JSON.stringify({ checkIn, checkOut }) },
     ),
+  getStudentSafety: () => request<{ key: string; label: string; essential: boolean }[]>('/api/public/student-safety'),
+  getReviews: (propertyId: string) =>
+    request<{ overall: number; safety: number; host: number; value: number; accuracy: number; comment: string | null; guestFirstName: string; isStudent: boolean; createdAt: string }[]>(
+      `/api/public/properties/${propertyId}/reviews`,
+    ),
+
+  // The guest's private booking page (token from their email).
+  getStay: (token: string) => request<any>(`/api/public/stays/${token}`),
+  stayPost: (token: string, path: string, body: unknown) =>
+    request<any>(`/api/public/stays/${token}/${path}`, { method: 'POST', body: JSON.stringify(body) }),
+  stayReport: async (token: string, form: FormData) => {
+    const res = await fetch(`${API_BASE}/api/public/stays/${token}/reports`, { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : 'Could not save the report');
+    return body;
+  },
+
   // Multipart so a student can attach their student ID card; daily stays
   // send the same form without the file. Every guest gives a BVN or NIN.
   bookShortLet: async (propertyId: string, form: FormData) => {
@@ -53,7 +73,7 @@ export const api = {
       const msg = typeof err === 'string' ? err : Object.values(err?.fieldErrors ?? {}).flat()[0] ?? 'Booking failed — please try again';
       throw new Error(String(msg));
     }
-    return body as { bookingId: string; status: 'AWAITING_APPROVAL' | 'PENDING_PAYMENT'; paymentLink: string | null; nights: number; totalAmount: number; rateType: string; idCheck: 'VERIFIED' | 'NOT_CHECKED' };
+    return body as { bookingId: string; status: 'AWAITING_APPROVAL' | 'PENDING_PAYMENT'; paymentLink: string | null; manageUrl: string; depositAmount: number; nights: number; totalAmount: number; rateType: string; idCheck: 'VERIFIED' | 'NOT_CHECKED' };
   },
 
   // ---- Artisan directory (Phase 2) ----

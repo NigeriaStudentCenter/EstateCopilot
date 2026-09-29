@@ -17,6 +17,13 @@ export interface Property {
   stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
   studentFriendly?: boolean; // listed in Student stays
   dailyStays?: boolean; // listed in Daily stays (false = students only)
+  sessionRate?: number | null;
+  genderPolicy?: 'ANY' | 'FEMALE_ONLY' | 'MALE_ONLY';
+  distanceToCampusKm?: number | null;
+  safetyFeatures?: string[];
+  safetyInspectedAt?: string | null;
+  safetyInspectedBy?: string | null;
+  houseRules?: string | null;
   nearUniversity?: string | null;
   maxGuests?: number | null;
   amenities?: string[];
@@ -154,7 +161,7 @@ export interface AgentDeal {
   createdAt: string;
 }
 
-export type ShortLetRateType = 'NIGHTLY' | 'WEEKLY' | 'MONTHLY';
+export type ShortLetRateType = 'NIGHTLY' | 'WEEKLY' | 'MONTHLY' | 'SESSION';
 export type ShortLetBookingStatus = 'AWAITING_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
 
 export interface ShortLetBooking {
@@ -180,5 +187,14 @@ export interface ShortLetBooking {
   studentInstitution?: string | null;
   hasStudentId?: boolean;
   hostNote?: string | null;
+  sponsorName?: string | null;
+  sponsorPhone?: string | null;
+  sponsorEmail?: string | null;
+  sponsorRelationship?: string | null;
+  payer?: 'GUEST' | 'SPONSOR';
+  depositAmount?: number;
+  depositStatus?: 'NONE' | 'HELD' | 'PROPOSED' | 'DISPUTED' | 'AGREED' | 'RETURNED';
+  openIssues?: number;
+  reportCount?: number;
   createdAt: string;
 }

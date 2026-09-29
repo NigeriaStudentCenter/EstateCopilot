@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { Property } from '../../types';
 
@@ -17,6 +17,17 @@ const StaySettings: React.FC<{ property: Property; onSaved: () => void; onError:
   );
   const studentFriendly = audience !== 'DAILY';
   const [nearUniversity, setNearUniversity] = useState(property.nearUniversity ?? '');
+  // Student housing
+  const [sessionRate, setSessionRate] = useState(property.sessionRate?.toString() ?? '');
+  const [deposit, setDeposit] = useState(property.cautionDepositAmount ? String(property.cautionDepositAmount) : '');
+  const [gender, setGender] = useState<'ANY' | 'FEMALE_ONLY' | 'MALE_ONLY'>(property.genderPolicy ?? 'ANY');
+  const [distance, setDistance] = useState(property.distanceToCampusKm?.toString() ?? '');
+  const [safety, setSafety] = useState<string[]>(property.safetyFeatures ?? []);
+  const [houseRules, setHouseRules] = useState(property.houseRules ?? '');
+  const [catalog, setCatalog] = useState<{ key: string; label: string; essential: boolean }[]>([]);
+  useEffect(() => {
+    api.getStudentSafety().then(setCatalog).catch(() => {});
+  }, []);
   const [maxGuests, setMaxGuests] = useState(property.maxGuests?.toString() ?? '');
   const [amenities, setAmenities] = useState<string[]>(property.amenities ?? []);
   const [saving, setSaving] = useState(false);
@@ -38,6 +49,16 @@ const StaySettings: React.FC<{ property: Property; onSaved: () => void; onError:
         nearUniversity: nearUniversity.trim() || null,
         maxGuests: maxGuests ? Number(maxGuests) : null,
         amenities,
+        houseRules: houseRules.trim() || null,
+        ...(studentFriendly
+          ? {
+              sessionRate: sessionRate ? Number(sessionRate) : null,
+              cautionDepositAmount: deposit ? Number(deposit) : 0,
+              genderPolicy: gender,
+              distanceToCampusKm: distance ? Number(distance) : null,
+              safetyFeatures: safety,
+            }
+          : {}),
       });
       setSaved(true);
       onSaved();
@@ -79,8 +100,44 @@ const StaySettings: React.FC<{ property: Property; onSaved: () => void; onError:
         </p>
       </div>
       {studentFriendly && (
-        <input value={nearUniversity} onChange={(e) => touch(setNearUniversity)(e.target.value)} placeholder="Nearest school, e.g. UNILAG, Akoka" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+        <div className="border border-indigo-100 bg-indigo-50/40 rounded-lg p-3 space-y-3">
+          <p className="text-xs font-semibold text-indigo-900 uppercase">Student housing</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <input value={nearUniversity} onChange={(e) => touch(setNearUniversity)(e.target.value)} placeholder="Nearest school, e.g. UNILAG, Akoka" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            <input type="number" min={0} step={0.1} value={distance} onChange={(e) => touch(setDistance)(e.target.value)} placeholder="Distance to campus (km)" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            <input type="number" min={1} value={sessionRate} onChange={(e) => touch(setSessionRate)(e.target.value)} placeholder="Price per academic session (₦)" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            <input type="number" min={0} value={deposit} onChange={(e) => touch(setDeposit)(e.target.value)} placeholder="Caution fee (₦)" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white" />
+            <select value={gender} onChange={(e) => touch(setGender)(e.target.value as typeof gender)} className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white">
+              <option value="ANY">Mixed / any</option>
+              <option value="FEMALE_ONLY">Female only</option>
+              <option value="MALE_ONLY">Male only</option>
+            </select>
+          </div>
+          <p className="text-[11px] text-indigo-900/70">
+            Session price applies to bookings of 150+ nights. The caution fee is paid to EstateCopilot and held until checkout — you propose the return (deductions need a
+            check-out report with photos).
+          </p>
+          <div>
+            <p className="text-xs font-medium text-gray-700 mb-1.5">
+              Safety features {property.safetyInspectedAt ? <span className="ml-1 text-[11px] text-white bg-emerald-600 rounded-full px-2 py-0.5">✓ Ambassador-inspected</span> : <span className="ml-1 text-[11px] text-gray-400">(★ = essential — all are needed for an ambassador inspection)</span>}
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+              {catalog.map((f) => (
+                <label key={f.key} className="flex items-center gap-2 text-xs text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={safety.includes(f.key)}
+                    onChange={(e) => touch(setSafety)(e.target.checked ? [...safety, f.key] : safety.filter((k) => k !== f.key))}
+                  />
+                  {f.essential ? '★ ' : ''}{f.label}
+                </label>
+              ))}
+            </div>
+            {property.safetyInspectedAt && <p className="text-[11px] text-amber-700 mt-1">Unticking an essential feature removes the inspected badge.</p>}
+          </div>
+        </div>
       )}
+      <textarea value={houseRules} onChange={(e) => touch(setHouseRules)(e.target.value)} rows={3} placeholder="House rules (visitors, quiet hours, cooking, utilities…) — guests accept these when they book" className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
       <div className="flex flex-wrap gap-1.5">
         {AMENITY_SUGGESTIONS.map((a) => (
           <button key={a} type="button" onClick={() => toggleAmenity(a)} className={`px-2.5 py-1 rounded-full text-xs border ${amenities.includes(a) ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-600 border-gray-300'}`}>

@@ -11,7 +11,7 @@ export interface MockShortLetBooking {
   checkIn: string; // ISO date
   checkOut: string; // ISO date
   nights: number;
-  rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY';
+  rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY' | 'SESSION';
   totalAmount: number;
   status: 'AWAITING_APPROVAL' | 'PENDING_PAYMENT' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   idCheck?: 'VERIFIED' | 'NOT_CHECKED';

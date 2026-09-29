@@ -2,6 +2,8 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import { z } from 'zod';
 import { env } from '../config/env.js';
+import { emailStayParties } from '../services/stayNotify.js';
+import { notify as notifyPush } from '../services/push.js';
 import { prisma } from '../lib/prisma.js';
 import { createDedicatedVirtualAccount } from '../services/paystack.js';
 import { requireLandlordAuth, type LandlordAuthedRequest } from './landlordAuth.js';
@@ -126,6 +128,48 @@ async function reconcileShortLetBooking(providerRef: string | undefined): Promis
   return b?.id;
 }
 
+// Payment cleared for a stay: confirm it, start holding the caution fee, and
+// tell the guest, their sponsor and the host. Idempotent — only a
+// PENDING_PAYMENT booking changes.
+async function confirmStayBooking(bookingId: string): Promise<boolean> {
+  const b = await prisma.shortLetBooking.findUnique({ where: { id: bookingId }, include: { property: { select: { title: true, address: true, lga: true, landlordId: true } } } });
+  if (!b) return false;
+  const { count } = await prisma.shortLetBooking.updateMany({
+    where: { id: bookingId, status: 'PENDING_PAYMENT' },
+    data: { status: 'CONFIRMED', ...(b.depositAmount > 0 ? { depositStatus: 'HELD' } : {}) },
+  });
+  if (!count) return false;
+  const dates = `${b.checkIn.toDateString()} to ${b.checkOut.toDateString()}`;
+  await Promise.allSettled([
+    emailStayParties(
+      b,
+      `Booking confirmed — ${b.property.title}`,
+      `Payment received — your stay is confirmed (${dates}).\n\nAddress: ${b.property.address}, ${b.property.lga}. Your host's contact is on your booking page.` +
+        (b.depositAmount ? `\n\nYour ₦${b.depositAmount.toLocaleString()} caution fee is held safely by EstateCopilot and returned after checkout. Take photos of the room when you move in and add them to your booking page — they protect your caution fee.` : ''),
+      `Payment received — ${b.guestName}'s stay at ${b.property.title} is confirmed (${dates}).` +
+        (b.depositAmount ? ` The ₦${b.depositAmount.toLocaleString()} caution fee is held by EstateCopilot, not the landlord.` : ''),
+    ),
+    notifyPush('landlord', b.property.landlordId, { title: 'Stay confirmed', body: `${b.guestName} paid for ${b.property.title} (${dates}).`, screen: 'stays' }),
+  ]);
+  return true;
+}
+
+async function reconcilePaymentRequest(code: string | undefined): Promise<string | undefined> {
+  if (!code || env.mockMode) return undefined;
+  const booking = await prisma.shortLetBooking.findFirst({ where: { paymentRef: code } });
+  if (booking) {
+    await confirmStayBooking(booking.id);
+    return 'short-let-booking';
+  }
+  const inst = await prisma.rentInstallment.findFirst({ where: { paystackRequestCode: code } });
+  if (inst) {
+    await prisma.rentInstallment.updateMany({ where: { id: inst.id, status: { not: 'PAID' } }, data: { status: 'PAID', paidAt: new Date() } });
+    return 'rent-installment';
+  }
+  console.warn(`[payments] paymentrequest.success for unknown request ${code}`);
+  return undefined;
+}
+
 // Paystack webhook — a receipt notification. Because the dedicated virtual
 // account is tied to the landlord's own subaccount, Paystack has already
 // settled the money directly to their bank; there's no split to compute and
@@ -143,6 +187,20 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
   }
 
   const event = req.body?.event;
+
+  // A Payment Request (short-let stays, rent instalments) was paid. This
+  // event carries our request_code; charge.success does not.
+  if (event === 'paymentrequest.success') {
+    try {
+      const code: string | undefined = req.body?.data?.request_code;
+      const kind = await reconcilePaymentRequest(code);
+      return res.json({ received: true, reconciled: Boolean(kind), kind });
+    } catch (err) {
+      console.error('[payments] paymentrequest.success failed', err);
+      return res.status(500).json({ error: 'reconcile failed' });
+    }
+  }
+
   if (event !== 'charge.success') {
     return res.json({ received: true });
   }
@@ -171,7 +229,7 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
         const booking = mockShortLetBookings.find((b) => b.id === bookingId);
         if (booking) booking.status = 'CONFIRMED';
       } else {
-        await prisma.shortLetBooking.update({ where: { id: bookingId }, data: { status: 'CONFIRMED' } });
+        await confirmStayBooking(bookingId);
       }
       return res.json({ received: true, reconciled: true, kind: 'short-let-booking' });
     }

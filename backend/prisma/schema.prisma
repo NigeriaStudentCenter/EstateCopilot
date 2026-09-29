@@ -16,6 +16,7 @@ enum ShortLetRateType {
   NIGHTLY
   WEEKLY
   MONTHLY // 28+ nights — student terms/semesters, long work trips
+  SESSION // one academic session, flat price (Nigerian hostel norm)
 }
 
 // Stays marketplace: what the guest actually gets.
@@ -34,6 +35,49 @@ enum StayPurpose {
 
 // Result of the guest's BVN/NIN check at booking time. NOT_CHECKED only
 // happens while no ID provider is connected — hosts see it flagged.
+// Student housing: who a place is for, by gender (Nigerian hostels are
+// commonly single-sex).
+enum GenderPolicy {
+  ANY
+  FEMALE_ONLY
+  MALE_ONLY
+}
+
+// Who pays a student booking — the student, or a parent/guardian/sponsor
+// (the norm in Nigeria). A SPONSOR payer gets the payment link.
+enum StayPayer {
+  GUEST
+  SPONSOR
+}
+
+// Caution-fee protection: EstateCopilot holds the deposit, not the host.
+//   HELD -> host PROPOSED a return (with itemised deductions) -> student
+//   AGREED (or 7 days pass) / DISPUTED (EstateCopilot mediates -> AGREED)
+//   -> RETURNED once the money has been sent.
+enum StayDepositStatus {
+  NONE
+  HELD
+  PROPOSED
+  DISPUTED
+  AGREED
+  RETURNED
+}
+
+enum StayReportKind {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum StayReportAuthor {
+  HOST
+  GUEST
+}
+
+enum StayIssueStatus {
+  OPEN
+  RESOLVED
+}
+
 enum GuestIdCheck {
   VERIFIED
   NOT_CHECKED
@@ -291,6 +335,14 @@ model Property {
   nearUniversity       String? // e.g. "UNILAG, Akoka" — what students search by
   maxGuests            Int?
   amenities            String[]            @default([])
+  sessionRate          Int? // SHORT_LET student housing — flat price for one academic session (150–366 nights)
+  genderPolicy         GenderPolicy        @default(ANY)
+  distanceToCampusKm   Float?
+  safetyFeatures       String[]            @default([]) // keys from lib/studentSafety.ts, declared by the host
+  safetyInspectedAt    DateTime? // set when an EstateCopilot Student Ambassador has visited and checked the declared features
+  safetyInspectedBy    String?
+  houseRules           String?
+  stayReviews          StayReview[]
   cautionDepositAmount Int
   municipalId          String? // Tenement Rate ID with the LGA
   discoProvider        String? // EKEDC / IKEDC / AEDC / PHED etc.
@@ -348,7 +400,80 @@ model ShortLetBooking {
   studentIdKey       String? // private blob key of the student ID photo — served only to the host
   hostNote           String? // reason given when the host declines
 
-  createdAt   DateTime              @default(now())
+  // The guest's private booking page (/stays/booking/:token) — no account needed.
+  manageToken         String?   @unique
+  agreementAcceptedAt DateTime? // house rules + stay agreement accepted at booking
+
+  // Parent / guardian / sponsor (student bookings). Also the emergency contact.
+  sponsorName         String?
+  sponsorPhone        String?
+  sponsorEmail        String?
+  sponsorRelationship String?
+  payer               StayPayer @default(GUEST)
+
+  // Caution-fee protection (see StayDepositStatus). Amounts in naira; the
+  // total charged is totalAmount + depositAmount.
+  depositAmount          Int               @default(0)
+  depositStatus          StayDepositStatus @default(NONE)
+  depositDeduction       Int?
+  depositDeductionReason String?
+  depositProposedAt      DateTime?
+  depositDisputeNote     String?
+  depositSettledAt       DateTime?
+
+  reports StayReport[]
+  issues  StayIssue[]
+  review  StayReview?
+
+  createdAt DateTime @default(now())
+}
+
+// Check-in / check-out condition report with photos — the evidence behind
+// any caution-fee deduction. Either side can file one; the other confirms.
+model StayReport {
+  id              String           @id @default(cuid())
+  bookingId       String
+  booking         ShortLetBooking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  kind            StayReportKind
+  author          StayReportAuthor
+  items           Json // [{ area, condition: GOOD|FAIR|DAMAGED, note? }]
+  photoUrls       String[]         @default([])
+  notes           String?
+  confirmedAt     DateTime? // the other side agreed it's accurate
+  responseComment String?
+  createdAt       DateTime         @default(now())
+}
+
+// A problem the guest reports during a stay (no power, broken lock...).
+model StayIssue {
+  id          String          @id @default(cuid())
+  bookingId   String
+  booking     ShortLetBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  description String
+  status      StayIssueStatus @default(OPEN)
+  resolvedAt  DateTime?
+  hostReply   String?
+  createdAt   DateTime        @default(now())
+}
+
+// Verified review — only from a guest whose stay actually happened.
+model StayReview {
+  id             String          @id @default(cuid())
+  bookingId      String          @unique
+  booking        ShortLetBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  propertyId     String
+  property       Property        @relation(fields: [propertyId], references: [id])
+  overall        Int // 1-5
+  safety         Int
+  host           Int
+  value          Int
+  accuracy       Int
+  comment        String?
+  guestFirstName String
+  isStudent      Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+
+  @@index([propertyId])
 }
 
 model Tenant {

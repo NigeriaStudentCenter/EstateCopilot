@@ -95,6 +95,12 @@ export const api = {
       stayUnitType?: 'ENTIRE_PLACE' | 'PRIVATE_ROOM' | 'SHARED_ROOM' | null;
       studentFriendly?: boolean;
       dailyStays?: boolean;
+      sessionRate?: number | null;
+      genderPolicy?: 'ANY' | 'FEMALE_ONLY' | 'MALE_ONLY';
+      distanceToCampusKm?: number | null;
+      safetyFeatures?: string[];
+      houseRules?: string | null;
+      cautionDepositAmount?: number;
       nearUniversity?: string | null;
       maxGuests?: number | null;
       amenities?: string[];
@@ -196,6 +202,25 @@ export const api = {
   setShortLetBookingStatus: (bookingId: string, status: 'CANCELLED' | 'COMPLETED') =>
     request(`/api/short-let-bookings/${bookingId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
 
+  getStay: (bookingId: string) => request<any>(`/api/short-let-bookings/${bookingId}`),
+  getStudentSafety: () => request<{ key: string; label: string; essential: boolean }[]>('/api/public/student-safety'),
+  fileStayReport: async (bookingId: string, form: FormData) => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/short-let-bookings/${bookingId}/reports`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new ApiError(res.status, typeof body?.error === 'string' ? body.error : 'Could not save the report');
+    return body;
+  },
+  respondStayReport: (bookingId: string, reportId: string, agree: boolean, comment?: string) =>
+    request(`/api/short-let-bookings/${bookingId}/reports/${reportId}/respond`, { method: 'POST', body: JSON.stringify({ agree, comment }) }),
+  proposeDepositReturn: (bookingId: string, deduction: number, reason?: string) =>
+    request(`/api/short-let-bookings/${bookingId}/deposit/propose`, { method: 'POST', body: JSON.stringify({ deduction, reason }) }),
+  updateStayIssue: (bookingId: string, issueId: string, status: 'OPEN' | 'RESOLVED', hostReply?: string) =>
+    request(`/api/short-let-bookings/${bookingId}/issues/${issueId}`, { method: 'PATCH', body: JSON.stringify({ status, hostReply }) }),
   approveStayRequest: (bookingId: string) =>
     request(`/api/short-let-bookings/${bookingId}/approve`, { method: 'POST', body: '{}' }),
   declineStayRequest: (bookingId: string, reason?: string) =>

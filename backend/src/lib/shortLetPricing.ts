@@ -8,11 +8,12 @@ export interface ShortLetRateInput {
   nightlyRate: number;
   weeklyRate?: number | null;
   monthlyRate?: number | null;
+  sessionRate?: number | null;
 }
 
 export interface ShortLetQuote {
   nights: number;
-  rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY';
+  rateType: 'NIGHTLY' | 'WEEKLY' | 'MONTHLY' | 'SESSION';
   months: number;
   weeks: number;
   extraNights: number;
@@ -21,6 +22,10 @@ export interface ShortLetQuote {
 
 const MS_PER_NIGHT = 24 * 60 * 60 * 1000;
 export const MONTH_NIGHTS = 28;
+// An academic session: a flat price for any stay in this range (Nigerian
+// hostels are let per session, not per night).
+export const SESSION_MIN_NIGHTS = 150;
+export const MAX_STAY_NIGHTS = 366;
 
 export function nightsBetween(checkIn: Date, checkOut: Date): number {
   return Math.round((checkOut.getTime() - checkIn.getTime()) / MS_PER_NIGHT);
@@ -40,11 +45,23 @@ export function validateStayDates(checkIn: Date, checkOut: Date): void {
   if (nightsBetween(checkIn, checkOut) < 1) {
     throw new InvalidStayError('checkOut must be at least one night after checkIn');
   }
+  if (nightsBetween(checkIn, checkOut) > MAX_STAY_NIGHTS) {
+    throw new InvalidStayError('Stays are booked one academic session (up to a year) at a time');
+  }
 }
 
 export function quoteStay(rates: ShortLetRateInput, checkIn: Date, checkOut: Date): ShortLetQuote {
   validateStayDates(checkIn, checkOut);
-  const nights = nightsBetween(checkIn, checkOut);
+  const tiered = quoteTiered(rates, nightsBetween(checkIn, checkOut));
+  // A session price applies to any stay of a session's length — and only if
+  // it's actually the better deal for the student.
+  if (rates.sessionRate && tiered.nights >= SESSION_MIN_NIGHTS && rates.sessionRate < tiered.totalAmount) {
+    return { nights: tiered.nights, rateType: 'SESSION', months: 0, weeks: 0, extraNights: 0, totalAmount: rates.sessionRate };
+  }
+  return tiered;
+}
+
+function quoteTiered(rates: ShortLetRateInput, nights: number): ShortLetQuote {
 
   if (rates.monthlyRate && nights >= MONTH_NIGHTS) {
     const months = Math.floor(nights / MONTH_NIGHTS);

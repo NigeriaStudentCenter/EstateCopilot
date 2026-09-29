@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
+import { cleanSafetyFeatures, missingEssentials } from '../lib/studentSafety.js';
 import multer from 'multer';
 import sharp from 'sharp';
 import { env } from '../config/env.js';
@@ -96,6 +97,11 @@ const createSchema = z
     stayUnitType: z.enum(['ENTIRE_PLACE', 'PRIVATE_ROOM', 'SHARED_ROOM']).nullable().optional(),
     studentFriendly: z.boolean().optional(),
     dailyStays: z.boolean().optional(),
+    sessionRate: z.number().int().positive().nullable().optional(),
+    genderPolicy: z.enum(['ANY', 'FEMALE_ONLY', 'MALE_ONLY']).optional(),
+    distanceToCampusKm: z.number().min(0).max(100).nullable().optional(),
+    safetyFeatures: z.array(z.string()).max(30).transform(cleanSafetyFeatures).optional(),
+    houseRules: z.string().trim().max(3000).nullable().optional(),
     nearUniversity: z.string().trim().max(80).nullable().optional(),
     maxGuests: z.number().int().min(1).max(30).nullable().optional(),
     amenities: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
@@ -150,6 +156,12 @@ const updateSchema = z.object({
   stayUnitType: z.enum(['ENTIRE_PLACE', 'PRIVATE_ROOM', 'SHARED_ROOM']).nullable().optional(),
   studentFriendly: z.boolean().optional(),
   dailyStays: z.boolean().optional(),
+  cautionDepositAmount: z.number().int().min(0).optional(), // for student stays: held by EstateCopilot, returned after checkout
+  sessionRate: z.number().int().positive().nullable().optional(),
+  genderPolicy: z.enum(['ANY', 'FEMALE_ONLY', 'MALE_ONLY']).optional(),
+  distanceToCampusKm: z.number().min(0).max(100).nullable().optional(),
+  safetyFeatures: z.array(z.string()).max(30).transform(cleanSafetyFeatures).optional(),
+  houseRules: z.string().trim().max(3000).nullable().optional(),
   nearUniversity: z.string().trim().max(80).nullable().optional(),
   maxGuests: z.number().int().min(1).max(30).nullable().optional(),
   amenities: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
@@ -177,7 +189,12 @@ propertiesRouter.patch('/properties/:id', async (req: LandlordAuthedRequest, res
 
   const owned = await prisma.property.findFirst({ where: { id: req.params.id, landlordId } });
   if (!owned) return res.status(404).json({ error: 'Not found' });
-  const property = await prisma.property.update({ where: { id: req.params.id }, data: parsed.data });
+  // Dropping an essential safety feature voids an earlier ambassador inspection.
+  const voidsInspection = parsed.data.safetyFeatures && missingEssentials(parsed.data.safetyFeatures).length > 0;
+  const property = await prisma.property.update({
+    where: { id: req.params.id },
+    data: { ...parsed.data, ...(voidsInspection ? { safetyInspectedAt: null, safetyInspectedBy: null } : {}) },
+  });
   // Just went live (or just opened to agents while live): alert agents in its state.
   const nowListedForAgents = property.isAdvertised && property.agentsAllowed;
   const wasListedForAgents = owned.isAdvertised && owned.agentsAllowed;
