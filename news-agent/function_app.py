@@ -107,6 +107,30 @@ def factchecks_list(req: func.HttpRequest) -> func.HttpResponse:
     return func.HttpResponse(json.dumps(rows), headers=headers)
 
 
+_MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024
+_IMAGE_SIGNATURES = {
+    "jpeg": (b"\xff\xd8\xff",),
+    "png": (b"\x89PNG\r\n\x1a\n",),
+    "webp": (b"RIFF",),
+    "heic": (b"\x00\x00\x00",),
+}
+
+
+def _store_screenshot(image_b64: str, image_type: str) -> str:
+    """Validates a base64 image (type, magic bytes, size) and uploads it."""
+    import base64
+
+    ext = image_type.lower().replace("jpg", "jpeg")
+    if ext not in _IMAGE_SIGNATURES:
+        raise ValueError(f"unsupported image type {image_type!r}")
+    data = base64.b64decode(image_b64, validate=True)
+    if not data or len(data) > _MAX_SCREENSHOT_BYTES:
+        raise ValueError("image empty or too large")
+    if not data.startswith(_IMAGE_SIGNATURES[ext]):
+        raise ValueError("image content does not match its type")
+    return graph.upload_claim_screenshot(data, "jpg" if ext == "jpeg" else ext)
+
+
 @app.function_name(name="factchecks_submit")
 @app.route(
     route="factchecks/submit", methods=["POST", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS
@@ -150,6 +174,14 @@ def factchecks_submit(req: func.HttpRequest) -> func.HttpResponse:
         "state": (body.get("state") or "").strip(),
         "lga": (body.get("lga") or "").strip(),
     }
+    # Optional screenshot from the app (camera / photo library). A bad or
+    # failed image never blocks the tip itself.
+    image_b64 = body.get("image_base64")
+    if isinstance(image_b64, str) and image_b64:
+        try:
+            tip["screenshot_url"] = _store_screenshot(image_b64, str(body.get("image_type") or "jpeg"))
+        except Exception:
+            logging.exception("factchecks_submit: screenshot not stored")
     try:
         graph.create_claim_tip(tip)
     except Exception:
@@ -158,6 +190,40 @@ def factchecks_submit(req: func.HttpRequest) -> func.HttpResponse:
             json.dumps({"error": "internal error"}), status_code=500, headers=headers
         )
     return func.HttpResponse(json.dumps({"status": "received"}), status_code=201, headers=headers)
+
+
+_VIDEO_ID = __import__("re").compile(r"^[A-Za-z0-9_-]{11}$")
+
+
+@app.function_name(name="video_player")
+@app.route(route="player", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def video_player(req: func.HttpRequest) -> func.HttpResponse:
+    """GET /api/player?v=<YouTube id> — a minimal page that embeds one video.
+    The NSA app shows it in its in-app player: YouTube refuses embeds from an
+    app's local origin (error 153), so the embed needs a real https page."""
+    vid = req.params.get("v", "")
+    if not _VIDEO_ID.match(vid):
+        return func.HttpResponse("Not found", status_code=404)
+    page = f"""<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Video</title>
+<style>html,body{{margin:0;height:100%;background:#000}}iframe{{position:fixed;inset:0;width:100%;height:100%;border:0}}</style>
+</head><body>
+<iframe src="https://www.youtube-nocookie.com/embed/{vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1"
+ allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
+ referrerpolicy="strict-origin-when-cross-origin" title="Video"></iframe>
+</body></html>"""
+    return func.HttpResponse(
+        page,
+        status_code=200,
+        mimetype="text/html",
+        headers={
+            "Cache-Control": "public, max-age=86400",
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com https://www.youtube.com",
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+    )
 
 
 @app.function_name(name="news_national")
