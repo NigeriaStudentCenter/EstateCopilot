@@ -43,6 +43,9 @@ const toWhatsApp = (phone: string) => (phone.startsWith('0') && phone.length ===
 // Matches whichever way the number was typed (08000000001 or 2348000000001).
 const testCodeFor = (phone: string) => env.artisanAuth.testLogins.find(([p]) => p === phone || p === toWhatsApp(phone))?.[1];
 
+/** The App Review / demo artisan: a phone listed in ARTISAN_TEST_LOGINS. */
+export const isTestArtisanPhone = (phone: string) => testCodeFor(phone) !== undefined;
+
 export type IssueResult =
   | { ok: true; devOtp?: string }
   | { ok: false; status: number; error: string };

@@ -1,6 +1,8 @@
 // Artisan Network — Phase 1 API. Phone/OTP auth, profile & the five-axis
 // classification, work-sample photos, tier 0/1 verification, and an
 // artisan-attributed quote on a marketplace job.
+import { isTestArtisanPhone } from '../services/artisanAuth.js';
+import { demoLandlordIds } from '../lib/demo.js';
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
@@ -359,12 +361,18 @@ artisanRouter.get('/artisan/jobs', requireArtisanAuth, async (req: ArtisanAuthed
       .map((t) => publicJob(t));
     return res.json(jobs);
   }
+  // The review/demo artisan sees the demo landlord's open repairs; real
+  // artisans never see the demo's fictional jobs.
+  const demoIds = await demoLandlordIds();
+  const where = isTestArtisanPhone(a.phone)
+    ? { status: { not: 'RESOLVED' as const }, property: { landlordId: { in: demoIds } } }
+    : {
+        openToMarketplace: true,
+        status: { not: 'RESOLVED' as const },
+        property: { lga: { in: [...lgas] }, ...(demoIds.length ? { landlordId: { notIn: demoIds } } : {}) },
+      };
   const rows = await prisma.maintenanceTicket.findMany({
-    where: {
-      openToMarketplace: true,
-      status: { not: 'RESOLVED' },
-      property: { lga: { in: [...lgas] } },
-    },
+    where,
     include: { property: { select: { lga: true, state: true, title: true } }, quotes: { select: { artisanId: true } } },
     orderBy: { createdAt: 'desc' },
   });
@@ -419,8 +427,16 @@ artisanRouter.post('/artisan/jobs/:ticketId/quote', requireArtisanAuth, async (r
     return res.status(201).json(quote);
   }
 
+  const demoIds = await demoLandlordIds();
   const job = await prisma.maintenanceTicket.findFirst({
-    where: { id: req.params.ticketId, openToMarketplace: true, status: { not: 'RESOLVED' } },
+    where: isTestArtisanPhone(a.phone)
+      ? { id: req.params.ticketId, status: { not: 'RESOLVED' }, property: { landlordId: { in: demoIds } } }
+      : {
+          id: req.params.ticketId,
+          openToMarketplace: true,
+          status: { not: 'RESOLVED' },
+          ...(demoIds.length ? { property: { landlordId: { notIn: demoIds } } } : {}),
+        },
   });
   if (!job) return res.status(404).json({ error: 'That job is not open for quotes' });
   const quote = await prisma.repairQuote.create({

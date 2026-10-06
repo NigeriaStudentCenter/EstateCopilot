@@ -13,6 +13,19 @@ interface Snapshot {
   tickets: Array<{ id: string; status: string; openToMarketplace: boolean; artisanName: string | null; artisanPhone: string | null; tenantSignedOff: boolean; proofPhotoUrls: string[]; resolvedAt: string | null }>;
   quotes: Array<{ id: string; status: string }>;
   levies: Array<{ id: string; status: string; clearedAt: string | null }>;
+  /** The demo landlord's tenants, so a deleted (anonymised) demo tenant login can be restored. */
+  tenants?: DemoTenant[];
+}
+
+interface DemoTenant { id: string; name: string; phone: string; email: string | null; passwordHash: string | null }
+
+async function demoTenants(propertyIds: string[]): Promise<DemoTenant[]> {
+  const rows = await prisma.tenancy.findMany({ where: { propertyId: { in: propertyIds } }, select: { tenant: true } });
+  const seen = new Map<string, DemoTenant>();
+  for (const { tenant: t } of rows) {
+    if (t && t.email) seen.set(t.id, { id: t.id, name: t.name, phone: t.phone, email: t.email, passwordHash: t.passwordHash });
+  }
+  return [...seen.values()];
 }
 
 const PROPERTY_FIELDS = [
@@ -52,6 +65,7 @@ export async function takeDemoSnapshot(landlordId: string): Promise<Snapshot> {
     })),
     quotes: quotes.map((q) => ({ id: q.id, status: q.status })),
     levies: levies.map((l) => ({ id: l.id, status: l.status, clearedAt: l.clearedAt?.toISOString() ?? null })),
+    tenants: await demoTenants(propertyIds),
   };
   await prisma.demoSnapshot.upsert({
     where: { landlordId },
@@ -148,8 +162,26 @@ export async function resetDemoLandlord(landlordId: string): Promise<Record<stri
     where: { id: landlordId },
     data: { ...identity, passwordHash, ...(subscriptionStatus ? { subscriptionStatus: subscriptionStatus as any } : {}) },
   });
-  if (passwordHash && passwordHash !== snapHash) {
-    await prisma.demoSnapshot.update({ where: { landlordId }, data: { data: { ...data, landlord: { ...data.landlord, passwordHash } } as any } });
+  let next: Snapshot = passwordHash && passwordHash !== snapHash ? { ...data, landlord: { ...data.landlord, passwordHash } } : data;
+
+  // Demo tenants: restore one that was deleted (anonymised) today; remember
+  // the current login of the others so a later deletion can be undone.
+  const knownTenants = new Map((data.tenants ?? []).map((t) => [t.id, t]));
+  for (const t of await demoTenants(propertyIds)) knownTenants.set(t.id, { ...knownTenants.get(t.id), ...t });
+  for (const t of knownTenants.values()) {
+    const cur = await prisma.tenant.findUnique({ where: { id: t.id }, select: { email: true, passwordHash: true } });
+    if (cur && !cur.email && t.email) {
+      const clash = await prisma.tenant.findFirst({ where: { OR: [{ email: t.email }, { phone: t.phone }], NOT: { id: t.id } }, select: { id: true } });
+      if (!clash) {
+        await prisma.tenant.update({ where: { id: t.id }, data: { name: t.name, phone: t.phone, email: t.email, passwordHash: t.passwordHash } });
+        counts.tenantsRestored = (counts.tenantsRestored ?? 0) + 1;
+      }
+    }
+  }
+  const tenants = [...knownTenants.values()];
+  if (next !== data || JSON.stringify(tenants) !== JSON.stringify(data.tenants ?? [])) {
+    next = { ...next, tenants };
+    await prisma.demoSnapshot.update({ where: { landlordId }, data: { data: next as any } });
   }
   return counts;
 }
