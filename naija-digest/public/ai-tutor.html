@@ -15,7 +15,7 @@
   --ground:#f5f7f3; --surface:#ffffff; --surface-2:#eef2ec; --raise:#e7ede6;
   --ink:#1a2420; --ink-soft:#54615a; --line:#d7ded6; --line-strong:#c1cbc0;
   --accent:#1f7a5c; --accent-ink:#12483a;
-  --ng:#c1702b; --uk:#2b6f8c;             /* jurisdiction accents */
+  --ng:#c1702b; --uk:#2b6f8c; --cam:#a51c30; --us:#1f3a93;  /* jurisdiction accents */
   --jur:var(--accent);                    /* switched at runtime  */
   --flag:#a93b32; --flag-bg:#f8e9e6;
   --code-bg:#eef2ec; --code-ink:#22302a;
@@ -26,7 +26,7 @@
     --ground:#11161a; --surface:#181f22; --surface-2:#1f282b; --raise:#232d30;
     --ink:#e7ede9; --ink-soft:#9aa8a1; --line:#2b3630; --line-strong:#3a463f;
     --accent:#5cc79e; --accent-ink:#bfe8d8;
-    --ng:#e0a56a; --uk:#7cbdd8;
+    --ng:#e0a56a; --uk:#7cbdd8; --cam:#e2788a; --us:#8fa8ec;
     --flag:#e79188; --flag-bg:#33211e;
     --code-bg:#10171a; --code-ink:#c8d4ce;
     --tutor-bg:#1c2a25; --you-bg:#1d2530;
@@ -36,7 +36,7 @@
   --ground:#11161a; --surface:#181f22; --surface-2:#1f282b; --raise:#232d30;
   --ink:#e7ede9; --ink-soft:#9aa8a1; --line:#2b3630; --line-strong:#3a463f;
   --accent:#5cc79e; --accent-ink:#bfe8d8;
-  --ng:#e0a56a; --uk:#7cbdd8;
+  --ng:#e0a56a; --uk:#7cbdd8; --cam:#e2788a; --us:#8fa8ec;
   --flag:#e79188; --flag-bg:#33211e;
   --code-bg:#10171a; --code-ink:#c8d4ce;
   --tutor-bg:#1c2a25; --you-bg:#1d2530;
@@ -80,7 +80,7 @@ button{font:inherit;cursor:pointer}
 .card .t{font-weight:700;display:block}
 .card .d{font-size:.85rem;color:var(--ink-soft);display:block;margin-top:.15rem}
 .card[aria-pressed="true"]{border-color:var(--jur);background:color-mix(in srgb,var(--jur) 12%,var(--surface))}
-.card.ng[aria-pressed="true"]{--jur:var(--ng)} .card.uk[aria-pressed="true"]{--jur:var(--uk)}
+.card.ng[aria-pressed="true"]{--jur:var(--ng)} .card.uk[aria-pressed="true"]{--jur:var(--uk)} .card.cam[aria-pressed="true"]{--jur:var(--cam)} .card.us[aria-pressed="true"]{--jur:var(--us)}
 
 label.field{display:block;margin-top:.8rem;font-size:.82rem;color:var(--ink-soft)}
 select,input[type=text],textarea{
@@ -185,9 +185,7 @@ details.facil pre{white-space:pre-wrap;font-family:"IBM Plex Mono",monospace;fon
   <header class="mast">
     <p class="eyebrow" id="brandEyebrow">AI Academy for Teens</p>
     <h1>AI&nbsp;Tutor Command&nbsp;Center</h1>
-    <p class="sub">A Socratic learning engine for primary and secondary students, on the Nigerian
-      (NERDC) and British (UK National) curricula. Set your learning path, then the tutor guides you
-      one question at a time &mdash; it never just hands over the answer.</p>
+    <p class="sub">A Socratic learning engine for students aged 13 and over, on the Nigerian (NERDC), British (UK National), Cambridge International and United States curricula. Set your learning path, then the tutor guides you one question at a time &mdash; it never just hands over the answer.</p>
   </header>
 
   <!-- ================= SETUP ================= -->
@@ -197,25 +195,26 @@ details.facil pre{white-space:pre-wrap;font-family:"IBM Plex Mono",monospace;fon
       <div class="cards">
         <button class="card ng" data-jur="ng" aria-pressed="false">
           <span class="t">Nigerian &mdash; NERDC</span>
-          <span class="d">Primary 1&ndash;6 &middot; JSS 1&ndash;3 &middot; SSS 1&ndash;3</span>
+          <span class="d">JSS 3 &middot; SSS 1&ndash;3 (ages 13+)</span>
         </button>
         <button class="card uk" data-jur="uk" aria-pressed="false">
           <span class="t">British &mdash; UK National</span>
-          <span class="d">Key Stages 1&ndash;2 &middot; Key Stages 3&ndash;4</span>
+          <span class="d">Years 9&ndash;11 &middot; KS3&ndash;4 (ages 13+)</span>
+        </button>
+        <button class="card cam" data-jur="cambridge" aria-pressed="false">
+          <span class="t">Cambridge International</span>
+          <span class="d">Lower Secondary &middot; IGCSE &middot; AS &amp; A Level</span>
+        </button>
+        <button class="card us" data-jur="us" aria-pressed="false">
+          <span class="t">United States</span>
+          <span class="d">Grades 8&ndash;12 &middot; Common Core, NGSS, C3</span>
         </button>
       </div>
     </div>
 
     <div class="step" id="step2" hidden>
       <div class="lbl"><span class="num">2</span><h2>Level</h2></div>
-      <div class="cards">
-        <button class="card" data-level="Primary" aria-pressed="false">
-          <span class="t">Primary</span><span class="d" id="primHint">&mdash;</span>
-        </button>
-        <button class="card" data-level="Secondary" aria-pressed="false">
-          <span class="t">Secondary</span><span class="d" id="secHint">&mdash;</span>
-        </button>
-      </div>
+      <div class="cards" id="levelCards"></div>
       <label class="field" id="yearWrap" hidden>Year / class
         <select id="year"><option value="">Select&hellip;</option></select>
       </label>
@@ -335,34 +334,10 @@ async function askProxy(messages, tier, signal){
 }
 
 /* ---------- curriculum data ---------- */
-const DATA = {
-  ng: {
-    label: "Nigerian (NERDC)",
-    primHint: "Primary 1 to Primary 6",
-    secHint: "JSS 1 to SSS 3",
-    years: {
-      Primary: ["Primary 1","Primary 2","Primary 3","Primary 4","Primary 5","Primary 6"],
-      Secondary: ["JSS 1","JSS 2","JSS 3","SSS 1","SSS 2","SSS 3"]
-    },
-    subjects: {
-      Primary: ["English Studies","Mathematics","Basic Science and Technology","National Values Education (Civic / Social Studies / Security)","Cultural and Creative Arts","Prevocational Studies","Christian Religious Studies","Islamic Religious Studies","History","Nigerian Language","Computer Studies / ICT"],
-      Secondary: ["English Language","Mathematics","Basic Science","Basic Technology","Biology","Chemistry","Physics","Further Mathematics","Civic Education","Social Studies","Economics","Government","Geography","Literature-in-English","Agricultural Science","Business Studies","Financial Accounting","Commerce","Computer Studies / ICT","Data Processing","Christian Religious Studies","Islamic Religious Studies","History","French"]
-    }
-  },
-  uk: {
-    label: "British (UK National)",
-    primHint: "Years 1-6 (Key Stages 1-2)",
-    secHint: "Years 7-11 (Key Stages 3-4)",
-    years: {
-      Primary: ["Year 1 (KS1)","Year 2 (KS1)","Year 3 (KS2)","Year 4 (KS2)","Year 5 (KS2)","Year 6 (KS2)"],
-      Secondary: ["Year 7 (KS3)","Year 8 (KS3)","Year 9 (KS3)","Year 10 (KS4 / GCSE)","Year 11 (KS4 / GCSE)"]
-    },
-    subjects: {
-      Primary: ["English","Mathematics","Science","History","Geography","Computing","Art and Design","Design and Technology","Music","Physical Education","Religious Education","Languages","PSHE"],
-      Secondary: ["English Language","English Literature","Mathematics","Combined Science","Biology","Chemistry","Physics","History","Geography","Computer Science","Modern Foreign Languages","Design and Technology","Art and Design","Music","Physical Education","Citizenship","Religious Education","Business Studies","Economics","PSHE"]
-    }
-  }
-};
+// AI Academy is for learners aged 13+. Cambridge syllabi: codes and names from Cambridge's published syllabi.
+const DATA = {"ng": {"label": "Nigerian (NERDC)", "levelHints": {"Secondary": "JSS 3 to SSS 3"}, "years": {"Secondary": ["JSS 3", "SSS 1", "SSS 2", "SSS 3"]}, "subjects": {"Secondary": ["English Language", "Mathematics", "Basic Science", "Basic Technology", "Biology", "Chemistry", "Physics", "Further Mathematics", "Civic Education", "Social Studies", "Economics", "Government", "Geography", "Literature-in-English", "Agricultural Science", "Business Studies", "Financial Accounting", "Commerce", "Computer Studies / ICT", "Data Processing", "Christian Religious Studies", "Islamic Religious Studies", "History", "French"]}}, "uk": {"label": "British (UK National)", "levelHints": {"Secondary": "Years 9-11 (Key Stages 3-4)"}, "years": {"Secondary": ["Year 9 (KS3)", "Year 10 (KS4 / GCSE)", "Year 11 (KS4 / GCSE)"]}, "subjects": {"Secondary": ["English Language", "English Literature", "Mathematics", "Combined Science", "Biology", "Chemistry", "Physics", "History", "Geography", "Computer Science", "Modern Foreign Languages", "Design and Technology", "Art and Design", "Music", "Physical Education", "Citizenship", "Religious Education", "Business Studies", "Economics", "PSHE"]}}, "cambridge": {"label": "Cambridge International", "levelHints": {"Lower Secondary": "Stage 9 · ages 13–14", "IGCSE": "Years 10–11 · ages 14–16", "AS & A Level": "Years 12–13 · ages 16–19"}, "years": {"Lower Secondary": ["Stage 9"], "IGCSE": ["Year 10 (IGCSE)", "Year 11 (IGCSE)"], "AS & A Level": ["Year 12 (AS Level)", "Year 13 (A Level)"]}, "subjects": {"Lower Secondary": ["0862 Mathematics", "0893 Science", "0861 English", "0876 English as a Second Language", "0860 Computing", "1129 Global Perspectives"], "IGCSE": ["0580 Mathematics", "0606 Additional Mathematics", "0500 First Language English", "0510 English as a Second Language (Speaking Endorsement)", "0625 Physics", "0620 Chemistry", "0610 Biology", "0653 Combined Science", "0654 Co-ordinated Sciences (Double Award)", "0478 Computer Science", "0417 Information and Communication Technology", "0455 Economics", "0450 Business Studies", "0452 Accounting", "0460 Geography", "0470 History", "0457 Global Perspectives", "0992 Literature in English", "0520 French (Foreign Language)", "0530 Spanish (Foreign Language)", "0400 Art and Design", "0410 Music", "0413 Physical Education", "0495 Sociology", "0266 Psychology", "0548 Afrikaans (Second Language)", "0600 Agriculture", "0409 American History (US)", "0508 Arabic (First Language)", "0544 Arabic (Foreign Language)", "0538 Bahasa Indonesia", "0264 Business", "0509 Chinese (First Language)", "0523 Chinese (Second Language)", "0547 Chinese Mandarin (Foreign Language)", "0715 Commerce", "0265 Computer Science (0265)", "0465 Core English as a Second Language", "0445 Design and Technology", "0411 Drama", "0511 English as a Second Language (Count-in Speaking)", "0472 English as an Additional Language", "0454 Enterprise", "0680 Environmental Management", "0524 First Language English (US)", "0648 Food and Nutrition", "0501 French (First Language)", "0505 German (First Language)", "0525 German (Foreign Language)", "0549 Hindi as a Second Language", "0607 International Mathematics", "0531 IsiZulu as a Second Language", "0493 Islamiyat", "0535 Italian (Foreign Language)", "0716 Japanese (Foreign Language)", "0480 Latin", "0474 Literature in Spanish", "0696 Malay (First Language)", "0546 Malay (Foreign Language)", "0697 Marine Science", "0444 Mathematics (US)", "0448 Pakistan Studies", "0652 Physical Science", "0504 Portuguese (First Language)", "0490 Religious Studies", "0499 Sanskrit", "0698 Setswana (First Language)", "0502 Spanish (First Language)", "0479 Statistics", "0262 Swahili", "0518 Thai (First Language)", "0471 Travel and Tourism", "0513 Turkish (First Language)", "0539 Urdu as a Second Language", "0695 Vietnamese (First Language)", "0408 World Literature"], "AS & A Level": ["9709 Mathematics", "9231 Further Mathematics", "9702 Physics", "9701 Chemistry", "9700 Biology", "9708 Economics", "9609 Business", "9706 Accounting", "9618 Computer Science", "9093 English Language", "9695 English Literature", "9696 Geography", "9489 History", "9990 Psychology", "9699 Sociology", "9084 Law", "9626 Information Technology", "9239 Global Perspectives & Research", "9680 Arabic", "8680 Arabic Language", "9865 Arabic Language & Literature", "9479 Art and Design", "9484 Biblical Studies", "9868 Chinese Language & Literature", "9274 Classical Studies", "9705 Design and Technology", "9481 Digital Media & Design", "9482 Drama", "8695 English Language and Literature", "8291 Environmental Management", "9981 European History", "9898 French Language & Literature", "8021 General Paper", "9897 German", "9487 Hinduism", "9982 International History", "9488 Islamic Studies", "9693 Marine Science", "9607 Media Studies", "9483 Music", "9718 Portuguese", "8684 Portuguese Language", "9844 Spanish Language & Literature", "9689 Tamil", "8689 Tamil Language", "9694 Thinking Skills", "9395 Travel and Tourism", "8686 Urdu Language", "9866 Urdu Language & Literature"]}}, "us": {"label": "United States", "levelHints": {"Middle school": "Grade 8 · ages 13–14", "High school": "Grades 9–12"}, "years": {"Middle school": ["Grade 8"], "High school": ["Grade 9", "Grade 10", "Grade 11", "Grade 12"]}, "subjects": {"Middle school": ["Math", "English Language Arts", "Science", "Social Studies", "Computer Science", "Spanish"], "High school": ["Math", "Algebra I", "Geometry", "Algebra II", "Precalculus", "Calculus", "Statistics", "English Language Arts", "Biology", "Chemistry", "Physics", "Earth and Space Science", "Environmental Science", "U.S. History", "World History", "U.S. Government and Civics", "Economics", "Geography", "Computer Science", "Spanish", "French"]}}};
+const JUR_VAR = {ng:'var(--ng)', uk:'var(--uk)', cambridge:'var(--cam)', us:'var(--us)'};
+const JUR_LANG = {ng:'en-NG', uk:'en-GB', cambridge:'en-GB', us:'en-US'};
 
 /* ---------- state ---------- */
 const path = { jur:null, level:null, year:"", subject:"", topic:"" };
@@ -381,7 +356,7 @@ function buildSystem(){
   const yr  = path.year || "[year/class]";
   const sub = subjectValue() || "[subject]";
   const top = ($("#topic").value || "").trim() || "[topic]";
-  return `You are the "Master AI Tutor Command Center", a cognitive learning engine for primary and secondary students. You operate inside the AI Academy for Teens, whose learning hub is hosted on an enterprise SharePoint site.
+  return `You are the "Master AI Tutor Command Center", a cognitive learning engine for secondary students aged 13 and over. You operate inside the AI Academy for Teens, whose learning hub is hosted on an enterprise SharePoint site.
 
 ## Locked learning parameters
 Onboarding is complete. These are LOCKED for this session - do not re-ask them:
@@ -391,8 +366,10 @@ Onboarding is complete. These are LOCKED for this session - do not re-ask them:
 - Topic: ${top}
 
 ## Curriculum grounding
-- Nigerian (NERDC): follow the NERDC national curriculum. Primary = Primary 1-6; Junior Secondary = JSS 1-3; Senior Secondary = SSS 1-3. Use Nigerian names, contexts and Naira.
-- British (UK National): follow the UK Department for Education national curriculum. Primary = Key Stages 1-2 (Years 1-6); Secondary = Key Stages 3-4 (Years 7-11), with GCSE framing at KS4.
+- Nigerian (NERDC): follow the NERDC national curriculum - JSS 3 and Senior Secondary (SSS 1-3). Use Nigerian names, contexts and Naira.
+- British (UK National): follow the UK Department for Education national curriculum - Year 9 (Key Stage 3) and Key Stage 4 (Years 10-11) with GCSE framing.
+- Cambridge International: follow the Cambridge syllabus named by its code (e.g. 0625 Physics, 9709 Mathematics) - Lower Secondary Stage 9, IGCSE (Core/Extended) or AS & A Level. Use the syllabus terminology and Cambridge command words (State, Describe, Explain, Calculate, Evaluate...); when practising, set ORIGINAL exam-style questions with marks in brackets and mark against mark-scheme points. Never claim to quote a real past paper. Use British English.
+- United States: follow the benchmark standards most states use - Common Core (math, ELA), NGSS (science), C3 (social studies) - at the student's grade (8-12). Use American English and US units.
 Teach at the locked level. Do not run far ahead of it.
 
 ## Pedagogical engine - the Socratic boundary
@@ -404,8 +381,7 @@ You are an active tutor, not an answer key.
 - Keep each message short: a sentence or two of framing, then the question on its own line.
 
 ## Tone and scaling
-- Primary: high-energy, warm, everyday language. Explain abstract ideas with playground, sport, food or market analogies. Short sentences. Encourage often.
-- Secondary: academic vocabulary for the level. Introduce and use the RTCE framework (Role, Task, Context, Execution) when the student structures their thinking or a prompt. Expect precision; demand source verification.
+- Learners are 13+: warm but academic vocabulary for the level. Introduce and use the RTCE framework (Role, Task, Context, Execution) when the student structures their thinking or a prompt. Expect precision; demand source verification.
 
 ## Study-tool integration
 The student has Microsoft Copilot (in their Academy Microsoft 365 account) and Google NotebookLM, each with a button to open it in a split-screen tab.
@@ -436,12 +412,10 @@ function refreshDump(){ $("#sysDump").textContent = buildSystem(); }
 $$('#step1 .card').forEach(b => b.onclick = () => {
   path.jur = b.dataset.jur;
   $$('#step1 .card').forEach(x => x.setAttribute('aria-pressed', x === b));
-  document.documentElement.style.setProperty('--jur', path.jur === 'ng' ? 'var(--ng)' : 'var(--uk)');
+  document.documentElement.style.setProperty('--jur', JUR_VAR[path.jur]);
   $('#brandEyebrow').textContent = "AI Academy for Teens — " + DATA[path.jur].label;
-  $('#primHint').textContent = DATA[path.jur].primHint;
-  $('#secHint').textContent = DATA[path.jur].secHint;
+  renderLevels();
   path.level = null; path.year = ""; path.subject = ""; path.topic = "";
-  $$('#step2 .card').forEach(x => x.setAttribute('aria-pressed','false'));
   $('#yearWrap').hidden = true; $('#year').value = "";
   $('#step3').hidden = true; $('#step4').hidden = true;
   $('#subjOtherWrap').hidden = true;
@@ -449,7 +423,15 @@ $$('#step1 .card').forEach(b => b.onclick = () => {
   updateStart();
 });
 
-$$('#step2 .card').forEach(b => b.onclick = () => {
+function renderLevels(){
+  const d = DATA[path.jur];
+  $('#levelCards').innerHTML = Object.keys(d.years).map(l =>
+    `<button class="card" data-level="${l}" aria-pressed="false"><span class="t">${l}</span><span class="d">${(d.levelHints||{})[l]||''}</span></button>`).join('');
+  $$('#step2 .card').forEach(b => b.onclick = () => pickLevel(b));
+  // One level only (Nigerian, British): select it straight away.
+  if (Object.keys(d.years).length === 1) pickLevel($('#step2 .card'));
+}
+function pickLevel(b){
   path.level = b.dataset.level;
   $$('#step2 .card').forEach(x => x.setAttribute('aria-pressed', x === b));
   const yrs = DATA[path.jur].years[path.level];
@@ -458,7 +440,7 @@ $$('#step2 .card').forEach(b => b.onclick = () => {
   path.year = ""; path.subject = ""; path.topic = "";
   $('#step3').hidden = true; $('#step4').hidden = true; $('#subjOtherWrap').hidden = true;
   updateStart();
-});
+}
 
 $('#year').onchange = e => {
   path.year = e.target.value;
@@ -607,7 +589,7 @@ const AUDIO = (() => {
     synth.cancel();
     const u = new SpeechSynthesisUtterance(clean(text));
     const v = chosenVoice(); if (v) u.voice = v;
-    u.lang = (v && v.lang) || (path.jur === 'ng' ? 'en-NG' : 'en-GB');
+    u.lang = (v && v.lang) || JUR_LANG[path.jur] || 'en-GB';
     u.rate = parseFloat(($('#rateSel') && $('#rateSel').value) || '1') || 1;
     u.onend = resetBtn; u.onerror = resetBtn;
     resetBtn();
@@ -642,7 +624,7 @@ if (SR){
     const box = $('#input');
     const base = box.value ? box.value.replace(/\s*$/, '') + ' ' : '';
     rec = new SR();
-    rec.lang = (path.jur === 'ng') ? 'en-NG' : 'en-GB';
+    rec.lang = JUR_LANG[path.jur] || 'en-GB';
     rec.interimResults = true; rec.continuous = false;
     rec.onstart = () => { listening = true; $('#micBtn').classList.add('on'); $('#micBtn').setAttribute('aria-label', 'Stop dictation'); };
     rec.onresult = e => {
@@ -780,7 +762,7 @@ function pathChips(){
 $('#startBtn').onclick = () => {
   path.topic = ($("#topic").value||"").trim();
   $('#setup').hidden = true; $('#session').hidden = false;
-  document.documentElement.style.setProperty('--jur', path.jur === 'ng' ? 'var(--ng)' : 'var(--uk)');
+  document.documentElement.style.setProperty('--jur', JUR_VAR[path.jur]);
   if (AUDIO.ok){ $('#audioBar').hidden = false; AUDIO.stop(); }
   pathChips();
   transcript().innerHTML = "";
