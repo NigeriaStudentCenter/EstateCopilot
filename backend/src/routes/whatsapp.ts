@@ -172,7 +172,8 @@ whatsappRouter.post('/webhooks/whatsapp/twilio', async (req, res) => {
 
 // Manual send endpoint, useful for testing the outbound path without
 // waiting on an inbound trigger (e.g. exercising the rent-reminder copy).
-whatsappRouter.post('/webhooks/whatsapp/send-test', async (req, res) => {
+// Admin-key guarded: unguarded, anyone could send as the business number.
+whatsappRouter.post('/webhooks/whatsapp/send-test', requireAdmin, async (req, res) => {
   const { to, body } = req.body ?? {};
   if (!to || !body) return res.status(400).json({ error: 'to and body are required' });
   const result = await sendWhatsAppMessage(to, body);
