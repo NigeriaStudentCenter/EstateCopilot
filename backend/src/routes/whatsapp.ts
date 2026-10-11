@@ -72,6 +72,24 @@ whatsappRouter.post('/webhooks/whatsapp', async (req, res) => {
   try {
     const entry = req.body?.entry?.[0];
     const change = entry?.changes?.[0]?.value;
+    // Delivery receipts for messages WE sent (sign-in codes, campaigns, agent
+    // replies). Logged so a failed send is visible in the App Service log
+    // stream with Meta's reason (e.g. 131042 payment issue). Recipient is
+    // masked to the last 4 digits.
+    for (const s of (change?.statuses ?? []) as {
+      id?: string;
+      status?: string;
+      recipient_id?: string;
+      errors?: { code?: number; title?: string; error_data?: { details?: string } }[];
+    }[]) {
+      const to = s.recipient_id ? `…${s.recipient_id.slice(-4)}` : '?';
+      const err = s.errors?.[0];
+      const reason = err ? ` error ${err.code}: ${err.title ?? ''}${err.error_data?.details ? ` (${err.error_data.details})` : ''}` : '';
+      const line = `[whatsapp:status] ${s.status} -> ${to} msg ${s.id ?? '?'}${reason}`;
+      if (s.status === 'failed') console.error(line);
+      else console.log(line);
+    }
+
     const message = change?.messages?.[0];
     if (!message) return; // status/receipt callback, not a message
 
