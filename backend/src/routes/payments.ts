@@ -13,6 +13,7 @@ import { tenancyLandlordId } from '../lib/ownership.js';
 import { recordMockPayment, mockPaymentsForTenancies } from '../lib/mockPayments.js';
 import { mockShortLetBookings } from '../lib/mockShortLet.js';
 import { reconcileMarketplacePayment } from '../services/artisanPayments.js';
+import { isAiAcademyEvent, forwardToAiAcademy } from '../services/aiAcademyForward.js';
 
 export const paymentsRouter = Router();
 
@@ -187,6 +188,18 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
   }
 
   const event = req.body?.event;
+
+  // AI Academy subscriptions share this Paystack account: hand them over
+  // before any EstateCopilot matching (e.g. by tenant email) can touch them.
+  if (isAiAcademyEvent(req.body)) {
+    try {
+      await forwardToAiAcademy((req as any).rawBody ?? Buffer.from(JSON.stringify(req.body)), req.get('x-paystack-signature'));
+      return res.json({ received: true, forwarded: 'ai-academy' });
+    } catch (err) {
+      console.error('[payments] AI Academy forward failed', err);
+      return res.status(502).json({ error: 'forward failed' }); // Paystack retries
+    }
+  }
 
   // A Payment Request (short-let stays, rent instalments) was paid. This
   // event carries our request_code; charge.success does not.

@@ -24,6 +24,13 @@ export const env = {
   paystack: {
     secretKey: process.env.PAYSTACK_SECRET_KEY,
   },
+  // AI Academy shares the Paystack account; its webhook events are forwarded.
+  aiAcademyPaystack: {
+    webhookUrl:
+      process.env.AI_ACADEMY_WEBHOOK_URL ??
+      'https://ai-academy-progress-api-bucjc4gtcsenhuhs.swedencentral-01.azurewebsites.net/api/paystackWebhook',
+    planCodes: (process.env.AI_ACADEMY_PAYSTACK_PLANS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  },
   flutterwave: {
     secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
   },
