@@ -14,6 +14,7 @@ import { recordMockPayment, mockPaymentsForTenancies } from '../lib/mockPayments
 import { mockShortLetBookings } from '../lib/mockShortLet.js';
 import { reconcileMarketplacePayment } from '../services/artisanPayments.js';
 import { isAiAcademyEvent, forwardToAiAcademy } from '../services/aiAcademyForward.js';
+import { isCampusMarketEvent, forwardToCampusMarket } from '../services/campusMarketForward.js';
 
 export const paymentsRouter = Router();
 
@@ -197,6 +198,18 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
       return res.json({ received: true, forwarded: 'ai-academy' });
     } catch (err) {
       console.error('[payments] AI Academy forward failed', err);
+      return res.status(502).json({ error: 'forward failed' }); // Paystack retries
+    }
+  }
+
+  // Campus Market (student marketplace) shares this Paystack account too.
+  if (isCampusMarketEvent(req.body)) {
+    try {
+      const forwarded = await forwardToCampusMarket((req as any).rawBody ?? Buffer.from(JSON.stringify(req.body)), req.get('x-paystack-signature'));
+      if (!forwarded) console.warn(`[payments] Campus Market event ${req.body?.data?.reference ?? '?'} dropped: CAMPUS_MARKET_WEBHOOK_URL not set`);
+      return res.json({ received: true, forwarded: forwarded ? 'campus-market' : null });
+    } catch (err) {
+      console.error('[payments] Campus Market forward failed', err);
       return res.status(502).json({ error: 'forward failed' }); // Paystack retries
     }
   }

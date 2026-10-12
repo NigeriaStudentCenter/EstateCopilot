@@ -25,6 +25,9 @@ export const env = {
     secretKey: process.env.PAYSTACK_SECRET_KEY,
   },
   // AI Academy shares the Paystack account; its webhook events are forwarded.
+  campusMarket: {
+    webhookUrl: process.env.CAMPUS_MARKET_WEBHOOK_URL || null,
+  },
   aiAcademyPaystack: {
     webhookUrl:
       process.env.AI_ACADEMY_WEBHOOK_URL ??
