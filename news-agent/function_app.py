@@ -20,7 +20,7 @@ import time
 
 import azure.functions as func
 
-from agent import graph, public_news
+from agent import graph, public_news, tv
 from agent.run import main
 from fact_agent.run import main as fact_main
 
@@ -226,6 +226,64 @@ def video_player(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 
+_TV_PAGE_URL = "https://func-rni-newsagent.azurewebsites.net/api/tv"
+
+
+@app.function_name(name="tv_page")
+@app.route(route="tv", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def tv_page(req: func.HttpRequest) -> func.HttpResponse:
+    """GET /api/tv — NSA TV, the 24/7 channel (agent/tv.py). Opened from the
+    NSA app's News feed card, so it needs no app update."""
+    with open(os.path.join(os.path.dirname(__file__), "agent", "tv.html"), encoding="utf-8") as f:
+        page = f.read()
+    return func.HttpResponse(
+        page,
+        status_code=200,
+        mimetype="text/html",
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "Content-Security-Policy": (
+                "default-src 'none'; style-src 'unsafe-inline'; "
+                "script-src 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; "
+                "img-src https://i.ytimg.com; connect-src 'self'; "
+                "frame-src https://www.youtube-nocookie.com https://www.youtube.com"
+            ),
+            "Referrer-Policy": "strict-origin-when-cross-origin",
+        },
+    )
+
+
+@app.function_name(name="tv_now")
+@app.route(route="tv/now", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
+def tv_now(req: func.HttpRequest) -> func.HttpResponse:
+    """GET /api/tv/now — server time, the live stream (if any) and the schedule position."""
+    headers = _cors_headers(req)
+    if req.method == "OPTIONS":
+        return func.HttpResponse(status_code=204, headers=headers)
+    headers.update({"Content-Type": "application/json", "Cache-Control": "no-store"})
+    return func.HttpResponse(json.dumps(tv.status()), headers=headers)
+
+
+def _tv_card() -> dict | None:
+    """The NSA TV card for the News feed: says LIVE while a stream is on."""
+    if (os.environ.get("TV_CARD") or "on") == "off":
+        return None
+    try:
+        live = tv.live()
+        now = None if live else tv.now_playing()
+    except Exception:
+        logging.exception("tv card failed")
+        return None
+    if live:
+        title, body, vid = f"🔴 LIVE now on NSA TV: {live['title']}", "Watch the live stream free in the app. Tap to join.", live["id"]
+    elif now:
+        title, body, vid = "📺 NSA TV — free, 24/7", f"On now: {now['title']}. Our channel plays non-stop and goes live from the road. Tap to watch.", now["id"]
+    else:
+        return None
+    return {"id": "nsa-tv", "advertiser": "NSA TV", "title": title, "body": body,
+            "url": _TV_PAGE_URL, "imageUrl": f"https://i.ytimg.com/vi/{vid}/hqdefault.jpg"}
+
+
 @app.function_name(name="news_national")
 @app.route(route="news/national", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def news_national(req: func.HttpRequest) -> func.HttpResponse:
@@ -239,8 +297,39 @@ def news_national(req: func.HttpRequest) -> func.HttpResponse:
         logging.exception("news_national failed")
         return func.HttpResponse(json.dumps({"error": "internal error"}), status_code=500,
                                  headers={**headers, "Content-Type": "application/json"})
-    headers.update({"Content-Type": "application/json", "Cache-Control": "public, max-age=300"})
+    tv_item = _tv_feed_item()
+    if tv_item:
+        rows = [tv_item, *rows]
+    headers.update({"Content-Type": "application/json", "Cache-Control": "public, max-age=120"})
     return func.HttpResponse(json.dumps(rows), headers=headers)
+
+
+def _tv_feed_item() -> dict | None:
+    """NSA TV pinned at the top of the app's National news feed, so the live
+    app shows it with no app update (TV_FEED=off removes it). Its source
+    "NSA TV" also appears as a filter chip above the feed."""
+    if (os.environ.get("TV_FEED") or "on") == "off":
+        return None
+    import datetime as _dt
+    try:
+        live = tv.live()
+        now = None if live else tv.now_playing()
+        partners = [c for c in tv.channels() if c["live"]]
+    except Exception:
+        logging.exception("tv feed item failed")
+        return None
+    names = ", ".join(c["name"] for c in partners[:4])
+    extra = f" Switch to {names} live with one tap." if names else ""
+    if live:
+        title = f"🔴 LIVE on NSA TV: {live['title']}"
+        summary = f"Nigeria Student Ambassador is live now. Tap to watch free.{extra}"
+    elif now:
+        title = "📺 NSA TV: free TV for every Nigerian, 24/7"
+        summary = f"On now: {now['title']}.{extra} Tap to watch."
+    else:
+        return None
+    return {"title": title, "summary": summary, "link": _TV_PAGE_URL, "source": "NSA TV",
+            "publishedAt": _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
 
 
 @app.function_name(name="sponsors")
@@ -279,7 +368,11 @@ def sponsors(req: func.HttpRequest) -> func.HttpResponse:
         if placement and r.get("placements") and placement not in r["placements"]:
             continue
         out.append({k: r.get(k) for k in ("id", "advertiser", "title", "body", "url", "imageUrl")})
-    headers.update({"Content-Type": "application/json", "Cache-Control": "public, max-age=300"})
+    if placement in ("", "news"):
+        card = _tv_card()
+        if card:
+            out.insert(0, card)
+    headers.update({"Content-Type": "application/json", "Cache-Control": "public, max-age=120"})
     return func.HttpResponse(json.dumps(out), headers=headers)
 
 

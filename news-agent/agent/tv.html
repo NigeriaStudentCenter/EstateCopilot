@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#0e2e1b">
+<title>NSA TV</title>
+<style>
+  :root { --green:#1b4d2e; --deep:#0e2e1b; --gold:#c9a227; --text:#f4f1e8; --muted:#a9b8ad; --red:#e0312f; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--deep); color:var(--text); font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  header { display:flex; align-items:center; gap:10px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; }
+  .logo { font-weight:800; letter-spacing:.5px; font-size:18px; }
+  .logo span { color:var(--gold); }
+  .in-app header { padding-right:64px; }
+  .pill { margin-left:auto; font-size:12px; font-weight:800; letter-spacing:.8px; padding:4px 10px; border-radius:99px; background:rgba(255,255,255,.12); }
+  .pill.live { background:var(--red); animation:pulse 1.6s infinite; }
+  @keyframes pulse { 50% { opacity:.65; } }
+  .chips { display:flex; gap:8px; overflow-x:auto; padding:0 16px 10px; scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:none; border:1px solid rgba(255,255,255,.22); background:transparent; color:var(--text); font:inherit; font-size:13px; font-weight:700; padding:7px 13px; border-radius:99px; }
+  .chip.on { background:var(--gold); border-color:var(--gold); color:var(--deep); }
+  .chip.off { opacity:.4; }
+  .chip .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--red); margin-right:6px; vertical-align:1px; }
+  .stage { position:relative; width:100%; aspect-ratio:16/9; background:#000; }
+  .stage #player, .stage iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+  #sound { position:absolute; left:12px; bottom:12px; z-index:2; border:0; border-radius:99px; padding:9px 14px; font:inherit; font-weight:700; background:rgba(0,0,0,.72); color:#fff; display:none; }
+  #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:20px; color:var(--muted); }
+  main { padding:14px 16px calc(24px + env(safe-area-inset-bottom)); max-width:760px; margin:0 auto; }
+  .now-label { font-size:12px; font-weight:700; letter-spacing:.8px; color:var(--gold); text-transform:uppercase; }
+  h1 { font-size:20px; margin:4px 0 6px; line-height:1.25; }
+  .bar { height:4px; border-radius:2px; background:rgba(255,255,255,.15); overflow:hidden; margin:8px 0 2px; }
+  .bar i { display:block; height:100%; width:0; background:var(--gold); }
+  .sub { color:var(--muted); font-size:13px; }
+  .ticker { position:relative; overflow:hidden; margin:14px -16px 0; background:var(--gold); color:var(--deep); font-weight:700; font-size:14px; white-space:nowrap; }
+  .ticker .tag { position:absolute; left:0; top:0; bottom:0; z-index:1; display:flex; align-items:center; padding:0 10px 0 16px; background:var(--red); color:#fff; font-size:12px; letter-spacing:.8px; }
+  .ticker .tag::after { content:""; position:absolute; right:-10px; top:0; bottom:0; border-left:10px solid var(--red); border-top:19px solid transparent; border-bottom:19px solid transparent; }
+  .ticker .track { display:inline-block; padding:10px 0 10px 100%; animation:tick linear infinite; will-change:transform; }
+  .ticker .track span, .ticker .track a { margin-right:48px; color:inherit; text-decoration:none; }
+  .ticker .track span::before, .ticker .track a::before { content:"◆"; margin-right:12px; opacity:.55; font-size:10px; vertical-align:2px; }
+  .ticker:active .track { animation-play-state:paused; }
+  @keyframes tick { from { transform:translateX(0); } to { transform:translateX(-100%); } }
+  @media (prefers-reduced-motion: reduce) { .ticker .track { animation:none; padding-left:110px; white-space:normal; } }
+  .ticker[hidden] { display:none; }
+  h2 { font-size:14px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin:22px 0 8px; }
+  ol { list-style:none; margin:0; padding:0; }
+  li { display:flex; gap:12px; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.08); }
+  li img { width:96px; aspect-ratio:16/9; object-fit:cover; border-radius:8px; background:#222; flex:none; }
+  li time { font-size:12px; font-weight:700; color:var(--gold); display:block; }
+  li b { font-weight:600; font-size:14px; }
+  .links { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+  .links a { flex:1; min-width:140px; text-align:center; text-decoration:none; color:var(--deep); background:var(--gold); font-weight:700; padding:11px; border-radius:12px; }
+  .links a.ghost { background:transparent; color:var(--text); border:1px solid rgba(255,255,255,.25); }
+  .note { color:var(--muted); font-size:12px; margin-top:16px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NSA <span>TV</span></div>
+  <div class="pill" id="pill">ON AIR 24/7</div>
+</header>
+<nav class="chips" id="chips" aria-label="Channels"></nav>
+<div class="stage">
+  <div id="player"></div>
+  <div id="msg">Tuning in…</div>
+  <button id="sound" type="button">🔊 Tap for sound</button>
+</div>
+<main>
+  <div class="now-label" id="nowLabel">Now playing</div>
+  <h1 id="title">&nbsp;</h1>
+  <div class="bar"><i id="progress"></i></div>
+  <div class="sub" id="sub">&nbsp;</div>
+  <div class="ticker" id="ticker" hidden aria-label="Latest headlines"><div class="tag">LATEST</div><div class="track" id="track"></div></div>
+  <h2 id="nextHead">Up next</h2>
+  <ol id="next"></ol>
+  <div class="links">
+    <a href="https://www.youtube.com/@NigeriaStudentAmbassador?sub_confirmation=1" target="_blank" rel="noopener">Subscribe on YouTube</a>
+    <a class="ghost" href="https://campusmarket.nigeriastudentcenter.com" target="_blank" rel="noopener">Campus Market</a>
+  </div>
+  <p class="note">NSA TV plays non-stop and switches to live automatically whenever Nigeria Student Ambassador goes live. Other channels are the broadcasters' own live streams on YouTube and appear when they're on air. Videos stream from YouTube; on mobile data, quality adjusts to your connection.</p>
+</main>
+<script>
+(() => {
+  const API = "tv/now";
+  // Inside the NSA app: leave room for the app's close button, and hand outside
+  // links to the app (it opens them in the in-app browser).
+  const IN_APP = new URLSearchParams(location.search).get("app") === "1";
+  if (IN_APP) {
+    document.documentElement.classList.add("in-app");
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest && e.target.closest("a[href^='http']");
+      if (!a || !window.parent || window.parent === window) return;
+      e.preventDefault();
+      window.parent.postMessage({ type: "nsa-open", url: a.href }, "*");
+    });
+  }
+  const $ = (id) => document.getElementById(id);
+  let skew = 0;          // server clock minus this device's clock, seconds
+  let state = null;      // last /tv/now answer
+  let player = null, ready = false, current = null, muted = true;
+  const store = { get: () => { try { return localStorage.getItem("nsaTvChannel"); } catch { return null; } },
+                  set: (v) => { try { localStorage.setItem("nsaTvChannel", v); } catch {} } };
+  let channel = new URLSearchParams(location.search).get("ch") || store.get() || "nsa";
+  const partner = () => (state && state.channels || []).find((c) => c.key === channel);
+
+  const clock = () => Date.now() / 1000 + skew;
+  const thumb = (id) => "https://i.ytimg.com/vi/" + id + "/mqdefault.jpg";
+  const hhmm = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";");
+
+  // Where the schedule is now, from the last answer and the clock (no refetch needed between programmes).
+  function scheduled() {
+    const n = state && state.now;
+    if (!n) return null;
+    const list = [{ id: n.id, title: n.title, seconds: n.seconds, starts: n.starts }, ...n.next];
+    const t = clock();
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      if (t < it.starts + it.seconds) return { item: it, offset: Math.max(0, t - it.starts), after: list.slice(i + 1) };
+    }
+    return null; // ran past the known list: refetch
+  }
+
+  function want() {
+    const p = partner();
+    if (p && p.live) return { id: p.live.id, title: p.live.title, live: true, offset: 0, partner: p };
+    if (p === undefined && channel !== "nsa" && state) channel = "nsa";   // channel removed
+    if (state && state.live) return { id: state.live.id, title: state.live.title, live: true, offset: 0 };
+    const s = scheduled();
+    return s ? { id: s.item.id, title: s.item.title, live: false, offset: s.offset, item: s.item, after: s.after } : null;
+  }
+
+  function chips() {
+    const list = [{ key: "nsa", name: "NSA TV", live: true }, ...(state && state.channels || [])];
+    $("chips").innerHTML = list.map((c) =>
+      '<button type="button" class="chip' + (c.key === channel ? " on" : "") + (c.live ? "" : " off") + '" data-key="' + esc(c.key) + '"' + (c.live ? "" : " disabled") + ">" +
+      (c.key !== "nsa" && c.live ? '<span class="dot"></span>' : "") + esc(c.name) + (c.live ? "" : " · off air") + "</button>").join("");
+  }
+  $("chips").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-key]");
+    if (!b || b.disabled) return;
+    channel = b.dataset.key; store.set(channel); current = null; chips(); tune();
+  });
+
+  function render(w) {
+    $("pill").textContent = w && w.live ? "● LIVE" : "ON AIR 24/7";
+    $("pill").className = "pill" + (w && w.live ? " live" : "");
+    $("nowLabel").textContent = w && w.partner ? "Live now on " + w.partner.name : w && w.live ? "Live now" : "Now playing";
+    $("title").textContent = w ? w.title : "NSA TV";
+    if (w && !w.live && w.item) {
+      $("sub").textContent = hhmm(w.item.starts) + " – " + hhmm(w.item.starts + w.item.seconds);
+      $("progress").style.width = Math.min(100, (w.offset / w.item.seconds) * 100) + "%";
+      $("nextHead").textContent = "Up next";
+      $("nextHead").hidden = false;
+      $("next").innerHTML = w.after.slice(0, 4).map((n) =>
+        '<li><img alt="" loading="lazy" src="' + thumb(n.id) + '"><div><time>' + hhmm(n.starts) + "</time><b>" + esc(n.title) + "</b></div></li>").join("");
+    } else if (w && w.live) {
+      $("sub").textContent = w.partner ? "The broadcaster's official live stream on YouTube" : "Streaming live from Nigeria Student Ambassador";
+      $("progress").style.width = "100%";
+      // While a live stream is on, the scrolling headlines take this space.
+      $("nextHead").hidden = true;
+      $("next").innerHTML = "";
+    }
+  }
+
+  let tickerKey = "";
+  function renderTicker() {
+    const lines = (state && state.ticker) || [];
+    const key = JSON.stringify(lines);
+    if (!lines.length || key === tickerKey) return;
+    tickerKey = key;
+    const track = $("track");
+    // Store links follow the viewer's phone: App Store on iPhone/iPad, Google Play on Android.
+    const ua = navigator.userAgent;
+    const pick = (l) => (/android/i.test(ua) && l.android) || (/iphone|ipad|ipod|macintosh/i.test(ua) && l.ios) || l.url || l.ios || l.android || "";
+    track.innerHTML = lines.map((l) => {
+      if (typeof l === "string") l = { text: l };
+      const href = pick(l);
+      return href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(l.text) + "</a>" : "<span>" + esc(l.text) + "</span>";
+    }).join("");
+    // Constant reading speed (~70px/s) whatever the length.
+    requestAnimationFrame(() => { track.style.animationDuration = Math.max(20, (track.scrollWidth + innerWidth) / 70) + "s"; });
+    $("ticker").hidden = false;
+  }
+
+  function tune() {
+    const w = want();
+    render(w);
+    if (!w || !ready) return;
+    if (!current || current.id !== w.id || current.live !== w.live) {
+      current = { id: w.id, live: w.live };
+      player.loadVideoById({ videoId: w.id, startSeconds: w.live ? undefined : Math.floor(w.offset) });
+      if (muted) player.mute(); else player.unMute();
+    } else if (!w.live && player.getCurrentTime) {
+      // Keep in step with everyone else (e.g. after the phone slept).
+      const drift = Math.abs(player.getCurrentTime() - w.offset);
+      if (drift > 8 && player.getPlayerState() === YT.PlayerState.PLAYING) player.seekTo(w.offset, true);
+    }
+  }
+
+  async function refresh() {
+    try {
+      const t0 = Date.now() / 1000;
+      const r = await fetch(API, { cache: "no-store" });
+      const j = await r.json();
+      skew = j.serverTime - (t0 + Date.now() / 1000) / 2;
+      state = j;
+      if (channel !== "nsa" && !(partner() && partner().live)) channel = "nsa";   // that channel went off air
+      chips();
+      renderTicker();
+      $("msg").style.display = "none";
+      tune();
+    } catch {
+      if (!state) $("msg").textContent = "Can't reach NSA TV right now — check your connection.";
+    }
+  }
+
+  window.onYouTubeIframeAPIReady = () => {
+    player = new YT.Player("player", {
+      host: "https://www.youtube-nocookie.com",
+      playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, controls: 1, mute: 1 },
+      events: {
+        onReady: () => { ready = true; player.mute(); $("sound").style.display = "block"; tune(); },
+        onStateChange: (e) => {
+          if (e.data === YT.PlayerState.ENDED) { current = null; want() && want().live ? refresh() : tune(); }
+          if (e.data === YT.PlayerState.PLAYING && !muted) player.unMute();
+        },
+        onError: () => { current = null; setTimeout(refresh, 5000); },
+      },
+    });
+  };
+
+  $("sound").addEventListener("click", () => {
+    muted = false;
+    if (player) { player.unMute(); player.setVolume(100); player.playVideo(); }
+    $("sound").style.display = "none";
+  });
+
+  refresh();
+  setInterval(refresh, 60000);                    // live switching + schedule changes
+  setInterval(() => { if (!scheduled() && !(state && state.live)) refresh(); else tune(); }, 1000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>
