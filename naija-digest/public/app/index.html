@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Get the Nigeria Student Ambassador app</title>
+<meta name="description" content="Free Nigerian news, fact-checks and NSA TV, 24/7. Download Nigeria Student Ambassador on the App Store and Google Play.">
+<meta property="og:title" content="Nigeria Student Ambassador: free news, fact-checks & NSA TV">
+<meta property="og:description" content="Free on the App Store and Google Play.">
+<meta property="og:image" content="https://news.nigeriastudentambassador.com/app/icon.png">
+<meta name="apple-itunes-app" content="app-id=6769323984">
+<link rel="icon" href="icon.png">
+<style>
+  :root { --green:#1b4d2e; --deep:#0e2e1b; --gold:#c9a227; --text:#f4f1e8; --muted:#b9c7bc; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:32px 16px;
+         background:linear-gradient(180deg,var(--green),var(--deep)); color:var(--text);
+         font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; text-align:center; }
+  main { max-width:420px; width:100%; }
+  .icon { width:112px; height:112px; border-radius:26px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  h1 { font-size:26px; line-height:1.2; margin:20px 0 6px; }
+  .tag { color:var(--gold); font-weight:700; margin:0 0 22px; }
+  ul { list-style:none; padding:0; margin:0 auto 28px; text-align:left; display:inline-block; color:var(--muted); }
+  li { margin:6px 0; }
+  .badges { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .badges a { display:block; }
+  .apple img { height:58px; width:auto; }
+  .google img { height:86px; width:auto; }   /* Google's badge artwork includes its own padding */
+  .note { font-size:13px; color:var(--muted); margin-top:26px; }
+  .note a { color:var(--gold); }
+</style>
+</head>
+<body>
+<main>
+  <img class="icon" src="icon.png" alt="Nigeria Student Ambassador app icon">
+  <h1>Nigeria Student Ambassador</h1>
+  <p class="tag">Free news · Fact-checks · NSA TV 24/7</p>
+  <ul>
+    <li>📰 Nigeria's leading newspapers, national &amp; local</li>
+    <li>✅ Fact-check rumours before you share</li>
+    <li>📺 NSA TV: free 24/7, plus live Nigerian news channels</li>
+  </ul>
+  <div class="badges">
+    <a class="apple" id="ios" href="https://apps.apple.com/app/nigeria-student-ambassador/id6769323984">
+      <img src="app-store-badge.png" alt="Download on the App Store"></a>
+    <a class="google" id="android" href="https://play.google.com/store/apps/details?id=com.nigeriastudentambassador.app">
+      <img src="google-play-badge.png" alt="Get it on Google Play"></a>
+  </div>
+  <p class="note">Free in every country except China. Or search "Nigeria Student Ambassador" in your app store.<br>
+    <a href="https://func-rni-newsagent.azurewebsites.net/api/tv">Watch NSA TV in your browser →</a></p>
+</main>
+<script>
+  // Put the visitor's own store first.
+  const ua = navigator.userAgent;
+  if (/android/i.test(ua)) document.querySelector(".badges").prepend(document.getElementById("android"));
+</script>
+</body>
+</html>
