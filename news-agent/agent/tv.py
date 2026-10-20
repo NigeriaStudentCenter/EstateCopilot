@@ -29,9 +29,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 
+from agent import shared_cache
+
 CHANNEL_ID = os.environ.get("TV_CHANNEL_ID", "UCGmFthtMUblCvhKjfe3zIhA")
 _VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 _LIVE_CACHE_S = 60
+# Requests accept live status up to this old; the warm_caches timer refreshes it every minute.
+LIVE_TTL = 90
 _live_cache: dict[str, tuple[float, dict | None]] = {}
 
 
@@ -130,7 +134,7 @@ def live() -> dict | None:
         return None
     if _VIDEO_ID.match(mode):
         return {"id": mode, "title": os.environ.get("TV_LIVE_TITLE") or "Live now"}
-    return _cached_live(CHANNEL_ID)
+    return shared_cache.cached("tv-live", LIVE_TTL, lambda: _detect_live(CHANNEL_ID))
 
 
 def partner_channels() -> list[dict]:
@@ -153,7 +157,11 @@ def partner_channels() -> list[dict]:
     ]
 
 
-def channels() -> list[dict]:
+def channels(ttl: float | None = None) -> list[dict]:
+    return shared_cache.cached("tv-channels", ttl or LIVE_TTL, _check_channels)
+
+
+def _check_channels() -> list[dict]:
     chans = partner_channels()
     with ThreadPoolExecutor(max_workers=6) as pool:
         lives = list(pool.map(lambda c: _cached_live(c["youtube"]), chans))

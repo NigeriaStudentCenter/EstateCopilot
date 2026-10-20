@@ -12,6 +12,8 @@ import concurrent.futures as cf
 import html
 import re
 import time
+
+from agent import shared_cache
 from typing import Any
 
 import feedparser
@@ -21,17 +23,13 @@ from . import config, graph
 
 _NATIONAL_TTL = 15 * 60
 _LOCAL_TTL = 5 * 60
-_cache: dict[str, tuple[float, Any]] = {}
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
 def _cached(key: str, ttl: int, load):
-    hit = _cache.get(key)
-    if hit and time.time() - hit[0] < ttl:
-        return hit[1]
-    value = load()
-    _cache[key] = (time.time(), value)
-    return value
+    # Shared across the app's instances (see shared_cache); the warm_caches
+    # timer refreshes "national" before it expires, so requests don't wait.
+    return shared_cache.cached(f"news-{key}", ttl, load)
 
 
 def _clean(text: str, limit: int = 280) -> str:

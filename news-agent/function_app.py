@@ -86,6 +86,25 @@ def fact_check_ingest(timer: func.TimerRequest) -> None:
         raise RuntimeError(f"fact-agent run returned {rc}")
 
 
+@app.function_name(name="warm_caches")
+@app.timer_trigger(schedule="0 * * * * *", arg_name="timer", run_on_startup=True, use_monitor=False)
+def warm_caches(timer: func.TimerRequest) -> None:
+    """Every minute: refresh the shared copies of the national headlines (when
+    over 10 min old — requests accept 15) and the NSA TV live checks (when over
+    45 s old — requests accept 90), so the app's News feed and NSA TV answer
+    straight from storage instead of fetching while the user waits."""
+    from agent import shared_cache
+
+    for name, fn in (
+        ("national", lambda: shared_cache.cached("news-national", 600, public_news._load_national)),
+        ("tv-live", lambda: shared_cache.cached("tv-live", 45, lambda: tv._detect_live(tv.CHANNEL_ID))),
+        ("tv-channels", lambda: tv.channels(ttl=45)),
+    ):
+        try:
+            fn()
+        except Exception:
+            logging.exception("warm_caches: %s failed", name)
+
 @app.function_name(name="factchecks_list")
 @app.route(route="factchecks", methods=["GET", "OPTIONS"], auth_level=func.AuthLevel.ANONYMOUS)
 def factchecks_list(req: func.HttpRequest) -> func.HttpResponse:

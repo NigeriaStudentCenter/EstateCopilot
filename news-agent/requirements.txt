@@ -5,3 +5,4 @@ selectolax>=0.3.21,<1.0  # 1.0 removed selectolax.parser (Modest)
 googlenewsdecoder>=0.1.7
 python-dotenv>=1.0.1
 azure-functions>=1.21.0
+azure-storage-blob>=12.19.0
