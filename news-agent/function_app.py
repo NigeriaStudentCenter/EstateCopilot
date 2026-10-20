@@ -260,7 +260,7 @@ def tv_page(req: func.HttpRequest) -> func.HttpResponse:
         status_code=200,
         mimetype="text/html",
         headers={
-            "Cache-Control": "public, max-age=300",
+            "Cache-Control": "no-cache",
             "Content-Security-Policy": (
                 "default-src 'none'; style-src 'unsafe-inline'; "
                 "script-src 'unsafe-inline' https://www.youtube.com https://s.ytimg.com; "

@@ -36,12 +36,9 @@
   .ticker { position:relative; overflow:hidden; margin:14px -16px 0; background:var(--gold); color:var(--deep); font-weight:700; font-size:14px; white-space:nowrap; }
   .ticker .tag { position:absolute; left:0; top:0; bottom:0; z-index:1; display:flex; align-items:center; padding:0 10px 0 16px; background:var(--red); color:#fff; font-size:12px; letter-spacing:.8px; }
   .ticker .tag::after { content:""; position:absolute; right:-10px; top:0; bottom:0; border-left:10px solid var(--red); border-top:19px solid transparent; border-bottom:19px solid transparent; }
-  .ticker .track { display:inline-block; padding:10px 0 10px 100%; animation:tick linear infinite; will-change:transform; }
+  .ticker .track { display:inline-block; padding:10px 0; will-change:transform; }
   .ticker .track span, .ticker .track a { margin-right:48px; color:inherit; text-decoration:none; }
   .ticker .track span::before, .ticker .track a::before { content:"◆"; margin-right:12px; opacity:.55; font-size:10px; vertical-align:2px; }
-  .ticker:active .track { animation-play-state:paused; }
-  @keyframes tick { from { transform:translateX(0); } to { transform:translateX(-100%); } }
-  @media (prefers-reduced-motion: reduce) { .ticker .track { animation:none; padding-left:110px; white-space:normal; } }
   .ticker[hidden] { display:none; }
   h2 { font-size:14px; letter-spacing:.6px; text-transform:uppercase; color:var(--muted); margin:22px 0 8px; }
   ol { list-style:none; margin:0; padding:0; }
@@ -165,6 +162,34 @@
   }
 
   let tickerKey = "";
+  // The banner is moved by script rather than a CSS animation: phones with
+  // "Reduce Motion" / "Remove animations" switched on stop CSS animations, and
+  // the scrolling headlines are the point of the banner. Holding a finger on
+  // it pauses it so a headline can be read or tapped.
+  let tickX = null, tickLast = 0, tickHeld = false, tickRunning = false;
+  function startTicker() {
+    const track = $("track"), box = $("ticker");
+    if (tickX === null) tickX = box.clientWidth;
+    if (tickRunning) return;
+    tickRunning = true;
+    const hold = (v) => () => { tickHeld = v; };
+    box.addEventListener("touchstart", hold(true), { passive: true });
+    box.addEventListener("touchend", hold(false));
+    box.addEventListener("touchcancel", hold(false));
+    box.addEventListener("mouseenter", hold(true));
+    box.addEventListener("mouseleave", hold(false));
+    const step = (t) => {
+      const dt = tickLast ? Math.min(0.1, (t - tickLast) / 1000) : 0;
+      tickLast = t;
+      if (!tickHeld && !document.hidden) {
+        tickX -= 70 * dt; // pixels per second
+        if (tickX < -track.scrollWidth) tickX = box.clientWidth;
+        track.style.transform = "translate3d(" + tickX.toFixed(1) + "px,0,0)";
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
   function renderTicker() {
     const lines = (state && state.ticker) || [];
     const key = JSON.stringify(lines);
@@ -180,8 +205,8 @@
       return href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener">' + esc(l.text) + "</a>" : "<span>" + esc(l.text) + "</span>";
     }).join("");
     // Constant reading speed (~70px/s) whatever the length.
-    requestAnimationFrame(() => { track.style.animationDuration = Math.max(20, (track.scrollWidth + innerWidth) / 70) + "s"; });
     $("ticker").hidden = false;
+    startTicker();
   }
 
   function tune() {
