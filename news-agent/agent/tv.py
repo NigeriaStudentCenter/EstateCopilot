@@ -9,6 +9,8 @@ ends, it goes back to the schedule.
 
 Settings (all optional, edited in the portal, no redeploy):
   TV_SCHEDULE_JSON  replaces agent/tv.json: {"epoch": ISO, "items": [{id, title, seconds}]}
+                    (landscape 16:9 videos only — portrait/Shorts play with black
+                    bars beside them, unlike the TV channels)
   TV_LIVE           "auto" (default: detect the YouTube channel going live),
                     "off" (never switch), or a YouTube video id to force live
   TV_LIVE_TITLE     title shown for a forced live stream

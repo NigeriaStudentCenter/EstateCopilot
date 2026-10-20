@@ -3,12 +3,6 @@
  "epoch": "2026-10-19T00:00:00Z",
  "items": [
   {
-   "id": "hsg9zwN8X5U",
-   "title": "Return to Nigeria Initiative",
-   "seconds": 74,
-   "block": "Return to Nigeria"
-  },
-  {
    "id": "5mmqTT3aTuI",
    "title": "The Future is Moving — How Ready Are You?",
    "seconds": 219,
@@ -31,18 +25,6 @@
    "title": "Sales Fundamentals",
    "seconds": 1248,
    "block": "Business & Money"
-  },
-  {
-   "id": "pJp-tnFQySg",
-   "title": "Return to Nigeria Initiative — Partnership Presentation",
-   "seconds": 779,
-   "block": "Return to Nigeria"
-  },
-  {
-   "id": "hsg9zwN8X5U",
-   "title": "Return to Nigeria Initiative",
-   "seconds": 74,
-   "block": "Return to Nigeria"
   },
   {
    "id": "OOHxaP5sYJM",
@@ -69,18 +51,6 @@
    "block": "Business & Money"
   },
   {
-   "id": "nIEyWSBp-oY",
-   "title": "Return to Nigeria Initiative (French)",
-   "seconds": 81,
-   "block": "Return to Nigeria"
-  },
-  {
-   "id": "hsg9zwN8X5U",
-   "title": "Return to Nigeria Initiative",
-   "seconds": 74,
-   "block": "Return to Nigeria"
-  },
-  {
    "id": "WziGmCaC_B4",
    "title": "How AI Is Changing Hiring — Fast and Fair",
    "seconds": 239,
@@ -103,18 +73,6 @@
    "title": "Spot the Gap",
    "seconds": 78,
    "block": "Business & Money"
-  },
-  {
-   "id": "ErjlUxrSGFA",
-   "title": "Return to Nigeria Initiative (German)",
-   "seconds": 74,
-   "block": "Return to Nigeria"
-  },
-  {
-   "id": "hsg9zwN8X5U",
-   "title": "Return to Nigeria Initiative",
-   "seconds": 74,
-   "block": "Return to Nigeria"
   },
   {
    "id": "Z0z0G3IxqfI",
@@ -141,18 +99,6 @@
    "block": "Business & Money"
   },
   {
-   "id": "J21sgms9qBY",
-   "title": "Return to Nigeria Initiative (Spanish)",
-   "seconds": 84,
-   "block": "Return to Nigeria"
-  },
-  {
-   "id": "hsg9zwN8X5U",
-   "title": "Return to Nigeria Initiative",
-   "seconds": 74,
-   "block": "Return to Nigeria"
-  },
-  {
    "id": "AIqKwk5NvzA",
    "title": "Stop One-Size-Fits-All Training: AI for 2026",
    "seconds": 240,
@@ -171,34 +117,10 @@
    "block": "Mindset & Students"
   },
   {
-   "id": "T67mvFashvk",
-   "title": "Return to Nigeria Initiative (Portuguese)",
-   "seconds": 80,
-   "block": "Return to Nigeria"
-  },
-  {
-   "id": "hsg9zwN8X5U",
-   "title": "Return to Nigeria Initiative",
-   "seconds": 74,
-   "block": "Return to Nigeria"
-  },
-  {
    "id": "dn1pwfas-Wc",
    "title": "HR Students and AI Adoption",
    "seconds": 598,
    "block": "AI & the Future of Work"
-  },
-  {
-   "id": "rhWmnNzCBQ8",
-   "title": "Mobile Workshop",
-   "seconds": 18,
-   "block": "Mindset & Students"
-  },
-  {
-   "id": "qF0__bHGb4Y",
-   "title": "Return to Nigeria Initiative (Dutch)",
-   "seconds": 69,
-   "block": "Return to Nigeria"
   }
  ],
  "channels": [
