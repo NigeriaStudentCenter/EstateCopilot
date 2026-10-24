@@ -14,7 +14,7 @@ import { recordMockPayment, mockPaymentsForTenancies } from '../lib/mockPayments
 import { mockShortLetBookings } from '../lib/mockShortLet.js';
 import { reconcileMarketplacePayment } from '../services/artisanPayments.js';
 import { isAiAcademyEvent, forwardToAiAcademy } from '../services/aiAcademyForward.js';
-import { isCampusMarketEvent, forwardToCampusMarket } from '../services/campusMarketForward.js';
+import { isCampusMarketEvent, forwardToCampusMarket, isDiasporaMarketEvent, forwardToDiasporaMarket } from '../services/campusMarketForward.js';
 
 export const paymentsRouter = Router();
 
@@ -198,6 +198,18 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
       return res.json({ received: true, forwarded: 'ai-academy' });
     } catch (err) {
       console.error('[payments] AI Academy forward failed', err);
+      return res.status(502).json({ error: 'forward failed' }); // Paystack retries
+    }
+  }
+
+  // Diaspora Market (the diaspora marketplace) shares it as well.
+  if (isDiasporaMarketEvent(req.body)) {
+    try {
+      const forwarded = await forwardToDiasporaMarket((req as any).rawBody ?? Buffer.from(JSON.stringify(req.body)), req.get('x-paystack-signature'));
+      if (!forwarded) console.warn(`[payments] Diaspora Market event ${req.body?.data?.reference ?? '?'} dropped: DIASPORA_MARKET_WEBHOOK_URL not set`);
+      return res.json({ received: true, forwarded: forwarded ? 'diaspora-market' : null });
+    } catch (err) {
+      console.error('[payments] Diaspora Market forward failed', err);
       return res.status(502).json({ error: 'forward failed' }); // Paystack retries
     }
   }

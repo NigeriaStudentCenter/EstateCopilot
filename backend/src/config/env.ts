@@ -28,6 +28,10 @@ export const env = {
   campusMarket: {
     webhookUrl: process.env.CAMPUS_MARKET_WEBHOOK_URL || null,
   },
+  // Diaspora Market (same Paystack account): its DM- events are forwarded too.
+  diasporaMarket: {
+    webhookUrl: process.env.DIASPORA_MARKET_WEBHOOK_URL || null,
+  },
   aiAcademyPaystack: {
     webhookUrl:
       process.env.AI_ACADEMY_WEBHOOK_URL ??
