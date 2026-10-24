@@ -41,3 +41,32 @@ export async function forwardToCampusMarket(rawBody: Buffer, signature: string |
   if (!res.ok) throw new Error(`Campus Market webhook returned ${res.status}`);
   return true;
 }
+
+// ---------- Diaspora Market ----------
+// The diaspora version of Campus Market (same codebase, its own API) also takes
+// Paystack payments from Nigeria-based sellers' buyers, with DM- references.
+// Setting: DIASPORA_MARKET_WEBHOOK_URL, e.g.
+// https://diasporamarket-api.azurewebsites.net/api/paystack/webhook
+
+/** Whether a (signature-checked) Paystack event belongs to Diaspora Market. */
+export function isDiasporaMarketEvent(body: PaystackEvent): boolean {
+  const data = body?.data;
+  if (!data) return false;
+  const meta = typeof data.metadata === 'object' && data.metadata ? data.metadata : null;
+  if (meta?.product === 'diaspora-market') return true;
+  // checkouts are DM-<time>-<random>; escrow payout transfers are dm-release-<order>
+  return typeof data.reference === 'string' && /^dm-/i.test(data.reference);
+}
+
+export async function forwardToDiasporaMarket(rawBody: Buffer, signature: string | undefined): Promise<boolean> {
+  const url = env.diasporaMarket.webhookUrl;
+  if (!url) return false;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-paystack-signature': signature ?? '' },
+    body: new Uint8Array(rawBody),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Diaspora Market webhook returned ${res.status}`);
+  return true;
+}
