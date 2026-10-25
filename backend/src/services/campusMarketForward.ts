@@ -7,7 +7,7 @@
 //
 // Setting: CAMPUS_MARKET_WEBHOOK_URL, e.g.
 // https://campus-market-api.azurewebsites.net/api/paystack/webhook. Unset =>
-// campus events are acknowledged and dropped (logged), never treated as rent.
+// campus events get a 503 (so Paystack retries them), never treated as rent.
 
 import { env } from '../config/env.js';
 

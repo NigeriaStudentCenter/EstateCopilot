@@ -34,6 +34,9 @@ import { agentsRouter } from './routes/agents.js';
 import { adminRouter } from './routes/admin.js';
 import { demoGuard } from './lib/demo.js';
 import { startDemoResetScheduler } from './services/demoReset.js';
+import { migrateOnStart } from './lib/migrateOnStart.js';
+
+migrateOnStart();
 
 if (env.mockMode) {
   seedDemoLandlord();
