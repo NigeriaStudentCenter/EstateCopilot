@@ -206,8 +206,12 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
   if (isDiasporaMarketEvent(req.body)) {
     try {
       const forwarded = await forwardToDiasporaMarket((req as any).rawBody ?? Buffer.from(JSON.stringify(req.body)), req.get('x-paystack-signature'));
-      if (!forwarded) console.warn(`[payments] Diaspora Market event ${req.body?.data?.reference ?? '?'} dropped: DIASPORA_MARKET_WEBHOOK_URL not set`);
-      return res.json({ received: true, forwarded: forwarded ? 'diaspora-market' : null });
+      if (!forwarded) {
+        // not ours to process, and dropping it would lose the sale: answer 503 so Paystack keeps retrying until the URL is set
+        console.error(`[payments] Diaspora Market event ${req.body?.data?.reference ?? '?'} not delivered: DIASPORA_MARKET_WEBHOOK_URL not set`);
+        return res.status(503).json({ error: 'diaspora-market forwarding not configured' });
+      }
+      return res.json({ received: true, forwarded: 'diaspora-market' });
     } catch (err) {
       console.error('[payments] Diaspora Market forward failed', err);
       return res.status(502).json({ error: 'forward failed' }); // Paystack retries
@@ -218,8 +222,12 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
   if (isCampusMarketEvent(req.body)) {
     try {
       const forwarded = await forwardToCampusMarket((req as any).rawBody ?? Buffer.from(JSON.stringify(req.body)), req.get('x-paystack-signature'));
-      if (!forwarded) console.warn(`[payments] Campus Market event ${req.body?.data?.reference ?? '?'} dropped: CAMPUS_MARKET_WEBHOOK_URL not set`);
-      return res.json({ received: true, forwarded: forwarded ? 'campus-market' : null });
+      if (!forwarded) {
+        // not ours to process, and dropping it would lose the sale: answer 503 so Paystack keeps retrying until the URL is set
+        console.error(`[payments] Campus Market event ${req.body?.data?.reference ?? '?'} not delivered: CAMPUS_MARKET_WEBHOOK_URL not set`);
+        return res.status(503).json({ error: 'campus-market forwarding not configured' });
+      }
+      return res.json({ received: true, forwarded: 'campus-market' });
     } catch (err) {
       console.error('[payments] Campus Market forward failed', err);
       return res.status(502).json({ error: 'forward failed' }); // Paystack retries
