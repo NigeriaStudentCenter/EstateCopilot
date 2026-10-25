@@ -3,6 +3,9 @@ import { env } from '../config/env.js';
 
 export const healthRouter = Router();
 
+// when this worker started: the deploy workflow waits for one newer than its deploy
+const startedAt = new Date().toISOString();
+
 healthRouter.get('/', (_req, res) => {
   res.json({
     name: 'EstateCopilot backend',
@@ -66,5 +69,6 @@ healthRouter.get('/health', (_req, res) => {
     status: 'ok',
     mockMode: env.mockMode,
     time: new Date().toISOString(),
+    startedAt,
   });
 });

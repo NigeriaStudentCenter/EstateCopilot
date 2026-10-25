@@ -67,6 +67,7 @@ jobs:
             | python3 -c 'import json,sys; print(json.load(sys.stdin).get("RUN_MIGRATIONS_ON_START",""))')
           [ "$on" = "true" ] || { echo "::error::set RUN_MIGRATIONS_ON_START=true on ${AZURE_WEBAPP_NAME} first, or migrations won't run"; exit 1; }
           echo "startup migrations: on"
+          echo "DEPLOY_STARTED=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
 
       # Ships node_modules + the compiled dist/ as-is. Set the App Service
       # setting SCM_DO_BUILD_DURING_DEPLOYMENT=false and startup command
@@ -78,14 +79,16 @@ jobs:
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
           package: backend
 
-      # The deploy restarts the app; it migrates, then starts serving.
+      # The deploy restarts the app; it migrates, then starts serving. Wait for a
+      # worker that started after this deploy did: the old one keeps answering
+      # /health for a minute or so, and must not be mistaken for the new one.
       - name: Wait for the API (runs migrations on start)
         shell: bash
         run: |
           health="https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health"
-          sleep 30 # let the old worker stop, so its answer isn't mistaken for the new one's
           for i in $(seq 1 40); do
-            if curl -fsS -m 15 "$health" >/dev/null; then echo "healthy after ~$((30 + i*15))s"; exit 0; fi
+            started=$(curl -fsS -m 15 "$health" 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin).get("startedAt",""))' 2>/dev/null || true)
+            if [[ -n "$started" && "$started" > "$DEPLOY_STARTED" ]]; then echo "new worker up (started $started) after ~$((i*15))s"; exit 0; fi
             sleep 15
           done
-          echo "::error::$health did not come up within 10 min; see the App Service log stream for [startup] migration output"; exit 1
+          echo "::error::no new worker on $health within 10 min; if migrations failed, the App Service log stream has the [startup] output"; exit 1
