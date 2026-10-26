@@ -13,6 +13,16 @@
   header { display:flex; align-items:center; gap:10px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; }
   .logo { font-weight:800; letter-spacing:.5px; font-size:18px; }
   .logo span { color:var(--gold); }
+  /* ?embed=1: inside the app's small video player (from the Videos tab) —
+     just the picture with the channel buttons over it, plus a way back. */
+  .embed header, .embed main { display:none; }
+  .embed body { overflow:hidden; }
+  .embed .stage { aspect-ratio:auto; height:100vh; }
+  .embed .chips { position:fixed; top:0; left:0; right:0; z-index:5; padding:6px 8px; background:linear-gradient(rgba(0,0,0,.75),rgba(0,0,0,0)); }
+  .embed .chip { font-size:12px; padding:6px 10px; }
+  .embed #sound { bottom:8px; left:8px; padding:7px 11px; font-size:13px; }
+  .back { display:none; }
+  .embed .back { display:block; position:fixed; right:8px; bottom:8px; z-index:5; background:rgba(0,0,0,.7); color:#fff; border-radius:99px; padding:7px 11px; font:700 13px -apple-system,system-ui,sans-serif; text-decoration:none; }
   .in-app header { padding-right:64px; }
   .pill { margin-left:auto; font-size:12px; font-weight:800; letter-spacing:.8px; padding:4px 10px; border-radius:99px; background:rgba(255,255,255,.12); }
   .pill.live { background:var(--red); animation:pulse 1.6s infinite; }
@@ -60,6 +70,7 @@
   <div class="pill" id="pill">ON AIR 24/7</div>
 </header>
 <nav class="chips" id="chips" aria-label="Channels"></nav>
+<a class="back" id="back" href="#">‹ Back to video</a>
 <div class="stage">
   <div id="player"></div>
   <div id="msg">Tuning in…</div>
@@ -86,6 +97,13 @@
   // Inside the NSA app: leave room for the app's close button, and hand outside
   // links to the app (it opens them in the in-app browser).
   const IN_APP = new URLSearchParams(location.search).get("app") === "1";
+  const qs = new URLSearchParams(location.search);
+  if (qs.get("embed") === "1") {
+    document.documentElement.classList.add("embed");
+    const from = qs.get("from") || "";
+    if (/^[A-Za-z0-9_-]{11}$/.test(from)) document.getElementById("back").href = "player?v=" + from;
+    else document.getElementById("back").remove();
+  }
   if (IN_APP) {
     document.documentElement.classList.add("in-app");
     document.addEventListener("click", (e) => {
