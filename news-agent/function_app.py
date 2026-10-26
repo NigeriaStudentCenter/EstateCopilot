@@ -232,7 +232,18 @@ def video_player(req: func.HttpRequest) -> func.HttpResponse:
 letter-spacing:.3px;padding:9px 12px;border-radius:99px;text-decoration:none;box-shadow:0 2px 10px rgba(0,0,0,.45)}}
 .tv b{{color:#e0312f}}</style>
 </head><body>
-<a class="tv" href="tv?embed=1&amp;from={vid}"><b>●</b> NSA TV LIVE ›</a>
+<a class="tv" id="tv" href="tv?embed=1&amp;from={vid}"><b>●</b> WATCH NSA TV ›</a>
+<script>
+// In the NSA app, send the viewer to the app's News tab, where NSA TV opens
+// full screen with its banner and buttons (same look everywhere). Elsewhere
+// (or if the app's address can't be read) fall back to the compact view.
+(function () {{
+  var o = (location.ancestorOrigins && location.ancestorOrigins[0]) || "";
+  if (/^(capacitor|ionic):\/\/localhost$|^https?:\/\/localhost$/.test(o)) {{
+    var a = document.getElementById("tv"); a.href = o + "/news"; a.target = "_top";
+  }}
+}})();
+</script>
 <iframe src="https://www.youtube-nocookie.com/embed/{vid}?autoplay=1&playsinline=1&rel=0&modestbranding=1"
  allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
  referrerpolicy="strict-origin-when-cross-origin" title="Video"></iframe>
@@ -243,7 +254,7 @@ letter-spacing:.3px;padding:9px 12px;border-radius:99px;text-decoration:none;box
         mimetype="text/html",
         headers={
             "Cache-Control": "public, max-age=300",
-            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com https://www.youtube.com",
+            "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-src https://www.youtube-nocookie.com https://www.youtube.com",
             "Referrer-Policy": "strict-origin-when-cross-origin",
         },
     )
