@@ -646,7 +646,7 @@ async function captureNewNigerianLead(
 async function shareMiningLandingPage(): Promise<string> {
   return (
     `Course information and the readiness assessment: ${MINING_LANDING_URL} ` +
-    'The assessment is a learning check, not an entrance exam. There is no online payment on this page yet — payment questions go to a human adviser.'
+    'The assessment is a learning check, not an entrance exam. Online payment is connected to this page, so this is also where they pay. Payment problems go to a human adviser.'
   );
 }
 
