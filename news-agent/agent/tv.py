@@ -183,6 +183,8 @@ DEFAULT_TICKER = [
      "android": "https://play.google.com/store/apps/details?id=org.bsoedu.aiacademy"},
     {"text": "🛍️ Campus Market: buy and sell with students across Nigeria at campusmarket.nigeriastudentcenter.com",
      "url": "https://campusmarket.nigeriastudentcenter.com"},
+    {"text": "🌍 Diaspora Market: buy and sell across Nigeria and the diaspora, paid safely with escrow. diasporamarket.nigeriastudentcenter.com",
+     "url": "https://diasporamarket.nigeriastudentcenter.com"},
     {"text": "🏠 EstateCopilot app: rent, pay and manage property the smart way. On the App Store & Google Play",
      "ios": "https://apps.apple.com/app/id6816638130",
      "android": "https://play.google.com/store/apps/details?id=org.estatecopilot.app"},
