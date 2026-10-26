@@ -340,11 +340,11 @@ def _tv_feed_item() -> dict | None:
     names = ", ".join(c["name"] for c in partners[:4])
     extra = f" Switch to {names} live with one tap." if names else ""
     if live:
-        title = f"🔴 LIVE on NSA TV: {live['title']}"
-        summary = f"Nigeria Student Ambassador is live now. Tap to watch free.{extra}"
+        title = "👉 TAP HERE TO WATCH 🔴 LIVE ON NSA TV"
+        summary = f"Live now: {live['title']}. Free.{extra}"
     elif now:
-        title = "📺 NSA TV: free TV for every Nigerian, 24/7"
-        summary = f"On now: {now['title']}.{extra} Tap to watch."
+        title = "👉 TAP HERE TO WATCH NSA TV 📺 FREE 24/7"
+        summary = f"▶️ Tap this box to open the TV. On now: {now['title']}.{extra}"
     else:
         return None
     return {"title": title, "summary": summary, "link": _TV_PAGE_URL, "source": "NSA TV",
