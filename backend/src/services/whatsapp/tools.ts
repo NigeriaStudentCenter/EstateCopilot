@@ -40,6 +40,7 @@ import {
   findTeensTrack,
 } from './academyTeensCatalogue.js';
 import { NEW_NIGERIAN_REGISTRATION_URL } from './newNigerian.js';
+import { MINING_LANDING_URL } from './mining.js';
 import {
   LANDLORD_FEATURES,
   findLandlordFeature,
@@ -640,6 +641,58 @@ async function captureNewNigerianLead(
   return 'Enquiry captured. Tell the user the team will follow up on this WhatsApp number — and keep the conversation going yourself in the meantime.';
 }
 
+// ---- BSOE Mining Skills -----------------------------------------------
+
+async function shareMiningLandingPage(): Promise<string> {
+  return (
+    `Course information and the readiness assessment: ${MINING_LANDING_URL} ` +
+    'The assessment is a learning check, not an entrance exam. There is no online payment on this page yet — payment questions go to a human adviser.'
+  );
+}
+
+async function captureMiningLead(
+  input: { interest: string; name?: string; email?: string; pathway?: string },
+  ctx: ToolContext,
+): Promise<string> {
+  await notifyOps(
+    'BSOE Mining Skills — WhatsApp enquiry',
+    [
+      `Interest: ${input.interest}`,
+      input.name ? `Name: ${input.name}` : null,
+      input.email ? `Email: ${input.email}` : null,
+      input.pathway ? `Pathway interest: ${input.pathway}` : null,
+      `Contact: ${ctx.from}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+  return 'Logged for follow-up. Do NOT say an adviser has been contacted — this only records their details. Keep helping them yourself.';
+}
+
+// Only claims a handover when the WhatsApp alert to the adviser line was
+// accepted — the email path logs-and-returns-true without a provider, so it
+// cannot confirm anything.
+async function requestMiningAdviser(
+  input: { need: string; name?: string; email?: string; pathway?: string },
+  ctx: ToolContext,
+): Promise<string> {
+  const { whatsappSent } = await notifyOps(
+    'BSOE Mining Skills — adviser requested (WhatsApp)',
+    [
+      `They need: ${input.need}`,
+      input.name ? `Name: ${input.name}` : null,
+      input.email ? `Email: ${input.email}` : null,
+      input.pathway ? `Pathway interest: ${input.pathway}` : null,
+      `Reply to them on WhatsApp: ${ctx.from}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  );
+  return whatsappSent
+    ? 'CONFIRMED: the adviser request was sent to the BSOE team. Tell the user a human adviser has been asked to follow up with them here on WhatsApp. Do not promise a time.'
+    : 'NOT CONFIRMED: the adviser request could not be delivered right now. Do NOT say it was transferred. Tell the user plainly it did not go through, apologise, and ask them to message again a little later to request an adviser.';
+}
+
 // ---- shared -------------------------------------------------------
 
 // Flags a conversation for a team member to review (financial/legal/complaint
@@ -946,6 +999,42 @@ const NEW_NIGERIAN_TOOLS: ToolDef[] = [
   },
 ];
 
+const MINING_TOOLS: ToolDef[] = [
+  {
+    name: 'share_mining_landing_page',
+    description: 'Share the exact BSOE Mining Skills landing page link (course information + the eight-question readiness assessment). Call this fresh every time a link belongs in your reply — never type the URL from memory.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'request_mining_adviser',
+    description: 'Ask a human BSOE adviser to follow up: when the learner asks for a human, or asks anything on the needs-human-confirmation list (start dates, entry requirements, second-specialism price, discounts, refunds, payment, accreditation documents, etc.). Only say it was passed on if the tool result says CONFIRMED.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        need: { type: 'string', description: 'What the learner needs from the adviser, in one or two sentences' },
+        name: { type: 'string' },
+        email: { type: 'string', description: "The learner's email, if they gave one" },
+        pathway: { type: 'string', description: 'The specialism they lean towards, if known' },
+      },
+      required: ['need'],
+    },
+  },
+  {
+    name: 'capture_mining_lead',
+    description: 'Log a learner\'s interest and email for BSOE follow-up when no adviser is needed (e.g. after a normal, resolved enquiry). This does NOT contact an adviser.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        interest: { type: 'string', description: 'What they asked about / want' },
+        name: { type: 'string' },
+        email: { type: 'string', description: "The learner's email, if they gave one" },
+        pathway: { type: 'string', description: 'The specialism they lean towards, if known' },
+      },
+      required: ['interest'],
+    },
+  },
+];
+
 const ESCALATE_TOOL: ToolDef = {
   name: 'escalate_to_human',
   description:
@@ -977,6 +1066,9 @@ export function toolsForBrand(brand: WaBrand): ToolDef[] {
   }
   if (brand === 'NEW_NIGERIAN') {
     return [...NEW_NIGERIAN_TOOLS, ESCALATE_TOOL];
+  }
+  if (brand === 'MINING') {
+    return [...MINING_TOOLS, ESCALATE_TOOL];
   }
   // UNKNOWN — the persona asks which service they mean; only escalation is
   // available until the brand is pinned.
@@ -1031,6 +1123,12 @@ export async function runTool(
         return await shareNewNigerianRegistrationLink();
       case 'capture_new_nigerian_lead':
         return await captureNewNigerianLead(input as any, ctx);
+      case 'share_mining_landing_page':
+        return await shareMiningLandingPage();
+      case 'request_mining_adviser':
+        return await requestMiningAdviser(input as any, ctx);
+      case 'capture_mining_lead':
+        return await captureMiningLead(input as any, ctx);
       case 'escalate_to_human':
         return await escalateToHuman(input as any, ctx, brand);
       default:

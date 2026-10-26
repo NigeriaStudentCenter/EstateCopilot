@@ -53,8 +53,15 @@ const COMPLEX_RE =
 // immediately, on any turn — that's a deliberate design choice: someone
 // asking a specific, unambiguous question about a different service almost
 // always wants to talk about that service now.
+// Mining learners say "the course", "the training", "the certificate" all the
+// time, and those are exactly the generic words ACADEMY_HINTS matches — so
+// inside a Mining conversation only an EXPLICIT Academy/teens signal may
+// re-home it, or the learner silently gets Academy prices and facts.
+const EXPLICIT_ACADEMY = /\b(ai academy|aia|teens?|teenager|my (child|son|daughter))\b/i;
+
 export function resolveBrand(convo: Conversation, rawText: string, brandHint?: string): WaBrand {
   const detected = detectBrand(rawText, brandHint);
+  if (convo.brand === 'MINING' && detected === 'AI_ACADEMY' && !EXPLICIT_ACADEMY.test(rawText)) return 'MINING';
   return detected !== 'UNKNOWN' ? detected : convo.brand;
 }
 
@@ -87,6 +94,7 @@ function buildSystemPrompt(brand: WaBrand): string {
     'Never invent facts — prices, availability, dates, fees, policies, term dates. State only what a tool returned or what your brand facts say. If you do not have it, say so and offer to have the team follow up.',
     'Do not agree a price, confirm a booking or a place, take payment, or give legal or financial advice. For anything financial, legal, contractual, or any complaint, call escalate_to_human to flag it for a person — but you must still answer everything else in the conversation yourself. Never leave the user without a reply.',
     'Give one clear next step per reply and ask for at most one missing detail at a time.',
+    'Only the text you write AFTER your last tool result is delivered to the user — text written before a tool call is discarded. So call any tool you need first, with no preamble, then write your complete answer once, in a single message, including the link or detail the tool returned.',
     'If a tool result contains a URL, copy that exact URL into your reply, character for character — never refer to it as "the link above" or "the link I sent" without actually including it. The user only sees your reply text, not the tool result.',
     'Never type out a URL from memory, even one you already sent earlier in this chat or one described in your brand facts as existing. Call the tool that returns it — every single time a link belongs in your reply — and copy the URL from that fresh result.',
     'Their WhatsApp number is already captured automatically with every enquiry — never ask for it. Email is different: you must actively collect it. By your second substantive reply in a conversation at the latest (i.e. after you have already given real help once — answered a question, sent a listing/course/programme link, logged a booking or quote request), ask for their email too, so the team can follow up with more detail — even if the conversation is still open-ended (e.g. they are still browsing options). Do this in every kind of enquiry, not only when something goes wrong or they are ready to commit. Ask once, briefly, as part of the same reply; do not chase it again if they ignore it or say no. Pass any email or explicit contact detail they give you into whichever tool fits (book_viewing, request_artisan_quote, capture_lead, capture_academy_lead, capture_new_nigerian_lead) — never let it go uncaptured.',
@@ -95,7 +103,7 @@ function buildSystemPrompt(brand: WaBrand): string {
   const p = brandProfile(brand);
   if (!p) {
     return [
-      'This WhatsApp line serves three things: EstateCopilot (rental properties and verified tradespeople in Nigeria), AI Academy (practical AI/technology classes), and Becoming a New Nigerian (a mindset & nation-building community under the Return to Nigeria Initiative). You do not yet know which one this person wants.',
+      'This WhatsApp line serves four things: EstateCopilot (rental properties and verified tradespeople in Nigeria), AI Academy (practical AI/technology classes), Becoming a New Nigerian (a mindset & nation-building community under the Return to Nigeria Initiative), and BSOE Mining Skills (a mining-skills training programme). You do not yet know which one this person wants.',
       'Ask them, in one short friendly question, which they are contacting you about. Do not call any tool except escalate_to_human until you know.',
       ...common,
     ].join('\n\n');
@@ -244,7 +252,8 @@ export async function runMarketingAgent(params: {
         continue;
       }
 
-      reply = textOut;
+      // An empty final turn must not wipe out text the model wrote before a tool call.
+      reply = textOut || reply;
       break;
     }
 

@@ -216,7 +216,7 @@ function requireAdmin(req: Request, res: Response, next: NextFunction) {
 const audienceQuerySchema = z.object({
   phones: z.array(z.string()).optional(),
   segment: z.enum(['consented', 'artisan_leads', 'tenancies_expiring', 'landlords_no_listing']).optional(),
-  brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'NEW_NIGERIAN', 'UNKNOWN']).optional(),
+  brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'NEW_NIGERIAN', 'MINING', 'UNKNOWN']).optional(),
   status: z.string().optional(),
   olderThanDays: z.number().int().positive().optional(),
   withinDays: z.number().int().positive().optional(),
@@ -225,7 +225,7 @@ const audienceQuerySchema = z.object({
 
 const campaignSchema = z.object({
   name: z.string().min(2).max(120),
-  brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'NEW_NIGERIAN', 'UNKNOWN']).optional(),
+  brand: z.enum(['ESTATECOPILOT', 'AI_ACADEMY', 'NEW_NIGERIAN', 'MINING', 'UNKNOWN']).optional(),
   templateName: z.string().min(1).max(120),
   templateLang: z.string().min(2).max(10).optional(),
   audienceQuery: audienceQuerySchema,
@@ -287,7 +287,7 @@ whatsappRouter.get('/ops/whatsapp', (_req, res) => {
 });
 
 const CONV_STATES = ['AI_ACTIVE', 'HUMAN_ACTIVE', 'AWAITING_OPT_IN', 'CLOSED'] as const;
-const CONV_BRANDS = ['ESTATECOPILOT', 'AI_ACADEMY', 'NEW_NIGERIAN', 'UNKNOWN'] as const;
+const CONV_BRANDS = ['ESTATECOPILOT', 'AI_ACADEMY', 'NEW_NIGERIAN', 'MINING', 'UNKNOWN'] as const;
 
 whatsappRouter.get('/api/whatsapp/ops/conversations', requireAdmin, async (req, res) => {
   const state = CONV_STATES.includes(req.query.state as any) ? (req.query.state as WaConversationState) : undefined;
@@ -327,7 +327,7 @@ whatsappRouter.post('/api/whatsapp/ops/conversations/:id/reply', requireAdmin, a
 //   curl -XPOST localhost:4000/webhooks/whatsapp/simulate \
 //     -H 'content-type: application/json' \
 //     -d '{"from":"2348030004444","text":"[EC] 3-bed in Lekki under 8m?"}'
-// `brand` optionally forces ESTATECOPILOT | AI_ACADEMY | NEW_NIGERIAN for the first turn.
+// `brand` optionally forces ESTATECOPILOT | AI_ACADEMY | NEW_NIGERIAN | MINING for the first turn.
 whatsappRouter.post('/webhooks/whatsapp/simulate', async (req, res) => {
   if (!env.mockMode) return res.sendStatus(404);
   const { from = '2348000000001', text, brand } = req.body ?? {};

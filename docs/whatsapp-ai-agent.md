@@ -4,7 +4,9 @@ Brand-aware conversational agent on the shared WhatsApp number
 ("AI Academy/EstateCopilot"). Answers inbound enquiries for **EstateCopilot**
 (rentals, verified artisans), **AI Academy** (classes for young people), and
 **Becoming a New Nigerian** (a mindset & nation-building community under the
-Return to Nigeria Initiative), calls tools for real data / lead capture /
+Return to Nigeria Initiative), and **BSOE Mining Skills** (a mining-skills
+training programme — landing page + readiness assessment, no online payment
+yet), calls tools for real data / lead capture /
 registration links, and hands off to a human for anything financial, legal,
 or contractual.
 
@@ -12,8 +14,8 @@ or contractual.
 
 **Built (works in `MOCK_MODE`, no DB, no Meta):**
 
-- `backend/src/services/whatsapp/brands.ts` — the three brand profiles
-  (persona, scope, facts) + brand detection (entry tag `[EC]`/`[AIA]`/`[BNN]`,
+- `backend/src/services/whatsapp/brands.ts` — the four brand profiles
+  (persona, scope, facts) + brand detection (entry tag `[EC]`/`[AIA]`/`[BNN]`/`[MINING]`,
   keyword fallback, else `UNKNOWN` → agent asks which service).
 - `backend/src/services/whatsapp/newNigerian.ts` — the "Becoming a New
   Nigerian" registration form URL. The brand's tools are
@@ -25,6 +27,16 @@ or contractual.
   freshly each time from these, tied to what the person actually asked,
   rather than reciting a fixed paragraph, and to keep the conversation going
   with a genuine follow-up question rather than closing after one exchange.
+- `backend/src/services/whatsapp/mining.ts` — the BSOE Mining Skills landing
+  page URL (`http://mining.bsoedu.org/`). Tools: `share_mining_landing_page`
+  (always fetch the URL, never type it), `request_mining_adviser` (only
+  claims a handover when the WhatsApp alert to ops was accepted — the tool
+  result says CONFIRMED / NOT CONFIRMED) and `capture_mining_lead` (logs an
+  email, does not contact an adviser). The approved offer (₦60,000, or 3 x
+  ₦20,000), the no-job-guarantee rules and the needs-a-human list live in
+  the brand `faq`. There is NO payment link: checkout is not connected to
+  the landing page; when it is, add a URL + share tool and update the
+  "HOW TO PAY" fact.
 - `backend/src/services/whatsapp/conversationStore.ts` — conversation +
   message persistence. In-memory in mock mode; Prisma
   (`WaContact`/`WaConversation`/`WhatsAppMessage`) otherwise.
