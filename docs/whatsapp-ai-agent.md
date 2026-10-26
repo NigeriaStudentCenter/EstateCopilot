@@ -35,8 +35,9 @@ or contractual.
   email, does not contact an adviser). The approved offer (₦60,000, or 3 x
   ₦20,000), the no-job-guarantee rules and the needs-a-human list live in
   the brand `faq`. There is NO payment link: checkout is not connected to
-  the landing page; when it is, add a URL + share tool and update the
-  "HOW TO PAY" fact.
+  the landing page (the brief's "payment is connected" and "Azure AI is
+  activated yet" were each missing a "not"; confirmed by the owner); when it
+  is, add a URL + share tool and update the "HOW TO PAY" fact.
 - `backend/src/services/whatsapp/conversationStore.ts` — conversation +
   message persistence. In-memory in mock mode; Prisma
   (`WaContact`/`WaConversation`/`WhatsAppMessage`) otherwise.
