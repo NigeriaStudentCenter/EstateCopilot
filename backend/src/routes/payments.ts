@@ -14,7 +14,7 @@ import { recordMockPayment, mockPaymentsForTenancies } from '../lib/mockPayments
 import { mockShortLetBookings } from '../lib/mockShortLet.js';
 import { reconcileMarketplacePayment } from '../services/artisanPayments.js';
 import { isAiAcademyEvent, forwardToAiAcademy } from '../services/aiAcademyForward.js';
-import { isCampusMarketEvent, forwardToCampusMarket, isDiasporaMarketEvent, forwardToDiasporaMarket } from '../services/campusMarketForward.js';
+import { isCampusMarketEvent, forwardToCampusMarket, isDiasporaMarketEvent, forwardToDiasporaMarket, isFutureHealthEvent } from '../services/campusMarketForward.js';
 
 export const paymentsRouter = Router();
 
@@ -232,6 +232,12 @@ paymentsRouter.post('/payments/webhook/paystack', async (req, res) => {
       console.error('[payments] Campus Market forward failed', err);
       return res.status(502).json({ error: 'forward failed' }); // Paystack retries
     }
+  }
+
+  // Future Health (student health reports) confirms its own payments with Paystack: nothing to do here,
+  // and it must never be matched to a tenancy by email.
+  if (isFutureHealthEvent(req.body)) {
+    return res.json({ received: true, ignored: 'future-health' });
   }
 
   // A Payment Request (short-let stays, rent instalments) was paid. This

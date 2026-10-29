@@ -70,3 +70,18 @@ export async function forwardToDiasporaMarket(rawBody: Buffer, signature: string
   if (!res.ok) throw new Error(`Diaspora Market webhook returned ${res.status}`);
   return true;
 }
+
+/**
+ * Future Health (Kolo health-api) also takes payments through this Paystack business, but it
+ * confirms each one by asking Paystack directly when the student returns from checkout, so its
+ * events need no forwarding. They are acknowledged and ignored: left to fall through, a student
+ * whose email matches a tenant would have a ₦1,000 health report recorded as rent.
+ */
+export function isFutureHealthEvent(body: PaystackEvent): boolean {
+  const data = body?.data;
+  if (!data) return false;
+  const meta = typeof data.metadata === 'object' && data.metadata ? data.metadata : null;
+  if (meta?.product === 'future-health') return true;
+  // health-api's references are always FH-<18 hex>
+  return typeof data.reference === 'string' && data.reference.startsWith('FH-');
+}
