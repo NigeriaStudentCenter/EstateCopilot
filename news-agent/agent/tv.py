@@ -185,6 +185,8 @@ DEFAULT_TICKER = [
      "url": "https://campusmarket.nigeriastudentcenter.com"},
     {"text": "🌍 Diaspora Market: buy and sell across Nigeria and the diaspora, paid safely with escrow. diasporamarket.nigeriastudentcenter.com",
      "url": "https://diasporamarket.nigeriastudentcenter.com"},
+    {"text": "🩺 Your Future Health App: know your numbers. Free health questionnaires, clinic checks and clear results. Install free at health.nigeriastudentcenter.com/install",
+     "url": "https://health.nigeriastudentcenter.com/install"},
     {"text": "🏠 EstateCopilot app: rent, pay and manage property the smart way. On the App Store & Google Play",
      "ios": "https://apps.apple.com/app/id6816638130",
      "android": "https://play.google.com/store/apps/details?id=org.estatecopilot.app"},
