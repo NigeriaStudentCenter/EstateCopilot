@@ -175,6 +175,7 @@ def _check_channels() -> list[dict]:
     return out
 
 
+_GO = "https://func-rni-newsagent.azurewebsites.net/api/go/"  # tracked links (function_app.go)
 _NSA = ("https://apps.apple.com/app/nigeria-student-ambassador/id6769323984",
         "https://play.google.com/store/apps/details?id=com.nigeriastudentambassador.app")
 DEFAULT_TICKER = [
@@ -186,7 +187,9 @@ DEFAULT_TICKER = [
     {"text": "🌍 Diaspora Market: buy and sell across Nigeria and the diaspora, paid safely with escrow. diasporamarket.nigeriastudentcenter.com",
      "url": "https://diasporamarket.nigeriastudentcenter.com"},
     {"text": "🩺 Your Future Health App: know your numbers. Free health questionnaires, clinic checks and clear results. Install free at health.nigeriastudentcenter.com/install",
-     "url": "https://health.nigeriastudentcenter.com/install"},
+     "url": _GO + "health?src=ticker"},
+    {"text": "👤 Meet Dr John Aikeremiokha, Global Nigeria Student Ambassador, as a live AI avatar. Tap to talk to him",
+     "url": _GO + "avatar?src=ticker"},
     {"text": "🏠 EstateCopilot app: rent, pay and manage property the smart way. On the App Store & Google Play",
      "ios": "https://apps.apple.com/app/id6816638130",
      "android": "https://play.google.com/store/apps/details?id=org.estatecopilot.app"},

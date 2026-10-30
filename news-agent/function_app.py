@@ -20,7 +20,7 @@ import time
 
 import azure.functions as func
 
-from agent import graph, public_news, tv
+from agent import clicks, graph, public_news, tv
 from agent.run import main
 from fact_agent.run import main as fact_main
 
@@ -270,6 +270,7 @@ def tv_page(req: func.HttpRequest) -> func.HttpResponse:
     NSA app's News feed card, so it needs no app update."""
     with open(os.path.join(os.path.dirname(__file__), "agent", "tv.html"), encoding="utf-8") as f:
         page = f.read()
+    clicks.record("view", "embed" if req.params.get("embed") else "app" if req.params.get("app") else "")
     return func.HttpResponse(
         page,
         status_code=200,
@@ -285,6 +286,28 @@ def tv_page(req: func.HttpRequest) -> func.HttpResponse:
             "Referrer-Policy": "strict-origin-when-cross-origin",
         },
     )
+
+
+# Tracked links: /api/go/<key> counts the tap (agent/clicks.py), then redirects.
+# Only these destinations are allowed, so it can't be used as an open redirect.
+GO_LINKS = {
+    "avatar": "https://app.heygen.com/card/dr-john-aikeremiokha",
+    "health": "https://health.nigeriastudentcenter.com/install",
+    "campus": "https://campusmarket.nigeriastudentcenter.com",
+    "diaspora": "https://diasporamarket.nigeriastudentcenter.com",
+}
+
+
+@app.function_name(name="go")
+@app.route(route="go/{key}", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
+def go(req: func.HttpRequest) -> func.HttpResponse:
+    """GET /api/go/<key>?src=tv|ticker — count a tap on a promoted link, then go there."""
+    key = req.route_params.get("key", "")
+    url = GO_LINKS.get(key)
+    if not url:
+        return func.HttpResponse("Not found", status_code=404)
+    clicks.record(f"go:{key}", req.params.get("src", ""))
+    return func.HttpResponse(status_code=302, headers={"Location": url, "Cache-Control": "no-store"})
 
 
 @app.function_name(name="tv_now")
