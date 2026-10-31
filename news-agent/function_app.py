@@ -293,6 +293,7 @@ def tv_page(req: func.HttpRequest) -> func.HttpResponse:
 GO_LINKS = {
     "avatar": "https://app.heygen.com/card/dr-john-aikeremiokha",
     "health": "https://health.nigeriastudentcenter.com/install",
+    "speechgym": "https://speechgym.nigeriastudentcenter.com",
     "campus": "https://campusmarket.nigeriastudentcenter.com",
     "diaspora": "https://diasporamarket.nigeriastudentcenter.com",
 }
