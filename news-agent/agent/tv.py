@@ -188,6 +188,8 @@ DEFAULT_TICKER = [
      "url": "https://diasporamarket.nigeriastudentcenter.com"},
     {"text": "🩺 Your Future Health App: know your numbers. Free health questionnaires, clinic checks and clear results. Install free at health.nigeriastudentcenter.com/install",
      "url": _GO + "health?src=ticker"},
+    {"text": "🎤 Speech Gym: daily speech training for Nigerian students. Pause before you speak, speak clearly, speak like a leader. speechgym.nigeriastudentcenter.com",
+     "url": _GO + "speechgym?src=ticker"},
     {"text": "👤 Meet Dr John Aikeremiokha, Global Nigeria Student Ambassador, as a live AI avatar. Tap to talk to him",
      "url": _GO + "avatar?src=ticker"},
     {"text": "🏠 EstateCopilot app: rent, pay and manage property the smart way. On the App Store & Google Play",
