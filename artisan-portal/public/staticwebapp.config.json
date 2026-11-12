@@ -1,6 +1,25 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*", "*.{png,jpg,jpeg,gif,svg,ico,css,js,webmanifest}"]
-  }
+    "exclude": [
+      "/assets/*",
+      "*.{png,jpg,jpeg,gif,svg,ico,css,js,webmanifest}"
+    ]
+  },
+  "routes": [
+    {
+      "route": "/sw.js",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Service-Worker-Allowed": "/"
+      }
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "headers": {
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/manifest+json"
+      }
+    }
+  ]
 }

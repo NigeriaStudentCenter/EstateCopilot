@@ -1,0 +1,19 @@
+{
+  "name": "EstateCopilot Artisans",
+  "short_name": "EC Artisans",
+  "description": "Snap a photo of a faulty fixture, get a diagnosis, the parts list and the fix. For professional plumbers.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbeee2",
+  "theme_color": "#b4530e",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Diagnose a fault", "url": "/?tab=diagnose&source=shortcut", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
