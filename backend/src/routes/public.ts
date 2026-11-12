@@ -11,6 +11,7 @@ import { notifyOps } from '../lib/notifyOps.js';
 import { pushQuotation, pushHandymanVisitBooking, pushPropertyViewingBooking } from '../services/sharepoint.js';
 import { TRADES, isTradeId, tradeLabel, type TradeId } from '../lib/trades.js';
 import { computeArtisanScore, bayesianRating } from '../lib/artisanScore.js';
+import { certificateUrl } from '../lib/academy.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { createMockLead } from '../lib/mockArtisanLeads.js';
 import { createMockShortLetBooking, isRangeAvailable, blockedRangesFor } from '../lib/mockShortLet.js';
@@ -787,6 +788,7 @@ interface DirectoryArtisan {
   trades: { trade: string; yearsExperience: number; isPrimary: boolean }[];
   workSamples: { id: string; imageUrl: string; caption?: string | null }[];
   credentials: { kind: string; status: string }[];
+  certificates: { certificateId: string; course: string; courseTitle: string; issuedAt: string | Date; nameMatched: boolean }[];
 }
 
 const SORTS = new Set(['score', 'rating', 'jobs', 'recent']);
@@ -800,6 +802,7 @@ async function loadListedArtisans(): Promise<DirectoryArtisan[]> {
         trades: a.trades.map((t) => ({ trade: t.trade, yearsExperience: t.yearsExperience, isPrimary: t.isPrimary })),
         workSamples: a.workSamples.map((w) => ({ id: w.id, imageUrl: w.imageUrl, caption: w.caption ?? null })),
         credentials: a.credentials.map((c) => ({ kind: c.kind, status: c.status })),
+        certificates: a.certificates.map((c) => ({ certificateId: c.certificateId, course: c.course, courseTitle: c.courseTitle, issuedAt: c.issuedAt, nameMatched: c.nameMatched })),
       }));
   }
   const rows = await prisma.artisan.findMany({
@@ -808,6 +811,7 @@ async function loadListedArtisans(): Promise<DirectoryArtisan[]> {
       trades: { select: { trade: true, yearsExperience: true, isPrimary: true } },
       workSamples: { select: { id: true, imageUrl: true, caption: true }, orderBy: { createdAt: 'asc' } },
       credentials: { select: { kind: true, status: true } },
+      certificates: { where: { nameMatched: true }, select: { certificateId: true, course: true, courseTitle: true, issuedAt: true, nameMatched: true } },
     },
   });
   return rows as unknown as DirectoryArtisan[];
@@ -844,6 +848,11 @@ function toDirectoryCard(a: DirectoryArtisan) {
     score: scoreOf(a),
     heroPhoto: hero,
     photoCount: a.workSamples.length,
+    // Only certificates verified against the artisan's own ID name are shown publicly.
+    certified: a.certificates.some((c) => c.nameMatched),
+    certificates: a.certificates
+      .filter((c) => c.nameMatched)
+      .map((c) => ({ course: c.course, title: c.courseTitle, issuedAt: new Date(c.issuedAt).toISOString(), url: certificateUrl(c.certificateId) })),
   };
 }
 
