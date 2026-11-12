@@ -769,12 +769,31 @@ model Artisan {
   quotes      RepairQuote[]
   leads       ArtisanLead[]
   jobPayments ArtisanJobPayment[]
+  certificates ArtisanCertificate[]
 
   // Payouts (same as agents): their own bank account as a Paystack subaccount.
   bankAccountNumber      String?
   bankCode               String?
   bankAccountName        String?
   paystackSubaccountCode String?
+}
+
+// A BSOE Practical Skills Academy course certificate the artisan has linked by its id. The academy is the
+// source of truth (verified live when linked). It only counts as "certified" once the artisan's NIN/BVN check has
+// passed AND the certificate's name matches the name that check resolved.
+model ArtisanCertificate {
+  id            String   @id @default(cuid())
+  artisanId     String
+  artisan       Artisan  @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  certificateId String   @unique // BSOE-XXXX-XXXX-XXXX
+  course        String // plumbing, electrical, ...
+  courseTitle   String
+  holderName    String
+  issuedAt      DateTime
+  nameMatched   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([artisanId])
 }
 
 model ArtisanTrade {

@@ -17,6 +17,14 @@ export interface MockArtisanCredential {
   verifiedAt?: string;
   createdAt: string;
 }
+export interface MockArtisanCertificate {
+  certificateId: string;
+  course: string;
+  courseTitle: string;
+  holderName: string;
+  issuedAt: string;
+  nameMatched: boolean;
+}
 export interface MockWorkSample {
   id: string;
   imageUrl: string;
@@ -46,6 +54,7 @@ export interface MockArtisan {
   lastActiveAt: string;
   trades: MockArtisanTrade[];
   credentials: MockArtisanCredential[];
+  certificates: MockArtisanCertificate[];
   workSamples: MockWorkSample[];
 }
 
@@ -69,6 +78,7 @@ export function createMockArtisan(data: { phone: string; name: string; baseState
     lastActiveAt: now,
     trades: [],
     credentials: [],
+    certificates: [],
     workSamples: [],
     ...data,
   };

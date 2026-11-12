@@ -13,6 +13,8 @@ import { NIGERIA_STATES, stateByName } from '../lib/nigeriaStates.js';
 import { TRADES, isTradeId, tradeLabel, type TradeId } from '../lib/trades.js';
 import { putPropertyImage, deletePropertyImage } from '../lib/blobStorage.js';
 import { computeArtisanScore } from '../lib/artisanScore.js';
+import { CERT_ID_RE, fetchAcademyCertificate } from '../lib/academy.js';
+import { refreshCertification, toView } from '../lib/artisanCertification.js';
 import { signArtisanToken, verifyArtisanToken, normalizePhone, issueOtp, checkOtp, consumeOtp } from '../services/artisanAuth.js';
 import { verifyNinBvn } from '../services/smileId.js';
 import {
@@ -125,7 +127,7 @@ async function loadArtisan(id: string) {
   if (env.mockMode) return mockArtisans.get(id) ?? null;
   return prisma.artisan.findUnique({
     where: { id },
-    include: { trades: true, credentials: true, workSamples: true },
+    include: { trades: true, credentials: true, workSamples: true, certificates: true },
   });
 }
 
@@ -135,7 +137,46 @@ const publicShape = (a: MockArtisan | NonNullable<Awaited<ReturnType<typeof load
 artisanRouter.get('/artisan/me', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
   const a = await loadArtisan(req.artisan!.artisanId);
   if (!a) return res.status(404).json({ error: 'Account not found' });
-  res.json(publicShape(a));
+  const certificates = (a.certificates ?? []).map(toView);
+  res.json({ ...publicShape(a), certificates, certified: certificates.some((c) => c.nameMatched) });
+});
+
+// ---- course certificates (BSOE Practical Skills Academy) -------------
+// The artisan links a certificate by its id. We verify it live with the academy, then it only shows as
+// "certified" once their NIN/BVN check has passed and the names match (see lib/artisanCertification.ts).
+artisanRouter.post('/artisan/me/certificates', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const parsed = z.object({ certificateId: z.string().min(10).max(40) }).safeParse(req.body);
+  const id = parsed.success ? parsed.data.certificateId.trim().toUpperCase() : '';
+  if (!CERT_ID_RE.test(id)) return res.status(400).json({ error: 'Enter the certificate ID exactly as shown on your certificate (BSOE-XXXX-XXXX-XXXX).' });
+  const a = await loadArtisan(req.artisan!.artisanId);
+  if (!a) return res.status(404).json({ error: 'Account not found' });
+
+  const owner = env.mockMode
+    ? [...mockArtisans.values()].find((m) => m.certificates.some((c) => c.certificateId === id))?.id
+    : (await prisma.artisanCertificate.findUnique({ where: { certificateId: id } }))?.artisanId;
+  if (owner && owner !== a.id) return res.status(409).json({ error: 'That certificate is already linked to another account.' });
+  if (!owner) {
+    const found = await fetchAcademyCertificate(id);
+    if (!found.ok) {
+      return found.reason === 'not_found'
+        ? res.status(404).json({ error: "We couldn't verify that certificate ID. Check it and try again." })
+        : res.status(503).json({ error: 'Certificate checking is not available right now. Please try again later.' });
+    }
+    const c = found.cert;
+    if (env.mockMode) {
+      mockArtisans.get(a.id)!.certificates.push({ certificateId: c.id, course: c.course, courseTitle: c.courseTitle, holderName: c.holderName, issuedAt: c.issuedAt, nameMatched: false });
+    } else {
+      await prisma.artisanCertificate.create({ data: { artisanId: a.id, certificateId: c.id, course: c.course, courseTitle: c.courseTitle, holderName: c.holderName, issuedAt: new Date(c.issuedAt) } });
+    }
+  }
+  const state = await refreshCertification(a.id);
+  const mine = state.certificates.find((c) => c.certificateId === id);
+  const message = state.certified
+    ? 'Certified. Your certificate is linked and matches your verified ID.'
+    : !state.idVerified
+      ? 'Certificate linked. Verify your NIN or BVN to become certified.'
+      : "Certificate linked, but its name doesn't match your verified ID name, so it is not counted as certified. Contact BSOE if the name is wrong.";
+  res.status(owner ? 200 : 201).json({ certificate: mine, certified: state.certified, idVerified: state.idVerified, verificationTier: state.verificationTier, message });
 });
 
 const profileSchema = z.object({
@@ -320,7 +361,8 @@ artisanRouter.post('/artisan/me/verify', requireArtisanAuth, async (req: Artisan
       m.isListed = true;
     }
     m.score = computeArtisanScore(m);
-    return res.json({ status, verificationTier: m.verificationTier, isListed: m.isListed, resolvedName: check.matchedName });
+    const mState = status === 'VERIFIED' ? await refreshCertification(a.id) : null;
+    return res.json({ status, verificationTier: m.verificationTier, isListed: m.isListed, resolvedName: check.matchedName, certified: mState?.certified ?? false });
   }
 
   await prisma.artisanCredential.create({
@@ -346,7 +388,8 @@ artisanRouter.post('/artisan/me/verify', requireArtisanAuth, async (req: Artisan
     lastActiveAt: a.lastActiveAt,
   });
   await prisma.artisan.update({ where: { id: a.id }, data: { verificationTier: tier, isListed: listed, score } });
-  res.json({ status, verificationTier: tier, isListed: listed, resolvedName: check.matchedName });
+  const state = status === 'VERIFIED' ? await refreshCertification(a.id) : null;
+  res.json({ status, verificationTier: state?.verificationTier ?? tier, isListed: listed, resolvedName: check.matchedName, certified: state?.certified ?? false });
 });
 
 // ---- jobs (Phase 1: browse open marketplace work in coverage area) ----

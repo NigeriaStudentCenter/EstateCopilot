@@ -5,6 +5,11 @@ export const env = {
   mockMode: process.env.MOCK_MODE !== 'false',
   databaseUrl: process.env.DATABASE_URL,
 
+  academy: {
+    // BSOE Practical Skills Academy: certificates are verified against this API and linked to the public page.
+    certApi: (process.env.ACADEMY_CERT_API ?? 'https://func-practical-skills.azurewebsites.net/api').replace(/\/$/, ''),
+    siteBase: (process.env.ACADEMY_SITE ?? 'https://skills.bsoedu.org').replace(/\/$/, ''),
+  },
   smileId: {
     partnerId: process.env.SMILE_ID_PARTNER_ID,
     apiKey: process.env.SMILE_ID_API_KEY,
