@@ -5,6 +5,12 @@ export const env = {
   mockMode: process.env.MOCK_MODE !== 'false',
   databaseUrl: process.env.DATABASE_URL,
 
+  diagnose: {
+    model: process.env.DIAGNOSE_MODEL ?? 'claude-sonnet-5',
+    dailyLimit: Number(process.env.DIAGNOSE_DAILY_LIMIT ?? 20), // photo diagnoses per artisan per 24h (cost guard)
+    // The WhatsApp number that receives parts requests until suppliers are connected through the Kolo partner app.
+    tradeDeskWhatsapp: (process.env.TRADE_DESK_WHATSAPP ?? '2348074932438').replace(/\D/g, ''),
+  },
   academy: {
     // BSOE Practical Skills Academy: certificates are verified against this API and linked to the public page.
     certApi: (process.env.ACADEMY_CERT_API ?? 'https://func-practical-skills.azurewebsites.net/api').replace(/\/$/, ''),
@@ -141,6 +147,7 @@ export const env = {
   },
   ai: {
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    anthropicBaseUrl: (process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com').replace(/\/$/, ''), // overridable so tests can use a stub
     landlordDisplayName: process.env.LANDLORD_DISPLAY_NAME ?? 'Aliko Hassan',
   },
   email: {
