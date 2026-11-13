@@ -60,7 +60,8 @@ export interface SupplierQuote {
   lines: { index: number; available: boolean; unitPriceKobo?: number }[]; note: string | null;
   supplier: { id: string; name: string; area: string; rating: number | null; ratingCount: number; contactPhone?: string; address?: string };
 }
-export interface SupplyState { requestId: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; acceptedQuoteId: string | null; items: { name: string; spec?: string; qty: number; unit?: string }[]; quotes: SupplierQuote[] }
+export interface SupplyOrder { id: string; status: 'AWAITING_PAYMENT' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'RELEASED' | 'DISPUTED' | 'REFUNDED' | 'EXPIRED'; amountKobo: number; authorizationUrl: string | null; paidAt: string | null; shippedAt: string | null; releaseAfter: string | null; releasedAt: string | null; disputeNote: string | null }
+export interface SupplyState { paymentsEnabled?: boolean; order?: SupplyOrder | null; requestId: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; acceptedQuoteId: string | null; items: { name: string; spec?: string; qty: number; unit?: string }[]; quotes: SupplierQuote[] }
 export interface DiagnosisCard {
   id: string; createdAt: string; summary: string; outcome: Diagnosis['outcome']; confidence: Diagnosis['confidence'];
   urgency: Diagnosis['urgency']; safetyLevel: 'NORMAL' | 'CAUTION' | 'STOP'; partsRequestedAt: string | null;
@@ -155,6 +156,9 @@ export const api = {
 
   quotes: (id: string) => request<{ supply: SupplyState | null }>(`/api/artisan/me/diagnoses/${id}/quotes`),
   acceptQuote: (id: string, quoteId: string) => request<{ supply: SupplyState }>(`/api/artisan/me/diagnoses/${id}/quotes/${quoteId}/accept`, { method: 'POST' }),
+
+  confirmOrder: (id: string) => request<{ order: SupplyOrder }>(`/api/artisan/me/diagnoses/${id}/order/confirm`, { method: 'POST' }),
+  disputeOrder: (id: string, note: string) => request<{ order: SupplyOrder }>(`/api/artisan/me/diagnoses/${id}/order/dispute`, { method: 'POST', body: JSON.stringify({ note }) }),
 
   jobs: () => request<Job[]>('/api/artisan/jobs'),
   quote: (ticketId: string, amount: number, message?: string) =>

@@ -43,7 +43,7 @@ function useDictation(onText: (t: string) => void) {
   return { supported: !!Rec, listening, toggle };
 }
 
-export default function Diagnose({ me, flash }: { me: Me; flash: (t: string) => void }) {
+export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: string) => void; initialId?: string | null }) {
   const online = useOnline();
   const [view, setView] = React.useState<View>({ kind: 'capture' });
   const [photos, setPhotos] = React.useState<Photo[]>([]);
@@ -57,6 +57,8 @@ export default function Diagnose({ me, flash }: { me: Me; flash: (t: string) => 
     api.diagnoses().then((l) => { setHistory(l); saveList(me.id, l); }).catch(() => { /* offline: keep the cached list */ });
   }, [me.id]);
   React.useEffect(refreshHistory, [refreshHistory]);
+  // Coming back from Paystack: reopen the diagnosis whose order was just paid.
+  React.useEffect(() => { if (initialId) void open(initialId); }, [initialId]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => () => photos.forEach((p) => URL.revokeObjectURL(p.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function addFiles(list: FileList | null) {
@@ -331,7 +333,11 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
 
   async function choose(quoteId: string) {
     setBusy(quoteId);
-    try { const r = await api.acceptQuote(diagnosisId, quoteId); setState(r.supply); }
+    try {
+      const r = await api.acceptQuote(diagnosisId, quoteId);
+      setState(r.supply);
+      if (r.supply.order?.authorizationUrl) window.location.assign(r.supply.order.authorizationUrl); // pay now
+    }
     catch (e) { flash(e instanceof ApiError ? e.message : 'Could not confirm your choice'); load(); }
     finally { setBusy(null); }
   }
@@ -341,6 +347,8 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
   if (state === null) return <Card className="p-4 text-sm">Supplier prices are not available right now.{trade}</Card>;
 
   const accepted = state.quotes.find((q) => q.id === state.acceptedQuoteId);
+  const order = state.order ?? null;
+  if (accepted && order && order.status !== 'EXPIRED') return <OrderCard diagnosisId={diagnosisId} state={state} accepted={accepted} order={order} reload={load} flash={flash} />;
   if (accepted) {
     const p = accepted.supplier.contactPhone ?? '';
     return (
@@ -354,7 +362,7 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
             <a href={`https://wa.me/${p.replace(/^0/, '234')}`} className="rounded-xl bg-[#25D366] py-2.5 text-center text-sm font-semibold text-white">WhatsApp</a>
           </div>
         )}
-        <p className="mt-3 text-xs text-[#6d7a73]">The supplier has your number and will contact you about delivery ({eta(accepted.etaMinutes)}). Online payment through the app is coming soon: for now, agree payment with the supplier directly.</p>
+        <p className="mt-3 text-xs text-[#6d7a73]">The supplier has your number and will contact you about delivery ({eta(accepted.etaMinutes)}). Agree payment with the supplier directly.</p>
       </Card>
     );
   }
@@ -400,5 +408,70 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
       {quotes.length > 0 && !closed && <p className="mt-2 text-center text-xs text-[#8a948d]">More prices may still arrive. You can wait or choose now.</p>}
       {quotes.length > 0 && trade}
     </div>
+  );
+}
+
+// A chosen quote with an order: pay, wait for delivery, confirm or report a problem. The money is held until you confirm.
+function OrderCard({ diagnosisId, state, accepted, order, reload, flash }: { diagnosisId: string; state: SupplyState; accepted: SupplyState['quotes'][number]; order: NonNullable<SupplyState['order']>; reload: () => void; flash: (t: string) => void }) {
+  void state;
+  const [busy, setBusy] = React.useState(false);
+  const [reporting, setReporting] = React.useState(false);
+  const [note, setNote] = React.useState('');
+  const p = accepted.supplier.contactPhone ?? '';
+  const paid = ['PAID', 'SHIPPED', 'DELIVERED', 'RELEASED', 'DISPUTED'].includes(order.status);
+
+  async function act(fn: () => Promise<unknown>, okMsg: string) {
+    setBusy(true);
+    try { await fn(); flash(okMsg); reload(); } catch (e) { flash(e instanceof ApiError ? e.message : 'Something went wrong. Please try again.'); } finally { setBusy(false); }
+  }
+
+  const title: Record<string, string> = {
+    AWAITING_PAYMENT: 'Pay to confirm your order', PAID: 'Paid: the supplier will deliver', SHIPPED: 'On its way', DELIVERED: 'Delivered', RELEASED: 'Completed', DISPUTED: 'Problem reported', REFUNDED: 'Refunded',
+  };
+  return (
+    <Card className="border-moss-600/40 bg-moss-600/5 p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-moss-700">{title[order.status] ?? 'Order'}</div>
+      <p className="mt-1 font-semibold">{accepted.supplier.name} · {naira(order.amountKobo)}</p>
+
+      {order.status === 'AWAITING_PAYMENT' && (
+        <>
+          <p className="mt-2 text-sm text-[#42504a]">Your money is held safely and only goes to the supplier after you confirm you received the parts. This offer is kept for a short time.</p>
+          {order.authorizationUrl && <div className="mt-3"><Button onClick={() => window.location.assign(order.authorizationUrl as string)}>Pay {naira(order.amountKobo)} securely</Button></div>}
+          <button onClick={reload} className="mt-2 w-full text-center text-xs font-semibold text-ochre-600 underline">I have paid: check now</button>
+        </>
+      )}
+
+      {paid && p && order.status !== 'DISPUTED' && (
+        <>
+          <p className="text-sm text-[#42504a]">{accepted.supplier.address ?? accepted.supplier.area}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <a href={`tel:${p}`} className="rounded-xl border border-black/15 bg-white py-2.5 text-center text-sm font-semibold">Call</a>
+            <a href={`https://wa.me/${p.replace(/^0/, '234')}`} className="rounded-xl bg-[#25D366] py-2.5 text-center text-sm font-semibold text-white">WhatsApp</a>
+          </div>
+        </>
+      )}
+
+      {(order.status === 'PAID' || order.status === 'SHIPPED') && (
+        <>
+          <p className="mt-3 text-xs text-[#6d7a73]">{order.status === 'PAID' ? 'Waiting for the supplier to dispatch.' : 'The supplier says it is on the way.'} Your money is held until you confirm. If you do nothing, it is released to the supplier {order.releaseAfter ? `after ${new Date(order.releaseAfter).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })}` : '48 hours after dispatch'}.</p>
+          {!reporting ? (
+            <div className="mt-3 space-y-2">
+              <Button disabled={busy} onClick={() => void act(() => api.confirmOrder(diagnosisId), 'Thank you. The supplier is being paid.')}>I received the parts</Button>
+              <button onClick={() => setReporting(true)} className="w-full text-center text-xs font-semibold text-red-700 underline">Report a problem</button>
+            </div>
+          ) : (
+            <div className="mt-3 space-y-2">
+              <textarea className={input + ' min-h-[72px]'} maxLength={500} placeholder="What went wrong? E.g. wrong size, missing items, not delivered" value={note} onChange={(e) => setNote(e.target.value)} />
+              <Button disabled={busy || note.trim().length < 3} onClick={() => void act(() => api.disputeOrder(diagnosisId, note.trim()), 'We have your report and will look into it.')}>Send report</Button>
+              <button onClick={() => setReporting(false)} className="w-full text-center text-xs font-semibold text-[#6d7a73] underline">Cancel</button>
+            </div>
+          )}
+        </>
+      )}
+      {order.status === 'DELIVERED' && <p className="mt-3 text-xs text-[#6d7a73]">You confirmed receipt. The supplier is being paid.</p>}
+      {order.status === 'RELEASED' && <p className="mt-3 text-xs text-[#6d7a73]">All done. The supplier has been paid. Thank you for using EstateCopilot.</p>}
+      {order.status === 'DISPUTED' && <p className="mt-3 text-sm text-[#42504a]">We are looking into your report. Your money stays held and nobody is paid until we decide. {order.disputeNote ? `You said: “${order.disputeNote}”.` : ''}</p>}
+      {order.status === 'REFUNDED' && <p className="mt-3 text-sm text-[#42504a]">Your payment was refunded.</p>}
+    </Card>
   );
 }
