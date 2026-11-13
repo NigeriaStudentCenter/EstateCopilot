@@ -44,7 +44,7 @@ export interface Me {
   bankAccountName?: string | null; bankAccountNumber?: string | null; paystackSubaccountCode?: string | null;
   certificates?: Certificate[]; certified?: boolean;
 }
-export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string }
+export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
   outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING';
@@ -61,7 +61,8 @@ export interface SupplierQuote {
   supplier: { id: string; name: string; area: string; rating: number | null; ratingCount: number; contactPhone?: string; address?: string };
 }
 export interface SupplyOrder { id: string; status: 'AWAITING_PAYMENT' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'RELEASED' | 'DISPUTED' | 'REFUNDED' | 'EXPIRED'; amountKobo: number; authorizationUrl: string | null; paidAt: string | null; shippedAt: string | null; releaseAfter: string | null; releasedAt: string | null; disputeNote: string | null }
-export interface SupplyState { paymentsEnabled?: boolean; order?: SupplyOrder | null; requestId: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; acceptedQuoteId: string | null; items: { name: string; spec?: string; qty: number; unit?: string }[]; quotes: SupplierQuote[] }
+export interface SupplyRating { stars: number; onTime: boolean | null; asDescribed: boolean | null; comment: string | null }
+export interface SupplyState { rating?: SupplyRating | null; canRate?: boolean; paymentsEnabled?: boolean; order?: SupplyOrder | null; requestId: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; acceptedQuoteId: string | null; items: { name: string; spec?: string; qty: number; unit?: string }[]; quotes: SupplierQuote[] }
 export interface DiagnosisCard {
   id: string; createdAt: string; summary: string; outcome: Diagnosis['outcome']; confidence: Diagnosis['confidence'];
   urgency: Diagnosis['urgency']; safetyLevel: 'NORMAL' | 'CAUTION' | 'STOP'; partsRequestedAt: string | null;
@@ -157,6 +158,7 @@ export const api = {
   quotes: (id: string) => request<{ supply: SupplyState | null }>(`/api/artisan/me/diagnoses/${id}/quotes`),
   acceptQuote: (id: string, quoteId: string) => request<{ supply: SupplyState }>(`/api/artisan/me/diagnoses/${id}/quotes/${quoteId}/accept`, { method: 'POST' }),
 
+  rateSupplier: (id: string, body: { stars: number; onTime?: boolean; asDescribed?: boolean; comment?: string }) => request<{ supply: SupplyState }>(`/api/artisan/me/diagnoses/${id}/rating`, { method: 'POST', body: JSON.stringify(body) }),
   confirmOrder: (id: string) => request<{ order: SupplyOrder }>(`/api/artisan/me/diagnoses/${id}/order/confirm`, { method: 'POST' }),
   disputeOrder: (id: string, note: string) => request<{ order: SupplyOrder }>(`/api/artisan/me/diagnoses/${id}/order/dispute`, { method: 'POST', body: JSON.stringify({ note }) }),
 
