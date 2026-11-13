@@ -9,7 +9,7 @@ import { requireArtisanAuth, type ArtisanAuthedRequest } from './artisan.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { putPrivateDoc } from '../lib/blobStorage.js';
 import { runPlumbingDiagnosis, DiagnosisUnavailable, type Diagnosis } from '../lib/plumbingDiagnosis.js';
-import { supplyConfigured, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, externalRefFor, SupplyError } from '../lib/supplyClient.js';
+import { supplyConfigured, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, confirmSupplyOrder, disputeSupplyOrder, externalRefFor, SupplyError, type SupplyRequestView } from '../lib/supplyClient.js';
 
 export const artisanDiagnoseRouter = Router();
 
@@ -189,7 +189,7 @@ artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id/quotes', requireArtisanAuth
   if (!d.supplyRequestId) return res.json({ supply: null });
   try {
     const r = await getSupplyRequest(d.supplyRequestId);
-    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes } });
+    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes, paymentsEnabled: r.paymentsEnabled, order: r.order } });
   } catch (e) {
     res.status(503).json({ error: 'Supplier quotes are not available right now. You can still ask the trade desk on WhatsApp.' });
     console.warn('[supply] quotes fetch failed', e instanceof Error ? e.message : e);
@@ -200,10 +200,40 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/quotes/:quoteId/accept', r
   const d = await loadMine(req.artisan!.artisanId, req.params.id);
   if (!d || !d.supplyRequestId) return res.status(404).json({ error: 'Diagnosis not found' });
   try {
-    const r = await acceptSupplyQuote(d.supplyRequestId, req.params.quoteId);
-    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes } });
+    const r = await acceptSupplyQuote(d.supplyRequestId, req.params.quoteId, `${env.artisanPortal.url}/?tab=diagnose&dx=${encodeURIComponent(d.id)}`);
+    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes, paymentsEnabled: r.paymentsEnabled, order: r.order } });
   } catch (e) {
     if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: 'That quote is no longer available. Pick another.' });
     res.status(503).json({ error: "We couldn't confirm your choice. Please try again." });
+  }
+});
+
+// ---- the paid order for a diagnosis' chosen quote: confirm receipt or report a problem ------
+async function liveOrderFor(artisanId: string, diagnosisId: string): Promise<{ orderId: string } | null> {
+  const d = await loadMine(artisanId, diagnosisId);
+  if (!d?.supplyRequestId) return null;
+  const r: SupplyRequestView = await getSupplyRequest(d.supplyRequestId);
+  return r.order ? { orderId: r.order.id } : null;
+}
+artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/order/confirm', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  try {
+    const o = await liveOrderFor(req.artisan!.artisanId, req.params.id);
+    if (!o) return res.status(404).json({ error: 'No order found' });
+    res.json({ order: await confirmSupplyOrder(o.orderId) });
+  } catch (e) {
+    if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: 'This order cannot be confirmed right now.' });
+    res.status(503).json({ error: "We couldn't confirm that. Please try again." });
+  }
+});
+artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/order/dispute', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const parsed = z.object({ note: z.string().min(3).max(500) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Tell us briefly what went wrong.' });
+  try {
+    const o = await liveOrderFor(req.artisan!.artisanId, req.params.id);
+    if (!o) return res.status(404).json({ error: 'No order found' });
+    res.json({ order: await disputeSupplyOrder(o.orderId, parsed.data.note) });
+  } catch (e) {
+    if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: 'A problem cannot be reported on this order now.' });
+    res.status(503).json({ error: "We couldn't send that. Please try again." });
   }
 });

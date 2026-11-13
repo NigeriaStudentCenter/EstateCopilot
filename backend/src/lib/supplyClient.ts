@@ -10,7 +10,8 @@ export interface SupplyQuote {
   lines: { index: number; available: boolean; unitPriceKobo?: number; note?: string }[]; note: string | null;
   supplier: { id: string; name: string; area: string; rating: number | null; ratingCount: number; contactPhone?: string; address?: string };
 }
-export interface SupplyRequestView { id: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; items: SupplyItem[]; acceptedQuoteId: string | null; quotes: SupplyQuote[] }
+export interface SupplyOrder { id: string; status: string; amountKobo: number; authorizationUrl: string | null; paidAt: string | null; shippedAt: string | null; releaseAfter: string | null; releasedAt: string | null; disputeNote: string | null }
+export interface SupplyRequestView { id: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; items: SupplyItem[]; acceptedQuoteId: string | null; quotes: SupplyQuote[]; paymentsEnabled: boolean; order: SupplyOrder | null }
 
 export const supplyConfigured = (): boolean => !env.mockMode && !!env.kolo.baseUrl && !!env.kolo.apiKey;
 
@@ -36,5 +37,7 @@ export const externalRefFor = (diagnosisId: string, parts: SupplyItem[]) =>
 export const createSupplyRequest = (input: { externalRef: string; requesterName: string; requesterPhone: string; state: string; lga: string; jobSummary: string; items: SupplyItem[] }) =>
   call<SupplyRequestView>('POST', '/requests', { source: 'ESTATECOPILOT_ARTISAN', trade: 'PLUMBING', ...input });
 export const getSupplyRequest = (id: string) => call<SupplyRequestView>('GET', `/requests/${encodeURIComponent(id)}`);
-export const acceptSupplyQuote = (id: string, quoteId: string) => call<SupplyRequestView>('POST', `/requests/${encodeURIComponent(id)}/accept`, { quoteId });
+export const acceptSupplyQuote = (id: string, quoteId: string, returnUrl: string) => call<SupplyRequestView>('POST', `/requests/${encodeURIComponent(id)}/accept`, { quoteId, returnUrl });
+export const confirmSupplyOrder = (orderId: string) => call<SupplyOrder>('POST', `/orders/${encodeURIComponent(orderId)}/confirm`);
+export const disputeSupplyOrder = (orderId: string, note: string) => call<SupplyOrder>('POST', `/orders/${encodeURIComponent(orderId)}/dispute`, { note });
 export const cancelSupplyRequest = (id: string) => call<{ cancelled: true }>('POST', `/requests/${encodeURIComponent(id)}/cancel`);

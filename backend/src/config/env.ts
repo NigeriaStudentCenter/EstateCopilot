@@ -11,6 +11,10 @@ export const env = {
     // The WhatsApp number that receives parts requests until suppliers are connected through the Kolo partner app.
     tradeDeskWhatsapp: (process.env.TRADE_DESK_WHATSAPP ?? '2348074932438').replace(/\D/g, ''),
   },
+  artisanPortal: {
+    // Where Paystack sends an artisan back after paying for parts (must be allowed in Kolo's SUPPLY_RETURN_HOSTS).
+    url: (process.env.ARTISAN_PORTAL_URL ?? 'https://artisans.estatecopilot.org').replace(/\/$/, ''),
+  },
   academy: {
     // BSOE Practical Skills Academy: certificates are verified against this API and linked to the public page.
     certApi: (process.env.ACADEMY_CERT_API ?? 'https://func-practical-skills.azurewebsites.net/api').replace(/\/$/, ''),

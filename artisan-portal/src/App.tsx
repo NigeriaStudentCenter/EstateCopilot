@@ -24,6 +24,9 @@ export default function App() {
   const [trades, setTrades] = React.useState<TradeDef[]>([]);
   const [states, setStates] = React.useState<StateDef[]>([]);
   const [tab, setTab] = React.useState<Tab>(initialTab);
+  // Paystack sends the artisan back to /?tab=diagnose&dx=<diagnosis id> after paying for parts.
+  const [dx] = React.useState<string | null>(() => new URLSearchParams(window.location.search).get('dx'));
+  React.useEffect(() => { if (dx) window.history.replaceState({}, '', window.location.pathname); }, [dx]);
   const [installEvt, setInstallEvt] = React.useState<InstallEvent | null>(null);
   const [installed, setInstalled] = React.useState(isStandalone());
   const [toast, setToast] = React.useState<string | null>(null);
@@ -98,7 +101,7 @@ export default function App() {
       )}
 
       {tab === 'diagnose' ? (
-        <Diagnose me={me} flash={flash} />
+        <Diagnose me={me} flash={flash} initialId={dx} />
       ) : tab === 'jobs' ? (
         <Jobs me={me} flash={flash} />
       ) : (
