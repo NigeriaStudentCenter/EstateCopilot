@@ -1,5 +1,5 @@
 import React from 'react';
-import { api, ApiError, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me } from '../lib/api';
+import { api, ApiError, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState } from '../lib/api';
 import { compressImage } from '../lib/compressImage';
 import { loadList, loadOne, saveList, saveOne } from '../lib/diagnoseCache';
 import { Button, Card, Field, Screen, input } from '../lib/ui';
@@ -189,17 +189,20 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   const [sel, setSel] = React.useState(() => d.parts.map((p) => ({ on: true, qty: p.qty })));
   const [pidgin, setPidgin] = React.useState(false);
   const [sending, setSending] = React.useState(false);
+  const [showQuotes, setShowQuotes] = React.useState(!!d.supplyRequestId);
   const stop = d.safety.level === 'STOP';
 
   const chosen = (): DiagnosisPart[] => d.parts.map((p, i) => ({ ...p, qty: sel[i].qty })).filter((_, i) => sel[i].on);
 
-  async function sendParts() {
+  // Ask nearby suppliers for prices. If the supplier network is unavailable, fall back to the trade desk on WhatsApp.
+  async function sendParts(viaWhatsApp = false) {
     const parts = chosen();
     if (parts.length === 0) return flash('Select at least one part');
     setSending(true);
     try {
       const r = await api.partsRequest(d.id, parts);
       onSent();
+      if (r.supply && !viaWhatsApp) { setShowQuotes(true); return; }
       window.location.assign(r.whatsappUrl);
     } catch (e) {
       flash(e instanceof ApiError ? e.message : 'Could not prepare the request. Check your signal.');
@@ -280,10 +283,10 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
               </div>
             ))}
           </Card>
-          <Button onClick={() => void sendParts()} disabled={sending}>{sending ? 'Preparing…' : 'Ask for prices on WhatsApp'}</Button>
-          <button onClick={() => void copyParts()} className="mt-2 w-full text-center text-xs font-semibold text-ochre-600 underline">Copy the list instead</button>
+          {!showQuotes && <Button onClick={() => void sendParts()} disabled={sending}>{sending ? 'Sending…' : 'Get prices from suppliers'}</Button>}
+          {showQuotes && <Quotes diagnosisId={d.id} onTradeDesk={() => void sendParts(true)} flash={flash} />}
+          <button onClick={() => void copyParts()} className="mt-3 w-full text-center text-xs font-semibold text-ochre-600 underline">Copy the list instead</button>
           {d.partsRequestedAt && <p className="mt-1 text-center text-xs text-[#8a948d]">Last sent {when(d.partsRequestedAt)}</p>}
-          <p className="mt-1 text-center text-xs text-[#8a948d]">Suppliers reply on WhatsApp with price, stock and delivery time.</p>
         </>
       )}
 
@@ -304,5 +307,98 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
       <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
+  );
+}
+
+const naira = (k: number) => `₦${Math.round(k / 100).toLocaleString('en-NG')}`;
+const eta = (m: number) => (m <= 30 ? 'within 30 min' : m <= 60 ? 'within 1 hour' : m <= 120 ? 'within 2 hours' : m <= 240 ? 'within 4 hours' : 'next day');
+
+// Prices from the suppliers Kolo asked. Refreshes by itself while the request is open.
+function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTradeDesk: () => void; flash: (t: string) => void }) {
+  const [state, setState] = React.useState<SupplyState | null | undefined>(undefined);
+  const [error, setError] = React.useState<string | null>(null);
+  const [open, setOpen] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  const load = React.useCallback(() => {
+    api.quotes(diagnosisId).then((r) => { setState(r.supply); setError(null); }).catch((e) => setError(e instanceof ApiError ? e.message : 'Could not load quotes'));
+  }, [diagnosisId]);
+  React.useEffect(() => {
+    load();
+    const t = setInterval(() => { if (navigator.onLine) load(); }, 20000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  async function choose(quoteId: string) {
+    setBusy(quoteId);
+    try { const r = await api.acceptQuote(diagnosisId, quoteId); setState(r.supply); }
+    catch (e) { flash(e instanceof ApiError ? e.message : 'Could not confirm your choice'); load(); }
+    finally { setBusy(null); }
+  }
+
+  const trade = <button onClick={onTradeDesk} className="mt-2 w-full rounded-xl border border-black/15 py-2.5 text-sm font-semibold text-[#42504a]">Ask our trade desk on WhatsApp instead</button>;
+  if (state === undefined) return <Card className="p-4 text-sm text-[#6d7a73]">{error ?? 'Asking suppliers…'}{error && trade}</Card>;
+  if (state === null) return <Card className="p-4 text-sm">Supplier prices are not available right now.{trade}</Card>;
+
+  const accepted = state.quotes.find((q) => q.id === state.acceptedQuoteId);
+  if (accepted) {
+    const p = accepted.supplier.contactPhone ?? '';
+    return (
+      <Card className="border-moss-600/40 bg-moss-600/5 p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-moss-700">Supplier chosen</div>
+        <p className="mt-1 font-semibold">{accepted.supplier.name} · {naira(accepted.totalKobo)}</p>
+        <p className="text-sm text-[#42504a]">{accepted.supplier.address ?? accepted.supplier.area}</p>
+        {p && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <a href={`tel:${p}`} className="rounded-xl border border-black/15 bg-white py-2.5 text-center text-sm font-semibold">Call</a>
+            <a href={`https://wa.me/${p.replace(/^0/, '234')}`} className="rounded-xl bg-[#25D366] py-2.5 text-center text-sm font-semibold text-white">WhatsApp</a>
+          </div>
+        )}
+        <p className="mt-3 text-xs text-[#6d7a73]">The supplier has your number and will contact you about delivery ({eta(accepted.etaMinutes)}). Online payment through the app is coming soon: for now, agree payment with the supplier directly.</p>
+      </Card>
+    );
+  }
+
+  const closed = state.status !== 'OPEN';
+  const quotes = [...state.quotes].sort((a, b) => a.totalKobo - b.totalKobo);
+  return (
+    <div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Prices from suppliers near you</div>
+      {quotes.length === 0 && (
+        <Card className="p-4 text-sm">
+          {closed ? <p>This request has closed without a price.</p>
+            : state.suppliersAlerted === 0 || state.escalated ? <p><b>No supplier has answered yet.</b> Our trade desk can find the parts for you.</p>
+            : <p>Asking <b>{state.suppliersAlerted}</b> supplier{state.suppliersAlerted === 1 ? '' : 's'} near you. Prices usually arrive within a few minutes, and this page updates by itself.</p>}
+          {(closed || state.suppliersAlerted === 0 || state.escalated) && trade}
+        </Card>
+      )}
+      <div className="space-y-2">
+        {quotes.map((q, i) => (
+          <Card key={q.id} className={`p-3 ${i === 0 && quotes.length > 1 ? 'border-moss-600/40' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{q.supplier.name}</p>
+                <p className="text-xs text-[#8a948d]">{q.supplier.area}{q.supplier.rating ? ` · ★ ${q.supplier.rating} (${q.supplier.ratingCount})` : ''}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-base font-extrabold">{naira(q.totalKobo)}</p>
+                {i === 0 && quotes.length > 1 && <p className="text-[11px] font-semibold text-moss-700">Lowest total</p>}
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-[#42504a]">Delivery {eta(q.etaMinutes)}{q.deliveryFeeKobo ? ` · delivery fee ${naira(q.deliveryFeeKobo)}` : ' · free delivery'}{q.complete ? '' : ' · some items not in stock'}</p>
+            {q.note && <p className="mt-1 text-xs italic text-[#6d7a73]">“{q.note}”</p>}
+            <button onClick={() => setOpen(open === q.id ? null : q.id)} className="mt-1 text-xs font-semibold text-ochre-600 underline">{open === q.id ? 'Hide prices' : 'See item prices'}</button>
+            {open === q.id && (
+              <ul className="mt-1 space-y-0.5 text-xs text-[#42504a]">
+                {q.lines.map((l) => { const it = state.items[l.index]; return <li key={l.index}>{it ? `${it.name}${it.spec ? ` (${it.spec})` : ''} x ${it.qty}` : `Item ${l.index + 1}`}: {l.available ? `${naira(l.unitPriceKobo ?? 0)} each` : 'not in stock'}</li>; })}
+              </ul>
+            )}
+            <div className="mt-2"><Button onClick={() => void choose(q.id)} disabled={busy !== null}>{busy === q.id ? 'Confirming…' : 'Choose this supplier'}</Button></div>
+          </Card>
+        ))}
+      </div>
+      {quotes.length > 0 && !closed && <p className="mt-2 text-center text-xs text-[#8a948d]">More prices may still arrive. You can wait or choose now.</p>}
+      {quotes.length > 0 && trade}
+    </div>
   );
 }

@@ -53,7 +53,14 @@ export interface Diagnosis {
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
   safety: { level: 'NORMAL' | 'CAUTION' | 'STOP'; warnings: string[]; escalate: boolean };
   tools: string[]; parts: DiagnosisPart[]; steps: string[]; estimatedMinutes?: number; photoRequests: string[];
+  supplyRequestId?: string | null;
 }
+export interface SupplierQuote {
+  id: string; status: string; totalKobo: number; itemsTotalKobo: number; deliveryFeeKobo: number; etaMinutes: number; complete: boolean; validUntil: string;
+  lines: { index: number; available: boolean; unitPriceKobo?: number }[]; note: string | null;
+  supplier: { id: string; name: string; area: string; rating: number | null; ratingCount: number; contactPhone?: string; address?: string };
+}
+export interface SupplyState { requestId: string; status: string; expiresAt: string; escalated: boolean; suppliersAlerted: number; acceptedQuoteId: string | null; items: { name: string; spec?: string; qty: number; unit?: string }[]; quotes: SupplierQuote[] }
 export interface DiagnosisCard {
   id: string; createdAt: string; summary: string; outcome: Diagnosis['outcome']; confidence: Diagnosis['confidence'];
   urgency: Diagnosis['urgency']; safetyLevel: 'NORMAL' | 'CAUTION' | 'STOP'; partsRequestedAt: string | null;
@@ -141,10 +148,13 @@ export const api = {
   diagnoses: () => request<DiagnosisCard[]>('/api/artisan/me/diagnoses'),
   diagnosis: (id: string) => request<Diagnosis>(`/api/artisan/me/diagnoses/${id}`),
   partsRequest: (id: string, parts?: DiagnosisPart[]) =>
-    request<{ message: string; whatsappUrl: string; tradeDesk: string; parts: DiagnosisPart[] }>(`/api/artisan/me/diagnoses/${id}/parts-request`, {
+    request<{ message: string; whatsappUrl: string; tradeDesk: string; parts: DiagnosisPart[]; supply: { requestId: string; suppliersAlerted: number; escalated: boolean } | null }>(`/api/artisan/me/diagnoses/${id}/parts-request`, {
       method: 'POST',
       body: JSON.stringify(parts ? { parts: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit })) } : {}),
     }),
+
+  quotes: (id: string) => request<{ supply: SupplyState | null }>(`/api/artisan/me/diagnoses/${id}/quotes`),
+  acceptQuote: (id: string, quoteId: string) => request<{ supply: SupplyState }>(`/api/artisan/me/diagnoses/${id}/quotes/${quoteId}/accept`, { method: 'POST' }),
 
   jobs: () => request<Job[]>('/api/artisan/jobs'),
   quote: (ticketId: string, amount: number, message?: string) =>
