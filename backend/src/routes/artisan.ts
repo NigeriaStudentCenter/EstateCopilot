@@ -559,6 +559,57 @@ artisanRouter.patch('/artisan/leads/:id', requireArtisanAuth, async (req: Artisa
   res.json(leadShape(updated));
 });
 
+// ---- dashboard summary: the numbers on the artisan's home screen ------------------------------
+// "Jobs received" = direct requests from the directory + jobs won (a landlord accepted the artisan's quote).
+// "Earnings" = the artisan's share (after the platform cut) of payments that have actually been PAID.
+// Months follow Nigerian time (UTC+1, no daylight saving).
+const LAGOS_OFFSET_MS = 3600_000;
+export function lagosMonthStart(now = new Date()): Date {
+  const l = new Date(now.getTime() + LAGOS_OFFSET_MS);
+  return new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 1) - LAGOS_OFFSET_MS);
+}
+const TIER_LABEL = ['Not verified yet', 'ID verified', 'Reference checked', 'EC-Certified'];
+
+artisanRouter.get('/artisan/me/dashboard', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const id = req.artisan!.artisanId;
+  const a = await loadArtisan(id);
+  if (!a) return res.status(404).json({ error: 'Account not found' });
+  const monthStart = lagosMonthStart();
+  const monthLabel = new Date(monthStart.getTime() + LAGOS_OFFSET_MS + 86400_000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+  let leadsTotal = 0, leadsMonth = 0, leadsNew = 0, wonTotal = 0, wonMonth = 0, paidMonth = 0, earnedMonth = 0, pending = 0, earnedAll = 0;
+  if (env.mockMode) {
+    const rows = mockArtisanLeads.filter((l) => l.artisanId === id);
+    leadsTotal = rows.length;
+    leadsMonth = rows.filter((l) => new Date(l.createdAt) >= monthStart).length;
+    leadsNew = rows.filter((l) => l.status === 'NEW').length;
+  } else {
+    const [lt, lm, ln, payments] = await Promise.all([
+      prisma.artisanLead.count({ where: { artisanId: id } }),
+      prisma.artisanLead.count({ where: { artisanId: id, createdAt: { gte: monthStart } } }),
+      prisma.artisanLead.count({ where: { artisanId: id, status: 'NEW' } }),
+      prisma.artisanJobPayment.findMany({ where: { artisanId: id, status: { not: 'CANCELLED' } }, select: { status: true, artisanAmount: true, paidAt: true, createdAt: true } }),
+    ]);
+    leadsTotal = lt; leadsMonth = lm; leadsNew = ln;
+    wonTotal = payments.length;
+    wonMonth = payments.filter((p) => p.createdAt >= monthStart).length;
+    for (const p of payments) {
+      if (p.status === 'PAID') { earnedAll += p.artisanAmount; if (p.paidAt && p.paidAt >= monthStart) { earnedMonth += p.artisanAmount; paidMonth++; } }
+      else pending += p.artisanAmount;
+    }
+  }
+  const certified = (a.certificates ?? []).some((c: { nameMatched: boolean }) => c.nameMatched);
+  const tier = Math.min(3, Math.max(0, a.verificationTier));
+  res.json({
+    name: a.name,
+    status: { availability: a.availability, listed: a.isListed },
+    verification: { tier, label: TIER_LABEL[tier], certified, idVerified: tier >= 1 },
+    ratings: { average: a.ratingCount ? Math.round(a.ratingAvg * 10) / 10 : null, count: a.ratingCount },
+    jobs: { receivedThisMonth: leadsMonth + wonMonth, receivedTotal: leadsTotal + wonTotal, newRequests: leadsNew, requestsThisMonth: leadsMonth, wonThisMonth: wonMonth, completedTotal: a.jobsCompleted },
+    earnings: { monthLabel, thisMonth: earnedMonth, paidJobsThisMonth: paidMonth, pending, allTime: earnedAll },
+  });
+});
+
 // ---- payouts (marketplace payments) --------------------------------------
 // Same model as agents: jobs from registered artisans are paid to EstateCopilot
 // and split by Paystack — the artisan's share settles to this bank account.
