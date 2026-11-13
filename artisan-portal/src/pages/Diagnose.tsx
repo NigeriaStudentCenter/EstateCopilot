@@ -1,0 +1,308 @@
+import React from 'react';
+import { api, ApiError, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me } from '../lib/api';
+import { compressImage } from '../lib/compressImage';
+import { loadList, loadOne, saveList, saveOne } from '../lib/diagnoseCache';
+import { Button, Card, Field, Screen, input } from '../lib/ui';
+
+const MAX_PHOTOS = 3;
+type Photo = { file: File; url: string };
+type View = { kind: 'capture' } | { kind: 'result'; d: Diagnosis };
+
+const when = (iso: string) => new Date(iso).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
+
+function useOnline() {
+  const [on, setOn] = React.useState(navigator.onLine);
+  React.useEffect(() => {
+    const up = () => setOn(true), down = () => setOn(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
+  }, []);
+  return on;
+}
+
+// Voice-to-text for the note, where the phone's browser supports it. Silent no-op elsewhere.
+function useDictation(onText: (t: string) => void) {
+  const Rec = (window as unknown as { SpeechRecognition?: new () => any; webkitSpeechRecognition?: new () => any }).SpeechRecognition ??
+    (window as unknown as { webkitSpeechRecognition?: new () => any }).webkitSpeechRecognition;
+  const ref = React.useRef<any>(null);
+  const [listening, setListening] = React.useState(false);
+  const toggle = () => {
+    if (!Rec) return;
+    if (listening && ref.current) { ref.current.stop(); return; }
+    const r = new Rec();
+    r.lang = 'en-NG';
+    r.interimResults = false;
+    r.onresult = (e: any) => onText(Array.from(e.results).map((x: any) => x[0].transcript).join(' '));
+    r.onend = () => setListening(false);
+    r.onerror = () => setListening(false);
+    ref.current = r;
+    setListening(true);
+    r.start();
+  };
+  return { supported: !!Rec, listening, toggle };
+}
+
+export default function Diagnose({ me, flash }: { me: Me; flash: (t: string) => void }) {
+  const online = useOnline();
+  const [view, setView] = React.useState<View>({ kind: 'capture' });
+  const [photos, setPhotos] = React.useState<Photo[]>([]);
+  const [note, setNote] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [history, setHistory] = React.useState<DiagnosisCard[]>(() => loadList(me.id));
+  const dictation = useDictation((t) => setNote((n) => (n ? n + ' ' : '') + t));
+
+  const refreshHistory = React.useCallback(() => {
+    api.diagnoses().then((l) => { setHistory(l); saveList(me.id, l); }).catch(() => { /* offline: keep the cached list */ });
+  }, [me.id]);
+  React.useEffect(refreshHistory, [refreshHistory]);
+  React.useEffect(() => () => photos.forEach((p) => URL.revokeObjectURL(p.url)), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function addFiles(list: FileList | null) {
+    if (!list) return;
+    const room = MAX_PHOTOS - photos.length;
+    const picked = Array.from(list).slice(0, room);
+    const prepared = await Promise.all(picked.map(async (f) => {
+      const file = await compressImage(f);
+      return { file, url: URL.createObjectURL(file) };
+    }));
+    setPhotos((p) => [...p, ...prepared]);
+    setError(null);
+  }
+  function removePhoto(i: number) {
+    setPhotos((p) => { URL.revokeObjectURL(p[i].url); return p.filter((_, j) => j !== i); });
+  }
+
+  async function run() {
+    if (photos.length === 0) return setError('Add at least one photo of the fault.');
+    if (!navigator.onLine) return setError('No network. Your photos are kept: try again when you have signal.');
+    setBusy(true);
+    setError(null);
+    try {
+      const d = await api.diagnose(photos.map((p) => p.file), note);
+      saveOne(me.id, d);
+      setView({ kind: 'result', d });
+      refreshHistory();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'We could not reach the server. Check your signal and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function reset() {
+    photos.forEach((p) => URL.revokeObjectURL(p.url));
+    setPhotos([]);
+    setNote('');
+    setError(null);
+    setView({ kind: 'capture' });
+  }
+
+  async function open(id: string) {
+    const cached = loadOne(me.id, id);
+    if (cached) return setView({ kind: 'result', d: cached });
+    try {
+      const d = await api.diagnosis(id);
+      saveOne(me.id, d);
+      setView({ kind: 'result', d });
+    } catch {
+      flash('Not available offline');
+    }
+  }
+
+  if (view.kind === 'result') {
+    return <Result d={view.d} me={me} flash={flash} onNew={reset} onRetry={() => { setPhotos([]); setView({ kind: 'capture' }); setNote(view.d.note ?? ''); }} onSent={refreshHistory} />;
+  }
+
+  return (
+    <Screen title="Diagnose a fault">
+      {!online && <div className="mb-3 rounded-xl border border-black/10 bg-black/5 p-3 text-sm text-[#42504a]">You are offline. You can still open your past diagnoses below.</div>}
+      <p className="mb-3 text-sm text-[#42504a]">Take a clear photo of the faulty fixture or pipe. The app tells you the fault, the tools, the parts to buy and the fix. <b>Plumbing only for now.</b></p>
+
+      <Card className="mb-3 p-3">
+        <div className="grid grid-cols-3 gap-2">
+          {photos.map((p, i) => (
+            <div key={p.url} className="relative aspect-square overflow-hidden rounded-xl bg-black/5">
+              <img src={p.url} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
+              <button onClick={() => removePhoto(i)} aria-label={`Remove photo ${i + 1}`} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/60 text-xs text-white">✕</button>
+            </div>
+          ))}
+          {photos.length < MAX_PHOTOS && (
+            <label className="grid aspect-square cursor-pointer place-items-center rounded-xl border-2 border-dashed border-ochre-500/40 bg-ochre-50 text-center text-xs font-semibold text-ochre-700">
+              <span><span className="block text-2xl">📷</span>Take photo</span>
+              <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
+            </label>
+          )}
+        </div>
+        {photos.length < MAX_PHOTOS && (
+          <label className="mt-2 block cursor-pointer text-center text-xs font-semibold text-ochre-600 underline">
+            or choose from your gallery
+            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { void addFiles(e.target.files); e.target.value = ''; }} />
+          </label>
+        )}
+        <p className="mt-2 text-xs text-[#8a948d]">Up to {MAX_PHOTOS} photos. One close-up of the fault and one wider shot give the best result.</p>
+      </Card>
+
+      <Field label="What is wrong? (optional)" hint="Where is it and what do you see? E.g. “Water drips under the kitchen sink”.">
+        <div className="flex gap-2">
+          <textarea className={input + ' min-h-[84px]'} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+          {dictation.supported && (
+            <button type="button" onClick={dictation.toggle} aria-label="Speak your note" className={`h-12 w-12 shrink-0 rounded-xl border text-lg ${dictation.listening ? 'border-ochre-500 bg-ochre-50' : 'border-black/15'}`}>🎤</button>
+          )}
+        </div>
+      </Field>
+
+      {error && <div role="alert" className="mt-3 rounded-xl border border-ochre-100 bg-ochre-50 p-3 text-sm text-ochre-700">{error}</div>}
+      <div className="mt-4">
+        <Button onClick={run} disabled={busy || photos.length === 0}>{busy ? 'Looking at your photos… (about 20 seconds)' : 'Diagnose'}</Button>
+      </div>
+      <p className="mt-2 text-xs text-[#8a948d]">Your photos are kept privately so we can check and improve the diagnoses. Location data is removed from them.</p>
+
+      {history.length > 0 && (
+        <>
+          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Past diagnoses</h2>
+          <Card className="mb-6 divide-y divide-black/5">
+            {history.map((h) => (
+              <button key={h.id} onClick={() => void open(h.id)} className="flex w-full items-start gap-3 p-3 text-left active:bg-black/5">
+                <span className="mt-0.5 text-lg">{h.safetyLevel === 'STOP' ? '⛔' : h.outcome === 'DIAGNOSED' ? '🔧' : '📷'}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{h.summary}</span>
+                  <span className="block text-xs text-[#8a948d]">{when(h.createdAt)}{h.partsRequestedAt ? ' · parts requested' : ''}</span>
+                </span>
+              </button>
+            ))}
+          </Card>
+        </>
+      )}
+    </Screen>
+  );
+}
+
+function Pill({ children, tone }: { children: React.ReactNode; tone: 'good' | 'warn' | 'bad' | 'neutral' }) {
+  const c = { good: 'bg-moss-600/10 text-moss-700', warn: 'bg-ochre-100 text-ochre-700', bad: 'bg-red-100 text-red-800', neutral: 'bg-black/5 text-[#6d7a73]' }[tone];
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${c}`}>{children}</span>;
+}
+
+function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me; flash: (t: string) => void; onNew: () => void; onRetry: () => void; onSent: () => void }) {
+  void me;
+  const [sel, setSel] = React.useState(() => d.parts.map((p) => ({ on: true, qty: p.qty })));
+  const [pidgin, setPidgin] = React.useState(false);
+  const [sending, setSending] = React.useState(false);
+  const stop = d.safety.level === 'STOP';
+
+  const chosen = (): DiagnosisPart[] => d.parts.map((p, i) => ({ ...p, qty: sel[i].qty })).filter((_, i) => sel[i].on);
+
+  async function sendParts() {
+    const parts = chosen();
+    if (parts.length === 0) return flash('Select at least one part');
+    setSending(true);
+    try {
+      const r = await api.partsRequest(d.id, parts);
+      onSent();
+      window.location.assign(r.whatsappUrl);
+    } catch (e) {
+      flash(e instanceof ApiError ? e.message : 'Could not prepare the request. Check your signal.');
+    } finally {
+      setSending(false);
+    }
+  }
+  async function copyParts() {
+    const parts = chosen();
+    const text = parts.map((p, i) => `${i + 1}. ${p.name}${p.spec ? ` (${p.spec})` : ''} x ${p.qty}${p.unit ? ` ${p.unit}` : ''}`).join('\n');
+    try { await navigator.clipboard.writeText(text); flash('Parts list copied'); } catch { flash('Could not copy'); }
+  }
+
+  return (
+    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : 'Not a plumbing fault'}>
+      {d.safety.level !== 'NORMAL' && (
+        <div role="alert" className={`mb-3 rounded-2xl border p-4 text-sm ${stop ? 'border-red-300 bg-red-50 text-red-900' : 'border-ochre-100 bg-ochre-50 text-ochre-700'}`}>
+          <b className="block text-base">{stop ? '⛔ Stop. This needs a qualified person.' : '⚠️ Take care'}</b>
+          {d.safety.warnings.map((w, i) => <p key={i} className="mt-1">{w}</p>)}
+          {stop && <p className="mt-2 font-semibold">No repair steps are given for this job. Make the area safe and call a qualified, supervised professional.</p>}
+        </div>
+      )}
+
+      {d.immediateAction && (
+        <Card className="mb-3 border-ochre-500/40 bg-ochre-50 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-ochre-700">Do this first</div>
+          <p className="mt-1 text-sm font-semibold text-ochre-700">{d.immediateAction}</p>
+        </Card>
+      )}
+
+      <Card className="mb-3 p-4">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <Pill tone={d.confidence === 'HIGH' ? 'good' : d.confidence === 'MEDIUM' ? 'warn' : 'bad'}>{d.confidence === 'HIGH' ? 'High confidence' : d.confidence === 'MEDIUM' ? 'Medium confidence' : 'Low confidence'}</Pill>
+          {d.urgency === 'URGENT' && <Pill tone="bad">Urgent</Pill>}
+          {d.urgency === 'SOON' && <Pill tone="warn">Fix soon</Pill>}
+          {d.estimatedMinutes && <Pill tone="neutral">~{d.estimatedMinutes} min</Pill>}
+        </div>
+        <p className="text-[15px] font-semibold">{d.summary}</p>
+        {d.outcome === 'DIAGNOSED' && (
+          <dl className="mt-2 space-y-1 text-sm text-[#42504a]">
+            <div><dt className="inline font-semibold">What: </dt><dd className="inline">{d.fixture}{d.material ? ` (${d.material})` : ''}</dd></div>
+            <div><dt className="inline font-semibold">Fault: </dt><dd className="inline">{d.defect}</dd></div>
+          </dl>
+        )}
+        {d.confidence !== 'HIGH' && d.alternativeCauses.length > 0 && (
+          <p className="mt-2 text-sm text-[#42504a]"><b>It could also be:</b> {d.alternativeCauses.join('; ')}. Check on site before you buy parts.</p>
+        )}
+        {d.summaryPidgin && (
+          <button onClick={() => setPidgin((v) => !v)} className="mt-2 text-xs font-semibold text-ochre-600 underline">{pidgin ? 'Hide Pidgin' : 'Explain in Pidgin'}</button>
+        )}
+        {pidgin && d.summaryPidgin && <p className="mt-1 rounded-lg bg-black/5 p-2 text-sm">{d.summaryPidgin}</p>}
+      </Card>
+
+      {d.outcome === 'NEEDS_MORE_PHOTOS' && (
+        <Card className="mb-3 p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Please add</div>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm">{d.photoRequests.map((r, i) => <li key={i}>{r}</li>)}</ul>
+          <div className="mt-3"><Button onClick={onRetry}>Take the photos and try again</Button></div>
+        </Card>
+      )}
+
+      {d.outcome === 'DIAGNOSED' && d.parts.length > 0 && (
+        <>
+          <h2 className="mb-1 mt-4 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Parts to buy</h2>
+          <Card className="mb-3 divide-y divide-black/5">
+            {d.parts.map((p, i) => (
+              <div key={i} className="flex items-center gap-3 p-3">
+                <input type="checkbox" className="h-5 w-5 accent-[#b4530e]" checked={sel[i].on} onChange={(e) => setSel((s) => s.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} aria-label={`Include ${p.name}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold">{p.name}</div>
+                  <div className="text-xs text-[#8a948d]">{[p.spec, p.unit, p.note].filter(Boolean).join(' · ')}</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button className="h-8 w-8 rounded-lg border border-black/15" aria-label="Fewer" onClick={() => setSel((s) => s.map((x, j) => (j === i ? { ...x, qty: Math.max(1, x.qty - 1) } : x)))}>−</button>
+                  <span className="w-6 text-center text-sm font-semibold">{sel[i].qty}</span>
+                  <button className="h-8 w-8 rounded-lg border border-black/15" aria-label="More" onClick={() => setSel((s) => s.map((x, j) => (j === i ? { ...x, qty: Math.min(100, x.qty + 1) } : x)))}>+</button>
+                </div>
+              </div>
+            ))}
+          </Card>
+          <Button onClick={() => void sendParts()} disabled={sending}>{sending ? 'Preparing…' : 'Ask for prices on WhatsApp'}</Button>
+          <button onClick={() => void copyParts()} className="mt-2 w-full text-center text-xs font-semibold text-ochre-600 underline">Copy the list instead</button>
+          {d.partsRequestedAt && <p className="mt-1 text-center text-xs text-[#8a948d]">Last sent {when(d.partsRequestedAt)}</p>}
+          <p className="mt-1 text-center text-xs text-[#8a948d]">Suppliers reply on WhatsApp with price, stock and delivery time.</p>
+        </>
+      )}
+
+      {d.tools.length > 0 && (
+        <>
+          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Tools</h2>
+          <Card className="mb-3 p-4"><ul className="list-disc space-y-1 pl-5 text-sm">{d.tools.map((t, i) => <li key={i}>{t}</li>)}</ul></Card>
+        </>
+      )}
+
+      {d.steps.length > 0 && (
+        <>
+          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Steps</h2>
+          <Card className="mb-3 p-4"><ol className="list-decimal space-y-2 pl-5 text-sm">{d.steps.map((s, i) => <li key={i}>{s}</li>)}</ol></Card>
+        </>
+      )}
+
+      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work.</p>
+      <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
+    </Screen>
+  );
+}

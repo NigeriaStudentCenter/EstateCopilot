@@ -770,12 +770,32 @@ model Artisan {
   leads       ArtisanLead[]
   jobPayments ArtisanJobPayment[]
   certificates ArtisanCertificate[]
+  diagnoses    ArtisanDiagnosis[]
 
   // Payouts (same as agents): their own bank account as a Paystack subaccount.
   bankAccountNumber      String?
   bankCode               String?
   bankAccountName        String?
   paystackSubaccountCode String?
+}
+
+// One AI photo diagnosis (plumbing for now). Photos are private blobs, kept so accuracy can be reviewed; `result` is
+// the validated structured diagnosis. `partsRequestedAt` marks when the artisan sent the parts list to the trade desk.
+model ArtisanDiagnosis {
+  id               String    @id @default(cuid())
+  artisanId        String
+  artisan          Artisan   @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  trade            String    @default("PLUMBING")
+  note             String?
+  photoKeys        String[]
+  outcome          String // DIAGNOSED | NEEDS_MORE_PHOTOS | NOT_PLUMBING
+  confidence       String // HIGH | MEDIUM | LOW
+  result           Json
+  model            String
+  partsRequestedAt DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([artisanId, createdAt])
 }
 
 // A BSOE Practical Skills Academy course certificate the artisan has linked by its id. The academy is the

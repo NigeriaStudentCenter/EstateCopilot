@@ -225,8 +225,59 @@ export default function Profile({
       </Card>
 
       {me.verificationTier < 1 && <Verify flash={flash} reload={reload} />}
+      <Certificates me={me} flash={flash} reload={reload} />
       <Payouts me={me} flash={flash} reload={reload} />
     </Screen>
+  );
+}
+
+// Link a BSOE Practical Skills Academy certificate by its id. It counts as "EC-Certified" once your NIN/BVN is verified
+// and the name on the certificate matches your verified ID name.
+function Certificates({ me, flash, reload }: { me: Me; flash: (t: string) => void; reload: () => void }) {
+  const [id, setId] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<string | null>(null);
+  const certs = me.certificates ?? [];
+  return (
+    <>
+      <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Certificates</h2>
+      <Card className="space-y-3 p-4">
+        {certs.map((c) => (
+          <div key={c.certificateId} className="flex items-start justify-between gap-3 text-sm">
+            <div className="min-w-0">
+              <p className="font-semibold">{c.courseTitle}</p>
+              <p className="text-xs text-[#8a948d]">{c.certificateId} · <a className="underline" href={c.url} target="_blank" rel="noopener noreferrer">View</a></p>
+            </div>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${c.nameMatched ? 'bg-moss-600/10 text-moss-700' : 'bg-black/5 text-[#6d7a73]'}`}>{c.nameMatched ? 'Counted' : 'Not counted yet'}</span>
+          </div>
+        ))}
+        {certs.length > 0 && !me.certified && <p className="text-xs text-[#6d7a73]">A certificate counts once your NIN or BVN is verified and your name matches it.</p>}
+        <Field label="Certificate ID" hint="From your BSOE Practical Skills Academy certificate, like BSOE-XXXX-XXXX-XXXX.">
+          <input className={input} value={id} onChange={(e) => setId(e.target.value.toUpperCase())} placeholder="BSOE-XXXX-XXXX-XXXX" autoCapitalize="characters" />
+        </Field>
+        {msg && <p className="text-sm text-[#42504a]">{msg}</p>}
+        <Button
+          disabled={busy || id.trim().length < 10}
+          onClick={async () => {
+            setBusy(true);
+            setMsg(null);
+            try {
+              const r = await api.linkCertificate(id.trim());
+              setMsg(r.message);
+              setId('');
+              flash(r.certified ? 'You are EC-Certified' : 'Certificate linked');
+              reload();
+            } catch (e) {
+              setMsg(e instanceof ApiError ? e.message : 'Could not link the certificate');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Checking…' : 'Add certificate'}
+        </Button>
+      </Card>
+    </>
   );
 }
 

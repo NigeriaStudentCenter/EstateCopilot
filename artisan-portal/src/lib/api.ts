@@ -31,6 +31,7 @@ export type TradeGroup = 'STRUCTURAL' | 'SYSTEMS';
 export interface TradeDef { id: string; label: string; group: TradeGroup; blurb: string }
 export interface StateDef { name: string; slug: string; lgas: string[] }
 export interface ArtisanTrade { id: string; trade: string; yearsExperience: number; isPrimary: boolean }
+export interface Certificate { certificateId: string; course: string; courseTitle: string; holderName: string; issuedAt: string; nameMatched: boolean; url: string }
 export interface Credential { id: string; kind: string; status: string; resolvedName?: string; verifiedAt?: string }
 export interface WorkSample { id: string; imageUrl: string; caption?: string }
 export interface Me {
@@ -41,6 +42,21 @@ export interface Me {
   score: number; ratingAvg: number; ratingCount: number; jobsCompleted: number;
   trades: ArtisanTrade[]; credentials: Credential[]; workSamples: WorkSample[];
   bankAccountName?: string | null; bankAccountNumber?: string | null; paystackSubaccountCode?: string | null;
+  certificates?: Certificate[]; certified?: boolean;
+}
+export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string }
+export interface Diagnosis {
+  id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING';
+  summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  fixture: string; material?: string; defect: string; alternativeCauses: string[];
+  urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
+  safety: { level: 'NORMAL' | 'CAUTION' | 'STOP'; warnings: string[]; escalate: boolean };
+  tools: string[]; parts: DiagnosisPart[]; steps: string[]; estimatedMinutes?: number; photoRequests: string[];
+}
+export interface DiagnosisCard {
+  id: string; createdAt: string; summary: string; outcome: Diagnosis['outcome']; confidence: Diagnosis['confidence'];
+  urgency: Diagnosis['urgency']; safetyLevel: 'NORMAL' | 'CAUTION' | 'STOP'; partsRequestedAt: string | null;
 }
 export interface JobPayment {
   id: string; job: string; amount: number; artisanAmount: number; platformAmount: number;
@@ -102,6 +118,33 @@ export const api = {
   },
   deleteWorkSample: (url: string) =>
     request<WorkSample[]>('/api/artisan/me/work-samples', { method: 'DELETE', body: JSON.stringify({ url }) }),
+
+  linkCertificate: (certificateId: string) =>
+    request<{ certificate?: Certificate; certified: boolean; idVerified: boolean; verificationTier: number; message: string }>('/api/artisan/me/certificates', {
+      method: 'POST',
+      body: JSON.stringify({ certificateId }),
+    }),
+
+  diagnose: async (files: File[], note: string) => {
+    const form = new FormData();
+    files.forEach((f) => form.append('images', f, f.name));
+    if (note.trim()) form.append('note', note.trim());
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/artisan/me/diagnose`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      if (res.status === 401) clearToken();
+      throw new ApiError(res.status, body?.error ?? `Diagnosis failed (${res.status})`);
+    }
+    return body as Diagnosis;
+  },
+  diagnoses: () => request<DiagnosisCard[]>('/api/artisan/me/diagnoses'),
+  diagnosis: (id: string) => request<Diagnosis>(`/api/artisan/me/diagnoses/${id}`),
+  partsRequest: (id: string, parts?: DiagnosisPart[]) =>
+    request<{ message: string; whatsappUrl: string; tradeDesk: string; parts: DiagnosisPart[] }>(`/api/artisan/me/diagnoses/${id}/parts-request`, {
+      method: 'POST',
+      body: JSON.stringify(parts ? { parts: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit })) } : {}),
+    }),
 
   jobs: () => request<Job[]>('/api/artisan/jobs'),
   quote: (ticketId: string, amount: number, message?: string) =>
