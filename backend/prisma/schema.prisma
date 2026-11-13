@@ -793,6 +793,7 @@ model ArtisanDiagnosis {
   result           Json
   model            String
   partsRequestedAt DateTime?
+  supplyRequestId  String? // the Kolo supply request holding the supplier quotes for this diagnosis' parts list
   createdAt        DateTime  @default(now())
 
   @@index([artisanId, createdAt])

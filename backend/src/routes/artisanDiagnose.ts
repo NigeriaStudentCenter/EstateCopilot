@@ -9,6 +9,7 @@ import { requireArtisanAuth, type ArtisanAuthedRequest } from './artisan.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { putPrivateDoc } from '../lib/blobStorage.js';
 import { runPlumbingDiagnosis, DiagnosisUnavailable, type Diagnosis } from '../lib/plumbingDiagnosis.js';
+import { supplyConfigured, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, externalRefFor, SupplyError } from '../lib/supplyClient.js';
 
 export const artisanDiagnoseRouter = Router();
 
@@ -26,11 +27,12 @@ interface StoredDiagnosis {
   result: Diagnosis;
   model: string;
   partsRequestedAt: Date | null;
+  supplyRequestId?: string | null;
   createdAt: Date;
 }
 const mockStore: StoredDiagnosis[] = [];
 
-const full = (d: StoredDiagnosis) => ({ id: d.id, createdAt: d.createdAt.toISOString(), note: d.note, photoCount: d.photoKeys.length, partsRequestedAt: d.partsRequestedAt?.toISOString() ?? null, ...d.result });
+const full = (d: StoredDiagnosis) => ({ id: d.id, createdAt: d.createdAt.toISOString(), note: d.note, photoCount: d.photoKeys.length, partsRequestedAt: d.partsRequestedAt?.toISOString() ?? null, supplyRequestId: d.supplyRequestId ?? null, ...d.result });
 const card = (d: StoredDiagnosis) => ({
   id: d.id,
   createdAt: d.createdAt.toISOString(),
@@ -160,7 +162,48 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   const to = env.diagnose.tradeDeskWhatsapp;
 
   const now = new Date();
+  // Ask nearby suppliers for quotes through Kolo. If that is unavailable the artisan still has the WhatsApp trade desk.
+  let supply: { requestId: string; suppliersAlerted: number; escalated: boolean } | null = null;
+  let supplyRequestId = d.supplyRequestId ?? null;
+  if (supplyConfigured()) {
+    try {
+      const ref = externalRefFor(d.id, parts);
+      const created = await createSupplyRequest({ externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit })) });
+      // The list changed since last time: close the old open request so suppliers stop pricing it.
+      if (supplyRequestId && supplyRequestId !== created.id) await cancelSupplyRequest(supplyRequestId).catch(() => undefined);
+      supplyRequestId = created.id;
+      supply = { requestId: created.id, suppliersAlerted: created.suppliersAlerted, escalated: created.escalated };
+    } catch (e) {
+      console.warn('[supply] could not create request', e instanceof Error ? e.message : e);
+    }
+  }
   if (env.mockMode) d.partsRequestedAt = now;
-  else await prisma.artisanDiagnosis.update({ where: { id: d.id }, data: { partsRequestedAt: now } });
-  res.json({ message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, parts });
+  else await prisma.artisanDiagnosis.update({ where: { id: d.id }, data: { partsRequestedAt: now, supplyRequestId } });
+  res.json({ message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, parts, supply });
+});
+
+// ---- supplier quotes for a diagnosis' parts list (from Kolo) --------------------
+artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id/quotes', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const d = await loadMine(req.artisan!.artisanId, req.params.id);
+  if (!d) return res.status(404).json({ error: 'Diagnosis not found' });
+  if (!d.supplyRequestId) return res.json({ supply: null });
+  try {
+    const r = await getSupplyRequest(d.supplyRequestId);
+    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes } });
+  } catch (e) {
+    res.status(503).json({ error: 'Supplier quotes are not available right now. You can still ask the trade desk on WhatsApp.' });
+    console.warn('[supply] quotes fetch failed', e instanceof Error ? e.message : e);
+  }
+});
+
+artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/quotes/:quoteId/accept', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const d = await loadMine(req.artisan!.artisanId, req.params.id);
+  if (!d || !d.supplyRequestId) return res.status(404).json({ error: 'Diagnosis not found' });
+  try {
+    const r = await acceptSupplyQuote(d.supplyRequestId, req.params.quoteId);
+    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes } });
+  } catch (e) {
+    if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: 'That quote is no longer available. Pick another.' });
+    res.status(503).json({ error: "We couldn't confirm your choice. Please try again." });
+  }
 });
