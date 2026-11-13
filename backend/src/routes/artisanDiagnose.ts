@@ -9,7 +9,7 @@ import { requireArtisanAuth, type ArtisanAuthedRequest } from './artisan.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { putPrivateDoc } from '../lib/blobStorage.js';
 import { runPlumbingDiagnosis, DiagnosisUnavailable, type Diagnosis } from '../lib/plumbingDiagnosis.js';
-import { supplyConfigured, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, confirmSupplyOrder, disputeSupplyOrder, externalRefFor, SupplyError, type SupplyRequestView } from '../lib/supplyClient.js';
+import { supplyConfigured, getCatalogue, rateSupplyRequest, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, confirmSupplyOrder, disputeSupplyOrder, externalRefFor, SupplyError, type SupplyRequestView } from '../lib/supplyClient.js';
 
 export const artisanDiagnoseRouter = Router();
 
@@ -105,7 +105,7 @@ artisanDiagnoseRouter.post(
         images: jpegs.map((b) => ({ base64: b.toString('base64'), mediaType: 'image/jpeg' as const })),
         note,
         location: `${a.baseLga}, ${a.baseState}`,
-      });
+      }, fetch, await getCatalogue());
     } catch (e) {
       if (!(e instanceof DiagnosisUnavailable)) console.error('[diagnose] unexpected', e);
       return res.status(503).json({ error: "The diagnosis service couldn't read this right now. Please try again in a moment." });
@@ -140,7 +140,7 @@ artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id', requireArtisanAuth, async
 
 // ---- send the parts list to the trade desk on WhatsApp ----------------------
 const partsSchema = z.object({
-  parts: z.array(z.object({ name: z.string().min(1).max(100), spec: z.string().max(120).optional(), qty: z.number().int().min(1).max(100), unit: z.string().max(20).optional() })).min(1).max(15).optional(),
+  parts: z.array(z.object({ name: z.string().min(1).max(100), spec: z.string().max(120).optional(), qty: z.number().int().min(1).max(100), unit: z.string().max(20).optional(), catalogueId: z.string().max(60).optional() })).min(1).max(15).optional(),
 });
 
 artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
@@ -168,7 +168,7 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   if (supplyConfigured()) {
     try {
       const ref = externalRefFor(d.id, parts);
-      const created = await createSupplyRequest({ externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit })) });
+      const created = await createSupplyRequest({ externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
       // The list changed since last time: close the old open request so suppliers stop pricing it.
       if (supplyRequestId && supplyRequestId !== created.id) await cancelSupplyRequest(supplyRequestId).catch(() => undefined);
       supplyRequestId = created.id;
@@ -182,6 +182,12 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   res.json({ message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, parts, supply });
 });
 
+// What the artisan app needs to show quotes, the order, and (once the parts have arrived) the rating box.
+const supplyPayload = (r: SupplyRequestView) => ({
+  requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes,
+  paymentsEnabled: r.paymentsEnabled, order: r.order, rating: r.rating ?? null, canRate: r.canRate ?? false,
+});
+
 // ---- supplier quotes for a diagnosis' parts list (from Kolo) --------------------
 artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id/quotes', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
   const d = await loadMine(req.artisan!.artisanId, req.params.id);
@@ -189,7 +195,7 @@ artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id/quotes', requireArtisanAuth
   if (!d.supplyRequestId) return res.json({ supply: null });
   try {
     const r = await getSupplyRequest(d.supplyRequestId);
-    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes, paymentsEnabled: r.paymentsEnabled, order: r.order } });
+    res.json({ supply: supplyPayload(r) });
   } catch (e) {
     res.status(503).json({ error: 'Supplier quotes are not available right now. You can still ask the trade desk on WhatsApp.' });
     console.warn('[supply] quotes fetch failed', e instanceof Error ? e.message : e);
@@ -201,7 +207,7 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/quotes/:quoteId/accept', r
   if (!d || !d.supplyRequestId) return res.status(404).json({ error: 'Diagnosis not found' });
   try {
     const r = await acceptSupplyQuote(d.supplyRequestId, req.params.quoteId, `${env.artisanPortal.url}/?tab=diagnose&dx=${encodeURIComponent(d.id)}`);
-    res.json({ supply: { requestId: r.id, status: r.status, expiresAt: r.expiresAt, escalated: r.escalated, suppliersAlerted: r.suppliersAlerted, acceptedQuoteId: r.acceptedQuoteId, items: r.items, quotes: r.quotes, paymentsEnabled: r.paymentsEnabled, order: r.order } });
+    res.json({ supply: supplyPayload(r) });
   } catch (e) {
     if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: 'That quote is no longer available. Pick another.' });
     res.status(503).json({ error: "We couldn't confirm your choice. Please try again." });
@@ -235,5 +241,25 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/order/dispute', requireArt
   } catch (e) {
     if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: 'A problem cannot be reported on this order now.' });
     res.status(503).json({ error: "We couldn't send that. Please try again." });
+  }
+});
+
+// ---- rate the supplier once the parts have arrived (one rating per request; Kolo decides when it is allowed) ------
+const ratingSchema = z.object({
+  stars: z.number().int().min(1).max(5),
+  onTime: z.boolean().optional(),
+  asDescribed: z.boolean().optional(),
+  comment: z.string().trim().max(300).optional(),
+});
+artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/rating', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const parsed = ratingSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Choose 1 to 5 stars.' });
+  const d = await loadMine(req.artisan!.artisanId, req.params.id);
+  if (!d?.supplyRequestId) return res.status(404).json({ error: 'Diagnosis not found' });
+  try {
+    res.status(201).json({ supply: supplyPayload(await rateSupplyRequest(d.supplyRequestId, parsed.data)) });
+  } catch (e) {
+    if (e instanceof SupplyError && e.status === 409) return res.status(409).json({ error: e.message });
+    res.status(503).json({ error: "We couldn't save your rating. Please try again." });
   }
 });

@@ -348,10 +348,12 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
 
   const accepted = state.quotes.find((q) => q.id === state.acceptedQuoteId);
   const order = state.order ?? null;
-  if (accepted && order && order.status !== 'EXPIRED') return <OrderCard diagnosisId={diagnosisId} state={state} accepted={accepted} order={order} reload={load} flash={flash} />;
+  const rate = accepted ? <RateSupplier diagnosisId={diagnosisId} state={state} supplierName={accepted.supplier.name} flash={flash} onDone={setState} /> : null;
+  if (accepted && order && order.status !== 'EXPIRED') return <div className="space-y-3"><OrderCard diagnosisId={diagnosisId} state={state} accepted={accepted} order={order} reload={load} flash={flash} />{rate}</div>;
   if (accepted) {
     const p = accepted.supplier.contactPhone ?? '';
     return (
+      <div className="space-y-3">
       <Card className="border-moss-600/40 bg-moss-600/5 p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-moss-700">Supplier chosen</div>
         <p className="mt-1 font-semibold">{accepted.supplier.name} · {naira(accepted.totalKobo)}</p>
@@ -364,6 +366,8 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
         )}
         <p className="mt-3 text-xs text-[#6d7a73]">The supplier has your number and will contact you about delivery ({eta(accepted.etaMinutes)}). Agree payment with the supplier directly.</p>
       </Card>
+      {rate}
+      </div>
     );
   }
 
@@ -408,6 +412,51 @@ function Quotes({ diagnosisId, onTradeDesk, flash }: { diagnosisId: string; onTr
       {quotes.length > 0 && !closed && <p className="mt-2 text-center text-xs text-[#8a948d]">More prices may still arrive. You can wait or choose now.</p>}
       {quotes.length > 0 && trade}
     </div>
+  );
+}
+
+// After the parts arrive: one rating per request. Higher-rated shops are asked first next time, so this matters to them.
+// With payments off there is no delivery signal, so the box starts closed behind "I received the parts".
+function RateSupplier({ diagnosisId, state, supplierName, flash, onDone }: { diagnosisId: string; state: SupplyState; supplierName: string; flash: (t: string) => void; onDone: (s: SupplyState) => void }) {
+  const [open, setOpen] = React.useState(!!state.paymentsEnabled);
+  const [stars, setStars] = React.useState(0);
+  const [onTime, setOnTime] = React.useState<boolean | undefined>();
+  const [asDescribed, setAsDescribed] = React.useState<boolean | undefined>();
+  const [comment, setComment] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+
+  if (state.rating) return <Card className="p-3 text-center text-sm text-[#42504a]">You rated {supplierName}: <span className="text-ochre-600">{'★'.repeat(state.rating.stars)}</span>{'☆'.repeat(5 - state.rating.stars)}. Thank you.</Card>;
+  if (!state.canRate) return null;
+  if (!open) return <button onClick={() => setOpen(true)} className="w-full rounded-xl border border-black/15 bg-white py-2.5 text-sm font-semibold text-[#42504a]">I received the parts: rate {supplierName}</button>;
+
+  async function submit() {
+    setBusy(true);
+    try {
+      const r = await api.rateSupplier(diagnosisId, { stars, ...(onTime !== undefined ? { onTime } : {}), ...(asDescribed !== undefined ? { asDescribed } : {}), ...(comment.trim() ? { comment: comment.trim() } : {}) });
+      onDone(r.supply); flash('Thanks for rating');
+    } catch (e) { flash(e instanceof ApiError ? e.message : 'Could not save your rating'); } finally { setBusy(false); }
+  }
+  const yn = (label: string, v: boolean | undefined, set: (b: boolean) => void) => (
+    <div className="flex items-center justify-between gap-2 text-sm">
+      <span>{label}</span>
+      <span className="flex gap-1.5">
+        {[true, false].map((b) => <button key={String(b)} type="button" onClick={() => set(b)} aria-pressed={v === b} className={`min-h-[36px] rounded-lg border px-3 text-xs font-semibold ${v === b ? 'border-moss-600 bg-moss-600 text-white' : 'border-black/15 bg-white'}`}>{b ? 'Yes' : 'No'}</button>)}
+      </span>
+    </div>
+  );
+  return (
+    <Card className="p-4">
+      <p className="text-sm font-semibold">How was {supplierName}?</p>
+      <div className="mt-2 flex justify-center gap-1" role="radiogroup" aria-label="Stars">
+        {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={stars === n} aria-label={`${n} star${n === 1 ? '' : 's'}`} onClick={() => setStars(n)} className={`min-h-[44px] min-w-[44px] text-3xl ${n <= stars ? 'text-ochre-600' : 'text-black/20'}`}>★</button>)}
+      </div>
+      <div className="mt-2 space-y-2">
+        {yn('Arrived on time?', onTime, setOnTime)}
+        {yn('Right parts and sizes?', asDescribed, setAsDescribed)}
+      </div>
+      <textarea className={input + ' mt-3 min-h-[60px]'} maxLength={300} placeholder="Anything to add? (optional)" value={comment} onChange={(e) => setComment(e.target.value)} />
+      <div className="mt-3"><Button disabled={busy || stars === 0} onClick={() => void submit()}>{busy ? 'Saving…' : 'Send rating'}</Button></div>
+    </Card>
   );
 }
 
