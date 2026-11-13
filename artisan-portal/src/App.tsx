@@ -4,18 +4,21 @@ import { getToken, clearToken } from './lib/auth';
 import { Toast } from './lib/ui';
 import Login from './pages/Login';
 import Diagnose from './pages/Diagnose';
+import Home from './pages/Home';
 import Jobs from './pages/Jobs';
 import Profile from './pages/Profile';
 
-type Tab = 'diagnose' | 'jobs' | 'profile';
+type Tab = 'home' | 'diagnose' | 'jobs' | 'profile';
 
 interface InstallEvent extends Event { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
 const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 function initialTab(): Tab {
-  const t = new URLSearchParams(window.location.search).get('tab');
-  return t === 'jobs' || t === 'profile' ? t : 'diagnose';
+  const q = new URLSearchParams(window.location.search);
+  const t = q.get('tab');
+  if (q.get('dx')) return 'diagnose'; // returning from Paystack lands on the diagnosis
+  return t === 'jobs' || t === 'profile' || t === 'diagnose' ? t : 'home';
 }
 
 export default function App() {
@@ -100,7 +103,9 @@ export default function App() {
         </div>
       )}
 
-      {tab === 'diagnose' ? (
+      {tab === 'home' ? (
+        <Home me={me} flash={flash} go={setTab} reload={reload} />
+      ) : tab === 'diagnose' ? (
         <Diagnose me={me} flash={flash} initialId={dx} />
       ) : tab === 'jobs' ? (
         <Jobs me={me} flash={flash} />
@@ -109,8 +114,9 @@ export default function App() {
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 backdrop-blur">
-        <div className="mx-auto grid max-w-md grid-cols-3 pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto grid max-w-md grid-cols-4 pb-[env(safe-area-inset-bottom)]">
           {([
+            ['home', 'Home', '🏠'],
             ['diagnose', 'Diagnose', '📷'],
             ['jobs', 'Jobs', '🧰'],
             ['profile', 'Profile', '👤'],

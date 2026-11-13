@@ -82,7 +82,17 @@ export interface Lead {
   message: string; status: LeadStatus; createdAt: string;
 }
 
+export interface Dashboard {
+  name: string;
+  status: { availability: 'OPEN' | 'BUSY' | 'AWAY'; listed: boolean };
+  verification: { tier: number; label: string; certified: boolean; idVerified: boolean };
+  ratings: { average: number | null; count: number };
+  jobs: { receivedThisMonth: number; receivedTotal: number; newRequests: number; requestsThisMonth: number; wonThisMonth: number; completedTotal: number };
+  earnings: { monthLabel: string; thisMonth: number; paidJobsThisMonth: number; pending: number; allTime: number };
+}
+
 export const api = {
+  dashboard: () => request<Dashboard>('/api/artisan/me/dashboard'),
   banks: () => request<{ name: string; code: string }[]>('/api/public/banks'),
   saveBank: (bankCode: string, accountNumber: string) =>
     request<{ bankAccountName: string; bankAccountLast4: string; payoutsConnected: true }>('/api/artisan/me/bank-details', {
