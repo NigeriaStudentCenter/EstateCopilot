@@ -1,5 +1,5 @@
 import { env } from '../config/env.js';
-import { diagnosisSchema, BASE_TOOL, str, type Diagnosis, type DiagnosisTrade } from './diagnosisSchema.js';
+import { diagnosisSchema, BASE_TOOL, str, type Diagnosis, type DiagnosisTrade, type Vehicle } from './diagnosisSchema.js';
 import { tradeConfig, ISOLATE_STEP, RETEST_STEP } from './diagnosisTrades/index.js';
 
 // The diagnosis engine. Everything that differs per trade (prompt, guards, access, mock data) lives in
@@ -64,15 +64,23 @@ export function normaliseParts(parts: Diagnosis['parts'], catalogue: CatalogueEn
   });
 }
 
+// What the mechanic told us about the vehicle, as plain text for the model (untrusted free text is kept out of it).
+function vehicleText(v?: Vehicle): string {
+  if (!v) return '';
+  const bits = [v.year, v.make, v.model].filter(Boolean).join(' ');
+  return `Vehicle: ${bits || 'not given'}${v.vin ? `, VIN ${v.vin}` : ''}${v.market ? `, market spec ${v.market}` : ''}${v.fuel ? `, fuel ${v.fuel}` : ''}${v.codes?.length ? `, fault codes ${v.codes.join(' ')}` : ''}${v.modified ? `. Modified by the owner: exhaust or catalytic converter ${v.modified.exhaust ? 'YES' : 'no'}, sensors bypassed or spaced ${v.modified.sensors ? 'YES' : 'no'}, wiring or relays bridged ${v.modified.wiring ? 'YES' : 'no'}` : ''}.\n`;
+}
+
 export interface DiagnosisInput {
   images: { base64: string; mediaType: 'image/jpeg' }[];
   note?: string;
   location?: string;
   trade?: DiagnosisTrade; // default PLUMBING
+  vehicle?: Vehicle;
 }
 
 // Enforced in code so a model slip cannot hand out step-by-step instructions for a dangerous job or invent parts.
-export function applySafetyRules(d: Diagnosis, ctx: { trade?: DiagnosisTrade; note?: string } = {}): Diagnosis {
+export function applySafetyRules(d: Diagnosis, ctx: { trade?: DiagnosisTrade; note?: string; vehicle?: Vehicle } = {}): Diagnosis {
   const out: Diagnosis = { ...d, safety: { ...d.safety } };
   if (out.outcome !== 'DIAGNOSED') {
     out.parts = [];
@@ -82,7 +90,7 @@ export function applySafetyRules(d: Diagnosis, ctx: { trade?: DiagnosisTrade; no
     out.estimatedMinutes = undefined;
     if (out.outcome === 'NEEDS_MORE_PHOTOS' && out.photoRequests.length === 0) out.photoRequests = ['A closer, well-lit photo of the fault', 'A wider photo showing the whole fixture or pipe run'];
   }
-  if (ctx.trade) tradeConfig(ctx.trade).rules?.(out, ctx.note ?? '');
+  if (ctx.trade) tradeConfig(ctx.trade).rules?.(out, ctx.note ?? '', { vehicle: ctx.vehicle });
   if (out.safety.escalate || out.safety.level === 'STOP') {
     out.safety.escalate = true;
     out.safety.level = 'STOP';
@@ -98,12 +106,13 @@ export class DiagnosisUnavailable extends Error {}
 export async function runPlumbingDiagnosis(input: DiagnosisInput, fetchImpl: typeof fetch = fetch, catalogue: CatalogueEntry[] = []): Promise<{ diagnosis: Diagnosis; model: string }> {
   const trade: DiagnosisTrade = input.trade ?? 'PLUMBING';
   const cfg = tradeConfig(trade);
-  if (env.mockMode) return { diagnosis: applySafetyRules(cfg.mock(input), { trade, note: input.note }), model: 'mock' };
+  if (env.mockMode) return { diagnosis: applySafetyRules(cfg.mock(input), { trade, note: input.note, vehicle: input.vehicle }), model: 'mock' };
   if (!env.ai.anthropicApiKey) throw new DiagnosisUnavailable('AI is not configured');
   const model = env.diagnose.model;
   const text =
     `Location: ${input.location || 'Nigeria'}\n` +
     (input.note ? `${cfg.noteLabel} note (untrusted text):\n"""${input.note}"""\n` : 'No note.\n') +
+    vehicleText(input.vehicle) +
     `${input.images.length} photo(s) attached. Diagnose the problem.`;
   const res = await fetchImpl(`${env.ai.anthropicBaseUrl}/v1/messages`, {
     method: 'POST',
@@ -123,6 +132,6 @@ export async function runPlumbingDiagnosis(input: DiagnosisInput, fetchImpl: typ
   const raw = data.content?.find((c) => c.type === 'tool_use')?.input;
   const parsed = diagnosisSchema.safeParse(raw);
   if (!parsed.success) throw new DiagnosisUnavailable('model output failed validation');
-  return { diagnosis: applySafetyRules({ ...parsed.data, parts: normaliseParts(parsed.data.parts, catalogue) }, { trade, note: input.note }), model };
+  return { diagnosis: applySafetyRules({ ...parsed.data, parts: normaliseParts(parsed.data.parts, catalogue) }, { trade, note: input.note, vehicle: input.vehicle }), model };
 }
 

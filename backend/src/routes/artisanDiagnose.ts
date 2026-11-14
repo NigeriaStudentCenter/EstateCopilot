@@ -9,12 +9,14 @@ import { requireArtisanAuth, type ArtisanAuthedRequest } from './artisan.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { putPrivateDoc } from '../lib/blobStorage.js';
 import { runPlumbingDiagnosis, DiagnosisUnavailable, type Diagnosis } from '../lib/plumbingDiagnosis.js';
+import { vehicleSchema, type Vehicle } from '../lib/diagnosisSchema.js';
 import { TRADE_IDS, tradeConfig, tradeAccess, parseTrade, isDiagnosisTrade, type TradeRollout } from '../lib/diagnosisTrades/index.js';
 import { supplyConfigured, getCatalogue, rateSupplyRequest, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, confirmSupplyOrder, disputeSupplyOrder, externalRefFor, SupplyError, type SupplyRequestView } from '../lib/supplyClient.js';
 
 export const artisanDiagnoseRouter = Router();
 
 const MAX_PHOTOS = 3;
+export const AUTO_TERMS_VERSION = 'AUTO_V1'; // the wording the mechanic accepts on the capture screen (clickwrap)
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/avif']);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: env.storage.maxImageBytes, files: MAX_PHOTOS } });
 
@@ -108,6 +110,17 @@ artisanDiagnoseRouter.post(
     if (!trade) return res.status(400).json({ error: 'Unknown trade.' });
     const acc = tradeAccess(tradeConfig(trade), a as { phone: string; verificationTier: number; trades?: { trade: string }[] }, rollout());
     if (!acc.ok) return res.status(403).json({ error: acc.error });
+    // Vehicles: the mechanic accepts the terms and gives the vehicle details (a VIN is required, because parts are matched by VIN).
+    let vehicle: Vehicle | undefined;
+    if (tradeConfig(trade).needsVehicle) {
+      if (req.body?.terms !== AUTO_TERMS_VERSION) return res.status(400).json({ error: 'Accept the terms to continue: this app gives decision support, not a certified inspection.' });
+      let raw: unknown;
+      try { raw = JSON.parse(String(req.body?.vehicle ?? '{}')); } catch { return res.status(400).json({ error: 'Check the vehicle details and try again.' }); }
+      const pv = vehicleSchema.safeParse(raw);
+      if (!pv.success) return res.status(400).json({ error: pv.error.issues[0]?.message ?? 'Check the vehicle details.' });
+      if (!pv.data.vin) return res.status(400).json({ error: 'Enter the 17-character VIN. Parts are matched by VIN, not by year and model, because Nigerian cars come in US, European, Japanese and GCC specifications.' });
+      vehicle = pv.data;
+    }
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     if (files.length === 0) return res.status(400).json({ error: 'Add at least one photo (field "images").' });
     if (files.some((f) => !ALLOWED_MIME.has(f.mimetype))) return res.status(400).json({ error: 'Only JPEG, PNG, WebP, HEIC or AVIF photos are allowed.' });
@@ -132,12 +145,14 @@ artisanDiagnoseRouter.post(
         note,
         location: `${a.baseLga}, ${a.baseState}`,
         trade,
+        vehicle,
       }, fetch, await getCatalogue(trade));
     } catch (e) {
       if (!(e instanceof DiagnosisUnavailable)) console.error('[diagnose] unexpected', e);
       return res.status(503).json({ error: "The diagnosis service couldn't read this right now. Please try again in a moment." });
     }
 
+    if (vehicle) { result.diagnosis.vehicle = vehicle; result.diagnosis.termsAccepted = { version: AUTO_TERMS_VERSION, at: new Date().toISOString() }; }
     const photoKeys = await Promise.all(jpegs.map((b) => putPrivateDoc(b, 'jpg', 'image/jpeg')));
     const base = { artisanId, trade, note: note || null, photoKeys, outcome: result.diagnosis.outcome, confidence: result.diagnosis.confidence, model: result.model };
     let stored: StoredDiagnosis;
@@ -168,6 +183,7 @@ artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id', requireArtisanAuth, async
 // ---- send the parts list to the trade desk on WhatsApp ----------------------
 const partsSchema = z.object({
   parts: z.array(z.object({ name: z.string().min(1).max(100), spec: z.string().max(120).optional(), qty: z.number().int().min(1).max(5000), unit: z.string().max(20).optional(), catalogueId: z.string().max(60).optional() })).min(1).max(15).optional(),
+  confirmedChecks: z.boolean().optional(), // vehicles: the mechanic ticked the verify-before-you-buy checks
 });
 
 artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
@@ -176,15 +192,29 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   const artisanId = req.artisan!.artisanId;
   const d = await loadMine(artisanId, req.params.id);
   if (!d) return res.status(404).json({ error: 'Diagnosis not found' });
-  const parts = parsed.data.parts ?? d.result.parts;
+  let parts = parsed.data.parts ?? d.result.parts;
   if (parts.length === 0) return res.status(400).json({ error: 'There are no parts to request for this diagnosis.' });
+  // Vehicles: parts are matched by VIN, life-critical parts are never sold through the app, and costly parts wait for the basic checks.
+  let withheld = 0;
+  const vehicle = d.result.vehicle;
+  if (d.trade === 'AUTOMOTIVE') {
+    if (!vehicle?.vin) return res.status(400).json({ error: 'This diagnosis has no VIN, so parts cannot be matched. Start a new diagnosis with the VIN.' });
+    const critical = new Set(d.result.parts.filter((p) => p.critical).map((p) => p.name));
+    const kept = parts.filter((p) => !critical.has(p.name));
+    withheld = parts.length - kept.length;
+    if (kept.length === 0) return res.status(400).json({ error: 'The parts in this plan are life-critical (brakes, steering, airbags). Buy them only from a vetted supplier with a batch number; they are not sold through this app.' });
+    parts = kept;
+    const gated = new Set(d.result.parts.filter((p) => p.gated).map((p) => p.name));
+    if ((d.result.verifyFirst?.length ?? 0) > 0 && parts.some((p) => gated.has(p.name)) && parsed.data.confirmedChecks !== true) return res.status(400).json({ error: 'Confirm that you have done the checks first. Most costly parts are not the real fault.' });
+  }
+  const vehicleLine = vehicle ? `${[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle'}, VIN ${vehicle.vin}${vehicle.market ? `, spec ${vehicle.market}` : ''}` : '';
   const a = await who(artisanId);
   if (!a) return res.status(404).json({ error: 'Account not found' });
 
   const lines = parts.map((p, i) => `${i + 1}. ${p.name}${p.spec ? ` (${p.spec})` : ''} x ${p.qty}${p.unit ? ` ${p.unit}` : ''}`);
   const message =
     `*Parts request - EstateCopilot*\n` +
-    `From: ${a.name} (${a.phone})\nLocation: ${a.baseLga}, ${a.baseState}\nJob: ${d.result.summary}\n\nParts needed:\n${lines.join('\n')}\n\n` +
+    `From: ${a.name} (${a.phone})\nLocation: ${a.baseLga}, ${a.baseState}\nJob: ${d.result.summary}${vehicleLine ? `\nVehicle: ${vehicleLine}` : ''}\n\nParts needed:\n${lines.join('\n')}\n\n` +
     `Please reply with price, what is in stock and how fast you can deliver. Thank you.`;
   const to = env.diagnose.tradeDeskWhatsapp;
 
@@ -195,7 +225,7 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   if (supplyConfigured()) {
     try {
       const ref = externalRefFor(d.id, parts);
-      const created = await createSupplyRequest({ trade: (d.trade && isDiagnosisTrade(d.trade) ? d.trade : 'PLUMBING'), externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
+      const created = await createSupplyRequest({ trade: (d.trade && isDiagnosisTrade(d.trade) ? d.trade : 'PLUMBING'), externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: (vehicleLine ? `${d.result.summary} | ${vehicleLine}` : d.result.summary).slice(0, 400), items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
       // The list changed since last time: close the old open request so suppliers stop pricing it.
       if (supplyRequestId && supplyRequestId !== created.id) await cancelSupplyRequest(supplyRequestId).catch(() => undefined);
       supplyRequestId = created.id;
@@ -206,7 +236,7 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   }
   if (env.mockMode) d.partsRequestedAt = now;
   else await prisma.artisanDiagnosis.update({ where: { id: d.id }, data: { partsRequestedAt: now, supplyRequestId } });
-  res.json({ message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, parts, supply });
+  res.json({ message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, parts, withheld, supply });
 });
 
 // ---- a materials list (from the building estimator) sent for supplier prices ----------------------------------
