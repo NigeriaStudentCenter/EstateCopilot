@@ -18,7 +18,7 @@ function regionFor(state: string): string {
   return REGIONS.find((r) => r.toLowerCase() === s) ?? 'Lagos';
 }
 
-export default function Solar({ me, flash }: { me: Me; flash: (t: string) => void }) {
+export default function Solar({ me, flash, embedded = false }: { me: Me; flash: (t: string) => void; embedded?: boolean }) {
   const region0 = regionFor(me.baseState);
   const [projects, setProjects] = React.useState<Project[]>(() => { const p = loadProjects(me.id, region0); return p.length ? p : [newProject(region0, 'My first design')]; });
   const [activeId, setActiveId] = React.useState(() => projects[0].id);
@@ -44,7 +44,7 @@ export default function Solar({ me, flash }: { me: Me; flash: (t: string) => voi
   }
 
   return (
-    <Screen title="Solar sizing">
+    <Screen title="Solar sizing" embedded={embedded}>
       <Card className="mb-3 p-3">
         <div className="flex gap-2">
           <select className={input + ' !py-2'} aria-label="Saved design" value={project.id} onChange={(e) => setActiveId(e.target.value)}>
