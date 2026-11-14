@@ -47,8 +47,8 @@ export interface Me {
 export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
-  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR';
-  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR'; checks?: string[];
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC';
+  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   fixture: string; material?: string; defect: string; alternativeCauses: string[];
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
@@ -94,7 +94,7 @@ export interface Dashboard {
 
 export interface LabelReading { readable: boolean; name: string | null; watts: number | null; source: 'label' | 'volts x amps' | 'VA' | null; volts: number | null; amps: number | null; note: string | null }
 
-export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR';
+export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC';
 export interface DiagnoseTrade { id: DiagnosisTradeId; label: string; icon: string; intro: string; notice: string | null; beta: boolean; available: boolean; reason: string | null }
 
 export const api = {

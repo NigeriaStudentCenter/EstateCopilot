@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Structured result of a photo diagnosis (any trade). The model is forced to return this through a tool call, then it is
 // validated here, then the SAFETY RULES below are applied in code (not left to the prompt alone).
 export const diagnosisSchema = z.object({
-  outcome: z.enum(['DIAGNOSED', 'NEEDS_MORE_PHOTOS', 'NOT_PLUMBING', 'NOT_ELECTRICAL', 'NOT_CARPENTRY', 'NOT_SOLAR']),
+  outcome: z.enum(['DIAGNOSED', 'NEEDS_MORE_PHOTOS', 'NOT_PLUMBING', 'NOT_ELECTRICAL', 'NOT_CARPENTRY', 'NOT_SOLAR', 'NOT_BUILDING', 'NOT_HVAC']),
   summary: z.string().min(1).max(400),
   summaryPidgin: z.string().max(400).optional(),
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
@@ -28,7 +28,7 @@ export const diagnosisSchema = z.object({
   photoRequests: z.array(z.string().max(160)).max(4).default([]),
 });
 export type Diagnosis = z.infer<typeof diagnosisSchema>;
-export type DiagnosisTrade = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR';
+export type DiagnosisTrade = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC';
 
 export const str = (max: number) => ({ type: 'string', maxLength: max });
 export const BASE_TOOL = {

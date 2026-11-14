@@ -8,8 +8,10 @@ export interface TradeConfig {
   icon: string;
   /** The id of the matching trade on the artisan's profile (lib/trades.ts). */
   artisanTrade: string;
+  /** Other profile trades that also qualify (building covers bricklayer, tiler and roofer). Defaults to just artisanTrade. */
+  artisanTrades?: string[];
   /** Outcome the model uses when the photo is not this trade. */
-  notOutcome: 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR';
+  notOutcome: 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC';
   people: string; // "plumbers" / "electricians": used in access messages
   noteLabel: string; // "Plumber's" / "Electrician's"
   intro: string; // shown under the trade picker
