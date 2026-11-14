@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Structured result of a photo diagnosis (any trade). The model is forced to return this through a tool call, then it is
 // validated here, then the SAFETY RULES below are applied in code (not left to the prompt alone).
 export const diagnosisSchema = z.object({
-  outcome: z.enum(['DIAGNOSED', 'NEEDS_MORE_PHOTOS', 'NOT_PLUMBING', 'NOT_ELECTRICAL', 'NOT_CARPENTRY', 'NOT_SOLAR', 'NOT_BUILDING', 'NOT_HVAC', 'NOT_AUTOMOTIVE']),
+  outcome: z.enum(['DIAGNOSED', 'NEEDS_MORE_PHOTOS', 'NOT_PLUMBING', 'NOT_ELECTRICAL', 'NOT_CARPENTRY', 'NOT_SOLAR', 'NOT_BUILDING', 'NOT_HVAC', 'NOT_AUTOMOTIVE', 'NOT_BEAUTY']),
   summary: z.string().min(1).max(400),
   summaryPidgin: z.string().max(400).optional(),
   confidence: z.enum(['HIGH', 'MEDIUM', 'LOW']),
@@ -33,6 +33,11 @@ export const diagnosisSchema = z.object({
   verifyFirst: z.array(z.string().max(240)).max(8).optional(),
   vehicle: z.lazy(() => vehicleSchema).optional(),
   termsAccepted: z.object({ version: z.string().max(20), at: z.string().max(40) }).optional(),
+  // Beauty: observations scored 0-10 (never a medical diagnosis), whether the client should see a doctor, and the client's intake.
+  scores: z.array(z.object({ name: z.string().max(40), score: z.number(), note: z.string().max(100).optional() })).max(8).optional(), // the rules clamp 0-10: a model slip must not throw the diagnosis away
+  referral: z.enum(['NONE', 'ROUTINE', 'URGENT']).optional(),
+  client: z.lazy(() => clientSchema).optional(),
+  clientConsent: z.object({ version: z.string().max(30), at: z.string().max(40) }).optional(),
 });
 export const vehicleSchema = z.object({
   vin: z.string().trim().toUpperCase().regex(/^[A-HJ-NPR-Z0-9]{17}$/, 'VIN must be 17 letters and numbers (no I, O or Q)').optional(),
@@ -45,8 +50,27 @@ export const vehicleSchema = z.object({
   modified: z.object({ exhaust: z.boolean(), sensors: z.boolean(), wiring: z.boolean() }).optional(),
 });
 export type Vehicle = z.infer<typeof vehicleSchema>;
+// What the therapist records about the client before the photo is analysed: the things a camera cannot see.
+export const clientSchema = z.object({
+  area: z.enum(['SKIN', 'HAIR', 'NAILS']),
+  fitzpatrick: z.number().int().min(1).max(6).optional(),
+  pregnant: z.boolean().optional(),
+  breastfeeding: z.boolean().optional(),
+  isotretinoin: z.boolean().optional(), // in the last 6 months
+  retinoids: z.boolean().optional(),
+  antibiotics: z.boolean().optional(),
+  steroids: z.boolean().optional(),
+  bloodThinners: z.boolean().optional(),
+  immunosuppressants: z.boolean().optional(),
+  keloidProne: z.boolean().optional(),
+  diabetic: z.boolean().optional(),
+  eczemaOrPsoriasis: z.boolean().optional(), // on the treatment area
+  openWoundOrInfection: z.boolean().optional(), // on the treatment area
+  allergies: z.string().trim().max(120).optional(),
+});
+export type Client = z.infer<typeof clientSchema>;
 export type Diagnosis = z.infer<typeof diagnosisSchema>;
-export type DiagnosisTrade = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE';
+export type DiagnosisTrade = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE' | 'BEAUTY';
 
 export const str = (max: number) => ({ type: 'string', maxLength: max });
 export const BASE_TOOL = {
@@ -57,6 +81,8 @@ export const BASE_TOOL = {
     required: ['outcome', 'summary', 'confidence', 'fixture', 'defect', 'urgency', 'safety', 'tools', 'parts', 'steps'],
     properties: {
       outcome: { type: 'string', enum: ['DIAGNOSED', 'NEEDS_MORE_PHOTOS', 'NOT_PLUMBING'] },
+      scores: { type: 'array', maxItems: 8, description: 'Beauty only: observations scored 0 (none) to 10 (severe) with a short note.', items: { type: 'object', required: ['name', 'score'], properties: { name: str(40), score: { type: 'number', minimum: 0, maximum: 10 }, note: str(100) } } },
+      referral: { type: 'string', enum: ['NONE', 'ROUTINE', 'URGENT'], description: 'Beauty only: should the client see a doctor, dermatologist or podiatrist.' },
       drive: { type: 'string', enum: ['SAFE', 'CAUTION', 'DO_NOT_DRIVE'], description: 'Vehicles only: is it safe to drive the vehicle as it is.' },
       codes: { type: 'array', maxItems: 8, items: str(8), description: 'Vehicles only: fault codes read from the photo or note.' },
       summary: str(400),

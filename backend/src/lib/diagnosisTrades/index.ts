@@ -7,6 +7,7 @@ import { solar } from './solar.js';
 import { building } from './building.js';
 import { hvac } from './hvac.js';
 import { automotive } from './automotive.js';
+import { beauty } from './beauty.js';
 
 export type { TradeConfig } from './types.js';
 export { ISOLATE_STEP, RETEST_STEP } from './electrical.js';
@@ -15,7 +16,7 @@ export { SOLAR_ISOLATE_STEP, SOLAR_RESTORE_STEP, SOLAR_VOC_CHECK } from './solar
 
 // The registry. To add a trade: write diagnosisTrades/<trade>.ts, add it here, add its enum value in diagnosisSchema.ts
 // and its catalogue in Kolo. It stays hidden until it is listed in DIAGNOSE_TRADES_LIVE or DIAGNOSE_TRADES_BETA.
-export const TRADE_CONFIGS: Record<DiagnosisTrade, TradeConfig> = { PLUMBING: plumbing, ELECTRICAL: electrical, CARPENTRY: carpentry, SOLAR: solar, BUILDING: building, HVAC: hvac, AUTOMOTIVE: automotive };
+export const TRADE_CONFIGS: Record<DiagnosisTrade, TradeConfig> = { PLUMBING: plumbing, ELECTRICAL: electrical, CARPENTRY: carpentry, SOLAR: solar, BUILDING: building, HVAC: hvac, AUTOMOTIVE: automotive, BEAUTY: beauty };
 export const TRADE_IDS = Object.keys(TRADE_CONFIGS) as DiagnosisTrade[];
 export const isDiagnosisTrade = (v: string): v is DiagnosisTrade => v in TRADE_CONFIGS;
 export const tradeConfig = (id: DiagnosisTrade): TradeConfig => TRADE_CONFIGS[id];
@@ -23,7 +24,7 @@ export const tradeConfig = (id: DiagnosisTrade): TradeConfig => TRADE_CONFIGS[id
 // Friendly aliases the app or a script might send ("ELECTRICIAN", "carpenter").
 export function parseTrade(raw: unknown): DiagnosisTrade | null {
   const v = String(raw ?? 'PLUMBING').trim().toUpperCase();
-  const alias: Record<string, DiagnosisTrade> = { PLUMBING: 'PLUMBING', PLUMBER: 'PLUMBING', ELECTRICAL: 'ELECTRICAL', ELECTRICIAN: 'ELECTRICAL', CARPENTRY: 'CARPENTRY', CARPENTER: 'CARPENTRY', CARPENTER_FURNITURE: 'CARPENTRY', SOLAR: 'SOLAR', SOLAR_INVERTER: 'SOLAR', INSTALLER: 'SOLAR', BUILDING: 'BUILDING', BRICKLAYER: 'BUILDING', MASON: 'BUILDING', TILER: 'BUILDING', TILING: 'BUILDING', ROOFER: 'BUILDING', ROOFING: 'BUILDING', HVAC: 'HVAC', AC: 'HVAC', AC_TECHNICIAN: 'HVAC', AUTOMOTIVE: 'AUTOMOTIVE', CAR: 'AUTOMOTIVE', VEHICLE: 'AUTOMOTIVE', MECHANIC: 'AUTOMOTIVE', AUTO_MECHANIC: 'AUTOMOTIVE' };
+  const alias: Record<string, DiagnosisTrade> = { PLUMBING: 'PLUMBING', PLUMBER: 'PLUMBING', ELECTRICAL: 'ELECTRICAL', ELECTRICIAN: 'ELECTRICAL', CARPENTRY: 'CARPENTRY', CARPENTER: 'CARPENTRY', CARPENTER_FURNITURE: 'CARPENTRY', SOLAR: 'SOLAR', SOLAR_INVERTER: 'SOLAR', INSTALLER: 'SOLAR', BUILDING: 'BUILDING', BRICKLAYER: 'BUILDING', MASON: 'BUILDING', TILER: 'BUILDING', TILING: 'BUILDING', ROOFER: 'BUILDING', ROOFING: 'BUILDING', HVAC: 'HVAC', AC: 'HVAC', AC_TECHNICIAN: 'HVAC', AUTOMOTIVE: 'AUTOMOTIVE', CAR: 'AUTOMOTIVE', VEHICLE: 'AUTOMOTIVE', MECHANIC: 'AUTOMOTIVE', AUTO_MECHANIC: 'AUTOMOTIVE', BEAUTY: 'BEAUTY', BEAUTY_THERAPIST: 'BEAUTY', THERAPIST: 'BEAUTY', SKIN: 'BEAUTY', HAIR: 'BEAUTY', NAILS: 'BEAUTY' };
   return alias[v] ?? null;
 }
 
@@ -44,7 +45,7 @@ export function tradeAccess(cfg: TradeConfig, a: ArtisanLite, rollout: TradeRoll
   if (cfg.requiresVerified && a.verificationTier < 1) return { ok: false, code: 'NEEDS_VERIFICATION', error: `Verify your NIN or BVN on the Profile tab first. ${cfg.label} diagnosis is for verified ${cfg.people}.` };
   return { ok: true, beta };
 }
-const PROFILE_LABEL: Record<string, string> = { ELECTRICIAN: 'Electrician', PLUMBER: 'Plumber', CARPENTER_FURNITURE: 'Carpenter / Furniture', SOLAR_INVERTER: 'Solar & Inverter', BRICKLAYER: 'Bricklayer / Mason', TILER: 'Tiler / Marble', ROOFER: 'Roofer', AC_TECHNICIAN: 'AC Technician', AUTO_MECHANIC: 'Auto Mechanic' };
+const PROFILE_LABEL: Record<string, string> = { ELECTRICIAN: 'Electrician', PLUMBER: 'Plumber', CARPENTER_FURNITURE: 'Carpenter / Furniture', SOLAR_INVERTER: 'Solar & Inverter', BRICKLAYER: 'Bricklayer / Mason', TILER: 'Tiler / Marble', ROOFER: 'Roofer', AC_TECHNICIAN: 'AC Technician', AUTO_MECHANIC: 'Auto Mechanic', BEAUTY_THERAPIST: 'Beauty & Aesthetic Therapist' };
 // "Electrician", or for a trade that several profile trades qualify for: "Bricklayer / Mason, Tiler / Marble or Roofer".
 const tradeLabelOnProfile = (cfg: TradeConfig) => {
   const names = (cfg.artisanTrades ?? [cfg.artisanTrade]).map((t) => PROFILE_LABEL[t] ?? cfg.label);
