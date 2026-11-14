@@ -1,7 +1,8 @@
 import React from 'react';
 import type { Me } from '../../lib/api';
 import { Button, Card, Screen } from '../../lib/ui';
-import { KIND_LABEL, costOf, summaryText, totals, unitText, newJob, tileResult, blockResult, plasterResult, screedResult, concreteResult, roofResult, round, type Job, type JobKind } from '../../lib/building';
+import { api, ApiError } from '../../lib/api';
+import { KIND_LABEL, REQUEST_MAX_ITEMS, requestItems, costOf, summaryText, totals, unitText, newJob, tileResult, blockResult, plasterResult, screedResult, concreteResult, roofResult, round, type Job, type JobKind } from '../../lib/building';
 import { ProjectBar } from '../tools/parts';
 import { uid, useProjects } from '../tools/useProjects';
 import { JobEditor } from './JobForm';
@@ -20,7 +21,8 @@ function headline(j: Job): string {
   }
 }
 
-export default function Building({ me, flash, embedded = false }: { me: Me; flash: (t: string) => void; embedded?: boolean }) {
+export default function Building({ me, flash, embedded = false, openDiagnosis }: { me: Me; flash: (t: string) => void; embedded?: boolean; openDiagnosis: (id: string) => void }) {
+  const [sending, setSending] = React.useState(false);
   const { projects, project, setActiveId, setData, patch, add, remove } = useProjects<BuildingData>('building', me.id, makeBuilding, cleanBuilding, 'My first job');
   const [view, setView] = React.useState<'jobs' | 'list'>('jobs');
   const [open, setOpen] = React.useState<string | null>(null);
@@ -38,6 +40,17 @@ export default function Building({ me, flash, embedded = false }: { me: Me; flas
   const who = { project: project.name, customer: project.customer, by: me.businessName || me.name };
   const text = summaryText(d.jobs, d.prices, who);
   async function copy() { try { await navigator.clipboard.writeText(text); flash('Copied'); } catch { flash('Could not copy'); } }
+  const items = requestItems(list);
+  async function askSuppliers() {
+    if (items.length > REQUEST_MAX_ITEMS) return flash(`Suppliers take up to ${REQUEST_MAX_ITEMS} items per request. Yours has ${items.length}. Split the jobs into two projects.`);
+    setSending(true);
+    try {
+      const r = await api.materialsRequest(project.name || 'Materials', items);
+      flash(r.supply && r.supply.suppliersAlerted > 0 ? `Sent to ${r.supply.suppliersAlerted} supplier${r.supply.suppliersAlerted === 1 ? '' : 's'}` : 'No shops are set up near you yet. Use the trade desk on the next screen.');
+      openDiagnosis(r.id);
+    } catch (e) { flash(e instanceof ApiError ? e.message : 'Could not send the list'); }
+    finally { setSending(false); }
+  }
   const naira = (n: number) => `₦${Math.round(n).toLocaleString('en-NG')}`;
 
   return (
@@ -114,6 +127,8 @@ export default function Building({ me, flash, embedded = false }: { me: Me; flas
                 {total > 0 && <p className="mt-3 flex items-baseline justify-between border-t border-black/20 pt-3 text-base font-extrabold"><span>Materials cost</span><span>{naira(total)}</span></p>}
                 <p className="mt-3 text-[11px] leading-snug text-[#6d7a73]">Prepared by {who.by} · {me.phone}. An estimate for ordering. Quantities depend on the sizes your supplier sells and on site conditions. Add your labour and transport. Structural work must follow the engineer's design.</p>
               </div>
+              <Button onClick={() => void askSuppliers()} disabled={sending}>{sending ? 'Sending…' : 'Get prices from suppliers'}</Button>
+              <p className="-mt-1 text-center text-xs text-[#6d7a73]">Shops near you quote on this list and you choose the best price. Up to {REQUEST_MAX_ITEMS} items per request.</p>
               <div className="grid grid-cols-3 gap-2">
                 <Button variant="ghost" onClick={() => window.print()}>Print / PDF</Button>
                 <a className="inline-flex items-center justify-center rounded-xl bg-[#25D366] px-2 py-3 text-sm font-semibold text-white" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">WhatsApp</a>

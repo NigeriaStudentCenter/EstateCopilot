@@ -175,7 +175,7 @@ export function roofResult(j: RoofJob): RoofResult {
 export function jobLines(j: Job): Line[] {
   switch (j.kind) {
     case 'tiles': {
-      const r = tileResult(j), size = `${Math.round(j.tileWmm)}x${Math.round(j.tileLmm)}`, spec = `${size} ${j.material}`;
+      const r = tileResult(j), size = `${round(j.tileWmm / 10)}x${round(j.tileLmm / 10)}`, spec = `${size} ${j.material}`; // centimetres, as the shops and the catalogue write them
       const out: Line[] = [
         { key: `tile|${spec}|carton`, name: 'Floor tiles', exact: r.cartons, unit: 'carton', spec, catalogueId: 'tile-floor', note: `${r.pieces} tiles, ${r.perCarton} per carton` },
         { key: 'tile-adhesive|bag', name: 'Tile adhesive (25kg bag)', exact: r.bags, unit: 'bag', spec: '25kg', catalogueId: 'tile-adhesive' },
@@ -236,4 +236,15 @@ export function summaryText(jobs: Job[], prices: Record<string, number>, who: { 
   let sum = 0;
   const lines = t.map((x) => { const c = costOf(x, prices); sum += c; return `- ${x.name}${x.spec ? ` (${x.spec})` : ''}: ${x.qty} ${unitText(x.unit, x.qty)}${c > 0 ? ` = ${naira(c)}` : ''}`; });
   return [`Materials list${who.customer ? ` for ${who.customer}` : ''}${who.project ? ` (${who.project})` : ''}`, ...lines, ...(sum > 0 ? ['', `Estimated materials cost: ${naira(sum)}`] : []), '', `Prepared by ${who.by} on Estate Copilot Artisans. Estimate only; confirm sizes and quantities with your supplier.`].join('\n');
+}
+
+// ---- sending the list to suppliers for prices --------------------------------------------------------------------------------
+// Suppliers price whole units, so m3 and metres are rounded up to whole numbers and every quantity is an integer.
+export interface RequestItem { name: string; spec?: string; qty: number; unit: string; catalogueId?: string }
+export const REQUEST_MAX_ITEMS = 15;
+export function requestItems(list: Total[]): RequestItem[] {
+  return list.filter((t) => t.qty > 0).map((t) => ({
+    name: t.name.replace(/ \(50kg bag\)| \(25kg bag\)/, '').slice(0, 100), spec: t.spec, qty: Math.min(5000, Math.max(1, Math.ceil(t.qty - 1e-9))),
+    unit: ({ pcs: 'pcs', carton: 'carton', bag: 'bag', kg: 'kg', m3: 'm3', m: 'm', length: 'length', m2: 'm2' } as const)[t.unit], catalogueId: t.catalogueId,
+  }));
 }

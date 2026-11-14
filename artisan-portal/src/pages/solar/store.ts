@@ -44,3 +44,23 @@ export function saveProjects(artisanId: string, projects: Project[]) {
   try { localStorage.setItem(key(artisanId), JSON.stringify(projects.slice(0, 30))); } catch { /* storage blocked: still works for this session */ }
 }
 export const newProject = (region: string, name = 'New design'): Project => ({ id: uid(), name, customer: '', updatedAt: Date.now(), design: newDesign(region) });
+
+// Add the air conditioners sized in the AC tool to a saved solar design, as ordinary appliances. An AC added before under the same
+// name is replaced, so sending the list again after an edit does not double it. Returns the design's name, or null if it was not found.
+export interface AcLoad { name: string; units: number; runningW: number; hours: number; acType: 'FIXED' | 'INVERTER'; use: 'BEDROOM' | 'LIVING' | 'OFFICE' | 'SHOP' | 'RESTAURANT' }
+export function addAcsToSolar(artisanId: string, region: string, projectId: string | null, loads: AcLoad[]): string | null {
+  const projects = loadProjects(artisanId, region);
+  const target = projects.find((p) => p.id === projectId) ?? projects[0];
+  if (!target) return null;
+  const names = new Set(loads.map((l) => `AC - ${l.name}`.slice(0, 40)));
+  const added: Appliance[] = loads.filter((l) => l.runningW > 0).map((l) => {
+    const hours = Math.min(24, Math.max(0.5, l.hours || 8));
+    const when: When = hours > 12 ? 'ALL' : l.use === 'BEDROOM' ? 'NIGHT' : l.use === 'OFFICE' || l.use === 'SHOP' ? 'DAY' : 'ALL';
+    return { id: uid(), name: `AC - ${l.name}`.slice(0, 40), qty: Math.max(1, Math.round(l.units)), watts: Math.round(l.runningW), hours, duty: 0.6, when, surge: l.acType === 'FIXED' ? 4 : 1.5, on: true };
+  });
+  target.design = { ...target.design, appliances: [...target.design.appliances.filter((a) => !names.has(a.name)), ...added].slice(0, 60) };
+  target.updatedAt = Date.now();
+  saveProjects(artisanId, projects);
+  return target.name;
+}
+export const solarProjectNames = (artisanId: string, region: string) => loadProjects(artisanId, region).map((p) => ({ id: p.id, name: p.customer ? `${p.customer} · ${p.name}` : p.name }));

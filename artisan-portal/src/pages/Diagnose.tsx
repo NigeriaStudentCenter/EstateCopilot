@@ -245,7 +245,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   }
 
   return (
-    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : d.outcome === 'NOT_BUILDING' ? 'Not a building fault' : d.outcome === 'NOT_HVAC' ? 'Not an AC or refrigeration fault' : 'Not a plumbing fault'}>
+    <Screen title={d.materials ? 'Materials list' : d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : d.outcome === 'NOT_BUILDING' ? 'Not a building fault' : d.outcome === 'NOT_HVAC' ? 'Not an AC or refrigeration fault' : 'Not a plumbing fault'}>
       {d.safety.level !== 'NORMAL' && (
         <div role="alert" className={`mb-3 rounded-2xl border p-4 text-sm ${stop ? 'border-red-300 bg-red-50 text-red-900' : 'border-ochre-100 bg-ochre-50 text-ochre-700'}`}>
           <b className="block text-base">{stop ? '⛔ Stop. This needs a qualified person.' : '⚠️ Take care'}</b>
@@ -262,14 +262,14 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
       )}
 
       <Card className="mb-3 p-4">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+        <div className={`mb-2 flex flex-wrap items-center gap-2 ${d.materials ? 'hidden' : ''}`}>
           <Pill tone={d.confidence === 'HIGH' ? 'good' : d.confidence === 'MEDIUM' ? 'warn' : 'bad'}>{d.confidence === 'HIGH' ? 'High confidence' : d.confidence === 'MEDIUM' ? 'Medium confidence' : 'Low confidence'}</Pill>
           {d.urgency === 'URGENT' && <Pill tone="bad">Urgent</Pill>}
           {d.urgency === 'SOON' && <Pill tone="warn">Fix soon</Pill>}
           {d.estimatedMinutes && <Pill tone="neutral">~{d.estimatedMinutes} min</Pill>}
         </div>
         <p className="text-[15px] font-semibold">{d.summary}</p>
-        {d.outcome === 'DIAGNOSED' && (
+        {d.outcome === 'DIAGNOSED' && !d.materials && (
           <dl className="mt-2 space-y-1 text-sm text-[#42504a]">
             <div><dt className="inline font-semibold">What: </dt><dd className="inline">{d.fixture}{d.material ? ` (${d.material})` : ''}</dd></div>
             <div><dt className="inline font-semibold">Fault: </dt><dd className="inline">{d.defect}</dd></div>
@@ -303,7 +303,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
                   <div className="truncate text-sm font-semibold">{p.name}</div>
                   <div className="text-xs text-[#8a948d]">{[p.spec, p.unit, p.note].filter(Boolean).join(' · ')}</div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className={`flex items-center gap-1 ${d.materials ? '[&>button]:hidden' : ''}`}>
                   <button className="h-8 w-8 rounded-lg border border-black/15" aria-label="Fewer" onClick={() => setSel((s) => s.map((x, j) => (j === i ? { ...x, qty: Math.max(1, x.qty - 1) } : x)))}>−</button>
                   <span className="w-6 text-center text-sm font-semibold">{sel[i].qty}</span>
                   <button className="h-8 w-8 rounded-lg border border-black/15" aria-label="More" onClick={() => setSel((s) => s.map((x, j) => (j === i ? { ...x, qty: Math.min(100, x.qty + 1) } : x)))}>+</button>
@@ -339,7 +339,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
-      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'BUILDING' ? ', wearing dust and eye protection, using fall protection on roofs and never touching structural work' : d.trade === 'HVAC' ? ', isolating and discharging capacitors first and handling refrigerant correctly' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
+      <p className={`mt-4 text-xs text-[#8a948d] ${d.materials ? 'hidden' : ''}`}>This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'BUILDING' ? ', wearing dust and eye protection, using fall protection on roofs and never touching structural work' : d.trade === 'HVAC' ? ', isolating and discharging capacitors first and handling refrigerant correctly' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
   );

@@ -33,8 +33,11 @@ interface StoredDiagnosis {
   createdAt: Date;
 }
 const mockStore: StoredDiagnosis[] = [];
+// A materials list sent for supplier prices is stored as a diagnosis row with no photos, so quotes, accepting, orders and
+// ratings all reuse the diagnosis flow. It does not count toward the daily photo-diagnosis limit.
+const MATERIALS_MODEL = 'materials-list';
 
-const full = (d: StoredDiagnosis) => ({ id: d.id, trade: d.trade ?? 'PLUMBING', createdAt: d.createdAt.toISOString(), note: d.note, photoCount: d.photoKeys.length, partsRequestedAt: d.partsRequestedAt?.toISOString() ?? null, supplyRequestId: d.supplyRequestId ?? null, ...d.result });
+const full = (d: StoredDiagnosis) => ({ id: d.id, trade: d.trade ?? 'PLUMBING', createdAt: d.createdAt.toISOString(), note: d.note, photoCount: d.photoKeys.length, partsRequestedAt: d.partsRequestedAt?.toISOString() ?? null, supplyRequestId: d.supplyRequestId ?? null, materials: d.model === MATERIALS_MODEL, ...d.result });
 const card = (d: StoredDiagnosis) => ({
   id: d.id,
   trade: d.trade ?? 'PLUMBING',
@@ -49,8 +52,8 @@ const card = (d: StoredDiagnosis) => ({
 
 async function recentCount(artisanId: string): Promise<number> {
   const since = new Date(Date.now() - 24 * 3600 * 1000);
-  if (env.mockMode) return mockStore.filter((d) => d.artisanId === artisanId && d.createdAt >= since).length;
-  return prisma.artisanDiagnosis.count({ where: { artisanId, createdAt: { gte: since } } });
+  if (env.mockMode) return mockStore.filter((d) => d.artisanId === artisanId && d.createdAt >= since && d.model !== MATERIALS_MODEL).length;
+  return prisma.artisanDiagnosis.count({ where: { artisanId, createdAt: { gte: since }, model: { not: MATERIALS_MODEL } } });
 }
 
 async function loadMine(artisanId: string, id: string): Promise<StoredDiagnosis | null> {
@@ -164,7 +167,7 @@ artisanDiagnoseRouter.get('/artisan/me/diagnoses/:id', requireArtisanAuth, async
 
 // ---- send the parts list to the trade desk on WhatsApp ----------------------
 const partsSchema = z.object({
-  parts: z.array(z.object({ name: z.string().min(1).max(100), spec: z.string().max(120).optional(), qty: z.number().int().min(1).max(100), unit: z.string().max(20).optional(), catalogueId: z.string().max(60).optional() })).min(1).max(15).optional(),
+  parts: z.array(z.object({ name: z.string().min(1).max(100), spec: z.string().max(120).optional(), qty: z.number().int().min(1).max(5000), unit: z.string().max(20).optional(), catalogueId: z.string().max(60).optional() })).min(1).max(15).optional(),
 });
 
 artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
@@ -204,6 +207,47 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   if (env.mockMode) d.partsRequestedAt = now;
   else await prisma.artisanDiagnosis.update({ where: { id: d.id }, data: { partsRequestedAt: now, supplyRequestId } });
   res.json({ message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, parts, supply });
+});
+
+// ---- a materials list (from the building estimator) sent for supplier prices ----------------------------------
+const materialsSchema = z.object({
+  trade: z.literal('BUILDING'),
+  title: z.string().trim().max(80).optional(),
+  items: z.array(z.object({ name: z.string().min(1).max(100), spec: z.string().max(120).optional(), qty: z.number().int().min(1).max(5000), unit: z.string().max(20).optional(), catalogueId: z.string().max(60).optional() })).min(1).max(15),
+});
+const BUILDING_TRADES = ['BRICKLAYER', 'TILER', 'ROOFER'];
+
+artisanDiagnoseRouter.post('/artisan/me/materials-request', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const parsed = materialsSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ error: 'Check the materials list. Suppliers take up to 15 items per request.' });
+  const artisanId = req.artisan!.artisanId;
+  const a = await who(artisanId);
+  if (!a) return res.status(404).json({ error: 'Account not found' });
+  if (!((a as { trades?: { trade: string }[] }).trades ?? []).some((t) => BUILDING_TRADES.includes(t.trade))) return res.status(403).json({ error: 'Add Bricklayer / Mason, Tiler / Marble or Roofer to your trades on the Profile tab to request building materials.' });
+  const { items, title } = parsed.data;
+  const summary = `Materials list${title ? `: ${title}` : ''}`.slice(0, 120);
+  const result: Diagnosis = { outcome: 'DIAGNOSED', summary, confidence: 'HIGH', fixture: 'Materials list', defect: 'Not applicable', alternativeCauses: [], urgency: 'ROUTINE', safety: { level: 'NORMAL', warnings: [], escalate: false }, tools: [], parts: items, steps: [], checks: [], photoRequests: [] } as Diagnosis;
+  const now = new Date();
+  const base = { artisanId, trade: 'BUILDING', note: null, photoKeys: [] as string[], outcome: 'DIAGNOSED', confidence: 'HIGH', model: MATERIALS_MODEL };
+  let stored: StoredDiagnosis;
+  if (env.mockMode) { stored = { id: `dg_${Date.now()}`, ...base, result, partsRequestedAt: now, createdAt: now }; mockStore.unshift(stored); }
+  else { const row = await prisma.artisanDiagnosis.create({ data: { ...base, result: result as unknown as Prisma.InputJsonValue, partsRequestedAt: now } }); stored = { ...row, result } as StoredDiagnosis; }
+
+  const lines = items.map((p, i) => `${i + 1}. ${p.name}${p.spec ? ` (${p.spec})` : ''} x ${p.qty}${p.unit ? ` ${p.unit}` : ''}`);
+  const message = `*Materials request - EstateCopilot*\nFrom: ${a.name} (${a.phone})\nLocation: ${a.baseLga}, ${a.baseState}\nJob: ${summary}\n\nMaterials needed:\n${lines.join('\n')}\n\nPlease reply with price, what is in stock and how fast you can deliver. Thank you.`;
+  let supply: { requestId: string; suppliersAlerted: number; escalated: boolean } | null = null;
+  if (supplyConfigured()) {
+    try {
+      const created = await createSupplyRequest({ trade: 'BUILDING', externalRef: externalRefFor(stored.id, items), requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: summary, items });
+      supply = { requestId: created.id, suppliersAlerted: created.suppliersAlerted, escalated: created.escalated };
+      if (env.mockMode) stored.supplyRequestId = created.id;
+      else await prisma.artisanDiagnosis.update({ where: { id: stored.id }, data: { supplyRequestId: created.id } });
+    } catch (e) {
+      console.warn('[supply] could not create materials request', e instanceof Error ? e.message : e);
+    }
+  }
+  const to = env.diagnose.tradeDeskWhatsapp;
+  res.status(201).json({ id: stored.id, message, whatsappUrl: `https://wa.me/${to}?text=${encodeURIComponent(message)}`, tradeDesk: to, supply });
 });
 
 // What the artisan app needs to show quotes, the order, and (once the parts have arrived) the rating box.
