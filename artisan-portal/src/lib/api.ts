@@ -47,7 +47,8 @@ export interface Me {
 export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
-  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING';
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL';
+  trade?: 'PLUMBING' | 'ELECTRICAL'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   fixture: string; material?: string; defect: string; alternativeCauses: string[];
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
@@ -144,10 +145,11 @@ export const api = {
       body: JSON.stringify({ certificateId }),
     }),
 
-  diagnose: async (files: File[], note: string) => {
+  diagnose: async (files: File[], note: string, trade: 'PLUMBING' | 'ELECTRICAL' = 'PLUMBING') => {
     const form = new FormData();
     files.forEach((f) => form.append('images', f, f.name));
     if (note.trim()) form.append('note', note.trim());
+    form.append('trade', trade);
     const token = getToken();
     const res = await fetch(`${API_BASE}/api/artisan/me/diagnose`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
     const body = await res.json().catch(() => null);

@@ -48,6 +48,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
   const [view, setView] = React.useState<View>({ kind: 'capture' });
   const [photos, setPhotos] = React.useState<Photo[]>([]);
   const [note, setNote] = React.useState('');
+  const [trade, setTrade] = React.useState<'PLUMBING' | 'ELECTRICAL'>(() => (me.trades.find((t) => t.isPrimary)?.trade === 'ELECTRICIAN' ? 'ELECTRICAL' : 'PLUMBING'));
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [history, setHistory] = React.useState<DiagnosisCard[]>(() => loadList(me.id));
@@ -82,7 +83,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
     setBusy(true);
     setError(null);
     try {
-      const d = await api.diagnose(photos.map((p) => p.file), note);
+      const d = await api.diagnose(photos.map((p) => p.file), note, trade);
       saveOne(me.id, d);
       setView({ kind: 'result', d });
       refreshHistory();
@@ -113,6 +114,8 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
     }
   }
 
+  const electricalBlock = !me.trades.some((t) => t.trade === 'ELECTRICIAN') ? 'Add Electrician to your trades on the Profile tab to use this.' : me.verificationTier < 1 ? 'Verify your NIN or BVN on the Profile tab to use this.' : null;
+
   if (view.kind === 'result') {
     return <Result d={view.d} me={me} flash={flash} onNew={reset} onRetry={() => { setPhotos([]); setView({ kind: 'capture' }); setNote(view.d.note ?? ''); }} onSent={refreshHistory} />;
   }
@@ -120,7 +123,20 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
   return (
     <Screen title="Diagnose a fault">
       {!online && <div className="mb-3 rounded-xl border border-black/10 bg-black/5 p-3 text-sm text-[#42504a]">You are offline. You can still open your past diagnoses below.</div>}
-      <p className="mb-3 text-sm text-[#42504a]">Take a clear photo of the faulty fixture or pipe. The app tells you the fault, the tools, the parts to buy and the fix. <b>Plumbing only for now.</b></p>
+      <div className="mb-3 grid grid-cols-2 gap-2" role="group" aria-label="Trade">
+        {([['PLUMBING', '🔧 Plumbing'], ['ELECTRICAL', '⚡ Electrical']] as const).map(([k, label]) => (
+          <button key={k} aria-pressed={trade === k} onClick={() => setTrade(k)} className={`min-h-[44px] rounded-xl border text-sm font-semibold ${trade === k ? 'border-ochre-500 bg-ochre-50 text-ochre-700' : 'border-black/15 text-[#42504a]'}`}>{label}</button>
+        ))}
+      </div>
+      {trade === 'ELECTRICAL' ? (
+        <>
+          <p className="mb-3 text-sm text-[#42504a]">Take a clear photo of the fault, the termination or the board. The app suggests the likely fault, the tests to take, the parts and the repair. <b>For trained and professional electricians only.</b></p>
+          <div className="mb-3 rounded-xl border border-ochre-100 bg-ochre-50 p-3 text-xs text-ochre-700">Always isolate, lock off and prove dead before you touch anything. No help is given for the meter, the supply side, high voltage, generators, inverters or batteries, gas, heights, or any live work. You stay responsible for safe work that follows the wiring regulations.</div>
+          {electricalBlock && <div role="alert" className="mb-3 rounded-xl border border-black/10 bg-black/5 p-3 text-sm text-[#42504a]">{electricalBlock}</div>}
+        </>
+      ) : (
+        <p className="mb-3 text-sm text-[#42504a]">Take a clear photo of the faulty fixture or pipe. The app tells you the fault, the tools, the parts to buy and the fix.</p>
+      )}
 
       <Card className="mb-3 p-3">
         <div className="grid grid-cols-3 gap-2">
@@ -157,7 +173,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
 
       {error && <div role="alert" className="mt-3 rounded-xl border border-ochre-100 bg-ochre-50 p-3 text-sm text-ochre-700">{error}</div>}
       <div className="mt-4">
-        <Button onClick={run} disabled={busy || photos.length === 0}>{busy ? 'Looking at your photos… (about 20 seconds)' : 'Diagnose'}</Button>
+        <Button onClick={run} disabled={busy || photos.length === 0 || (trade === 'ELECTRICAL' && !!electricalBlock)}>{busy ? 'Looking at your photos… (about 20 seconds)' : 'Diagnose'}</Button>
       </div>
       <p className="mt-2 text-xs text-[#8a948d]">Your photos are kept privately so we can check and improve the diagnoses. Location data is removed from them.</p>
 
@@ -169,7 +185,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
               <button key={h.id} onClick={() => void open(h.id)} className="flex w-full items-start gap-3 p-3 text-left active:bg-black/5">
                 <span className="mt-0.5 text-lg">{h.safetyLevel === 'STOP' ? '⛔' : h.outcome === 'DIAGNOSED' ? '🔧' : '📷'}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{h.summary}</span>
+                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : ''}{h.summary}</span>
                   <span className="block text-xs text-[#8a948d]">{when(h.createdAt)}{h.partsRequestedAt ? ' · parts requested' : ''}</span>
                 </span>
               </button>
@@ -219,7 +235,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   }
 
   return (
-    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : 'Not a plumbing fault'}>
+    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : 'Not a plumbing fault'}>
       {d.safety.level !== 'NORMAL' && (
         <div role="alert" className={`mb-3 rounded-2xl border p-4 text-sm ${stop ? 'border-red-300 bg-red-50 text-red-900' : 'border-ochre-100 bg-ochre-50 text-ochre-700'}`}>
           <b className="block text-base">{stop ? '⛔ Stop. This needs a qualified person.' : '⚠️ Take care'}</b>
@@ -299,6 +315,13 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
+      {(d.checks?.length ?? 0) > 0 && (
+        <>
+          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Tests to take</h2>
+          <Card className="mb-3 p-4"><ul className="list-disc space-y-1 pl-5 text-sm">{d.checks!.map((t, i) => <li key={i} className={t.startsWith('LIVE TEST') ? 'font-semibold text-ochre-700' : ''}>{t}</li>)}</ul></Card>
+        </>
+      )}
+
       {d.steps.length > 0 && (
         <>
           <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Steps</h2>
@@ -306,7 +329,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
-      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work.</p>
+      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : ''}.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
   );

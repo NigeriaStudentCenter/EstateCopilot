@@ -28,13 +28,15 @@ interface StoredDiagnosis {
   model: string;
   partsRequestedAt: Date | null;
   supplyRequestId?: string | null;
+  trade?: string;
   createdAt: Date;
 }
 const mockStore: StoredDiagnosis[] = [];
 
-const full = (d: StoredDiagnosis) => ({ id: d.id, createdAt: d.createdAt.toISOString(), note: d.note, photoCount: d.photoKeys.length, partsRequestedAt: d.partsRequestedAt?.toISOString() ?? null, supplyRequestId: d.supplyRequestId ?? null, ...d.result });
+const full = (d: StoredDiagnosis) => ({ id: d.id, trade: d.trade ?? 'PLUMBING', createdAt: d.createdAt.toISOString(), note: d.note, photoCount: d.photoKeys.length, partsRequestedAt: d.partsRequestedAt?.toISOString() ?? null, supplyRequestId: d.supplyRequestId ?? null, ...d.result });
 const card = (d: StoredDiagnosis) => ({
   id: d.id,
+  trade: d.trade ?? 'PLUMBING',
   createdAt: d.createdAt.toISOString(),
   summary: d.result.summary,
   outcome: d.outcome,
@@ -58,10 +60,18 @@ async function loadMine(artisanId: string, id: string): Promise<StoredDiagnosis 
 
 async function who(artisanId: string) {
   if (env.mockMode) return mockArtisans.get(artisanId) ?? null;
-  return prisma.artisan.findUnique({ where: { id: artisanId } });
+  return prisma.artisan.findUnique({ where: { id: artisanId }, include: { trades: true } });
 }
 
-// ---- diagnose (plumbing only for now) ------------------------------------
+// Electrical diagnosis is for electricians: the artisan must list the electrician trade and have passed the ID check.
+// Plumbing stays open to every registered artisan, as before.
+export function electricalEligibility(a: { verificationTier: number; trades?: { trade: string }[] }): { ok: true } | { ok: false; error: string } {
+  if (!(a.trades ?? []).some((t) => t.trade === 'ELECTRICIAN')) return { ok: false, error: 'Add Electrician to your trades on the Profile tab to use electrical diagnosis.' };
+  if (a.verificationTier < 1) return { ok: false, error: 'Verify your NIN or BVN on the Profile tab first. Electrical diagnosis is for verified electricians.' };
+  return { ok: true };
+}
+
+// ---- diagnose (plumbing for every artisan; electrical for verified electricians) ----------
 artisanDiagnoseRouter.post(
   '/artisan/me/diagnose',
   requireArtisanAuth,
@@ -80,8 +90,13 @@ artisanDiagnoseRouter.post(
     const a = await who(artisanId);
     if (!a) return res.status(404).json({ error: 'Account not found' });
 
-    const trade = String(req.body?.trade ?? 'PLUMBING').toUpperCase();
-    if (trade !== 'PLUMBING') return res.status(400).json({ error: 'Photo diagnosis covers plumbing only for now.' });
+    const raw = String(req.body?.trade ?? 'PLUMBING').toUpperCase();
+    const trade = raw === 'ELECTRICIAN' ? 'ELECTRICAL' : raw;
+    if (trade !== 'PLUMBING' && trade !== 'ELECTRICAL') return res.status(400).json({ error: 'Photo diagnosis covers plumbing and electrical.' });
+    if (trade === 'ELECTRICAL') {
+      const el = electricalEligibility(a as { verificationTier: number; trades?: { trade: string }[] });
+      if (!el.ok) return res.status(403).json({ error: el.error });
+    }
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     if (files.length === 0) return res.status(400).json({ error: 'Add at least one photo (field "images").' });
     if (files.some((f) => !ALLOWED_MIME.has(f.mimetype))) return res.status(400).json({ error: 'Only JPEG, PNG, WebP, HEIC or AVIF photos are allowed.' });
@@ -105,14 +120,15 @@ artisanDiagnoseRouter.post(
         images: jpegs.map((b) => ({ base64: b.toString('base64'), mediaType: 'image/jpeg' as const })),
         note,
         location: `${a.baseLga}, ${a.baseState}`,
-      }, fetch, await getCatalogue());
+        trade,
+      }, fetch, await getCatalogue(trade));
     } catch (e) {
       if (!(e instanceof DiagnosisUnavailable)) console.error('[diagnose] unexpected', e);
       return res.status(503).json({ error: "The diagnosis service couldn't read this right now. Please try again in a moment." });
     }
 
     const photoKeys = await Promise.all(jpegs.map((b) => putPrivateDoc(b, 'jpg', 'image/jpeg')));
-    const base = { artisanId, note: note || null, photoKeys, outcome: result.diagnosis.outcome, confidence: result.diagnosis.confidence, model: result.model };
+    const base = { artisanId, trade, note: note || null, photoKeys, outcome: result.diagnosis.outcome, confidence: result.diagnosis.confidence, model: result.model };
     let stored: StoredDiagnosis;
     if (env.mockMode) {
       stored = { id: `dg_${Date.now()}`, ...base, result: result.diagnosis, partsRequestedAt: null, createdAt: new Date() };
@@ -168,7 +184,7 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   if (supplyConfigured()) {
     try {
       const ref = externalRefFor(d.id, parts);
-      const created = await createSupplyRequest({ externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
+      const created = await createSupplyRequest({ trade: (d.trade === 'ELECTRICAL' ? 'ELECTRICAL' : 'PLUMBING'), externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
       // The list changed since last time: close the old open request so suppliers stop pricing it.
       if (supplyRequestId && supplyRequestId !== created.id) await cancelSupplyRequest(supplyRequestId).catch(() => undefined);
       supplyRequestId = created.id;
