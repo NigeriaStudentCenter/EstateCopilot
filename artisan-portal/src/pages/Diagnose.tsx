@@ -1,5 +1,5 @@
 import React from 'react';
-import { api, ApiError, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState } from '../lib/api';
+import { api, ApiError, type DiagnoseTrade, type DiagnosisTradeId, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState } from '../lib/api';
 import { compressImage } from '../lib/compressImage';
 import { loadList, loadOne, saveList, saveOne } from '../lib/diagnoseCache';
 import { Button, Card, Field, Screen, input } from '../lib/ui';
@@ -48,7 +48,21 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
   const [view, setView] = React.useState<View>({ kind: 'capture' });
   const [photos, setPhotos] = React.useState<Photo[]>([]);
   const [note, setNote] = React.useState('');
-  const [trade, setTrade] = React.useState<'PLUMBING' | 'ELECTRICAL'>(() => (me.trades.find((t) => t.isPrimary)?.trade === 'ELECTRICIAN' ? 'ELECTRICAL' : 'PLUMBING'));
+  // The trades come from the server (it knows what is live, in beta, and what this artisan is allowed to use).
+  const FALLBACK: DiagnoseTrade[] = [{ id: 'PLUMBING', label: 'Plumbing', icon: '🔧', intro: 'Take a clear photo of the faulty fixture or pipe. The app tells you the fault, the tools, the parts to buy and the fix.', notice: null, beta: false, available: true, reason: null }];
+  const [trades, setTrades] = React.useState<DiagnoseTrade[]>(FALLBACK);
+  const [trade, setTrade] = React.useState<DiagnosisTradeId>('PLUMBING');
+  React.useEffect(() => {
+    api.diagnoseTrades().then((r) => {
+      if (r.trades.length === 0) return;
+      setTrades(r.trades);
+      // Start on the artisan's main trade when it is usable.
+      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
+      const pick = r.trades.find((t) => t.id === main && t.available) ?? r.trades.find((t) => t.available) ?? r.trades[0];
+      setTrade(pick.id);
+    }).catch(() => { /* offline: plumbing only */ });
+  }, [me.trades]);
+  const current = trades.find((t) => t.id === trade) ?? trades[0];
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [history, setHistory] = React.useState<DiagnosisCard[]>(() => loadList(me.id));
@@ -114,8 +128,6 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
     }
   }
 
-  const electricalBlock = !me.trades.some((t) => t.trade === 'ELECTRICIAN') ? 'Add Electrician to your trades on the Profile tab to use this.' : me.verificationTier < 1 ? 'Verify your NIN or BVN on the Profile tab to use this.' : null;
-
   if (view.kind === 'result') {
     return <Result d={view.d} me={me} flash={flash} onNew={reset} onRetry={() => { setPhotos([]); setView({ kind: 'capture' }); setNote(view.d.note ?? ''); }} onSent={refreshHistory} />;
   }
@@ -123,20 +135,18 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
   return (
     <Screen title="Diagnose a fault">
       {!online && <div className="mb-3 rounded-xl border border-black/10 bg-black/5 p-3 text-sm text-[#42504a]">You are offline. You can still open your past diagnoses below.</div>}
-      <div className="mb-3 grid grid-cols-2 gap-2" role="group" aria-label="Trade">
-        {([['PLUMBING', '🔧 Plumbing'], ['ELECTRICAL', '⚡ Electrical']] as const).map(([k, label]) => (
-          <button key={k} aria-pressed={trade === k} onClick={() => setTrade(k)} className={`min-h-[44px] rounded-xl border text-sm font-semibold ${trade === k ? 'border-ochre-500 bg-ochre-50 text-ochre-700' : 'border-black/15 text-[#42504a]'}`}>{label}</button>
-        ))}
-      </div>
-      {trade === 'ELECTRICAL' ? (
-        <>
-          <p className="mb-3 text-sm text-[#42504a]">Take a clear photo of the fault, the termination or the board. The app suggests the likely fault, the tests to take, the parts and the repair. <b>For trained and professional electricians only.</b></p>
-          <div className="mb-3 rounded-xl border border-ochre-100 bg-ochre-50 p-3 text-xs text-ochre-700">Always isolate, lock off and prove dead before you touch anything. No help is given for the meter, the supply side, high voltage, generators, inverters or batteries, gas, heights, or any live work. You stay responsible for safe work that follows the wiring regulations.</div>
-          {electricalBlock && <div role="alert" className="mb-3 rounded-xl border border-black/10 bg-black/5 p-3 text-sm text-[#42504a]">{electricalBlock}</div>}
-        </>
-      ) : (
-        <p className="mb-3 text-sm text-[#42504a]">Take a clear photo of the faulty fixture or pipe. The app tells you the fault, the tools, the parts to buy and the fix.</p>
+      {trades.length > 1 && (
+        <div className={`mb-3 grid gap-2 ${trades.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`} role="group" aria-label="Trade">
+          {trades.map((t) => (
+            <button key={t.id} aria-pressed={trade === t.id} onClick={() => setTrade(t.id)} className={`min-h-[44px] rounded-xl border px-1 text-sm font-semibold ${trade === t.id ? 'border-ochre-500 bg-ochre-50 text-ochre-700' : 'border-black/15 text-[#42504a]'}`}>
+              {t.icon} {t.label}{t.beta && <span className="ml-1 rounded bg-black/10 px-1 text-[10px] font-bold uppercase">beta</span>}
+            </button>
+          ))}
+        </div>
       )}
+      <p className="mb-3 text-sm text-[#42504a]">{current.intro}</p>
+      {current.notice && <div className="mb-3 rounded-xl border border-ochre-100 bg-ochre-50 p-3 text-xs text-ochre-700">{current.notice}</div>}
+      {!current.available && current.reason && <div role="alert" className="mb-3 rounded-xl border border-black/10 bg-black/5 p-3 text-sm text-[#42504a]">{current.reason}</div>}
 
       <Card className="mb-3 p-3">
         <div className="grid grid-cols-3 gap-2">
@@ -173,7 +183,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
 
       {error && <div role="alert" className="mt-3 rounded-xl border border-ochre-100 bg-ochre-50 p-3 text-sm text-ochre-700">{error}</div>}
       <div className="mt-4">
-        <Button onClick={run} disabled={busy || photos.length === 0 || (trade === 'ELECTRICAL' && !!electricalBlock)}>{busy ? 'Looking at your photos… (about 20 seconds)' : 'Diagnose'}</Button>
+        <Button onClick={run} disabled={busy || photos.length === 0 || !current.available}>{busy ? 'Looking at your photos… (about 20 seconds)' : 'Diagnose'}</Button>
       </div>
       <p className="mt-2 text-xs text-[#8a948d]">Your photos are kept privately so we can check and improve the diagnoses. Location data is removed from them.</p>
 
@@ -185,7 +195,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
               <button key={h.id} onClick={() => void open(h.id)} className="flex w-full items-start gap-3 p-3 text-left active:bg-black/5">
                 <span className="mt-0.5 text-lg">{h.safetyLevel === 'STOP' ? '⛔' : h.outcome === 'DIAGNOSED' ? '🔧' : '📷'}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : ''}{h.summary}</span>
+                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : ''}{h.summary}</span>
                   <span className="block text-xs text-[#8a948d]">{when(h.createdAt)}{h.partsRequestedAt ? ' · parts requested' : ''}</span>
                 </span>
               </button>
@@ -235,7 +245,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   }
 
   return (
-    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : 'Not a plumbing fault'}>
+    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : 'Not a plumbing fault'}>
       {d.safety.level !== 'NORMAL' && (
         <div role="alert" className={`mb-3 rounded-2xl border p-4 text-sm ${stop ? 'border-red-300 bg-red-50 text-red-900' : 'border-ochre-100 bg-ochre-50 text-ochre-700'}`}>
           <b className="block text-base">{stop ? '⛔ Stop. This needs a qualified person.' : '⚠️ Take care'}</b>
@@ -317,7 +327,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
 
       {(d.checks?.length ?? 0) > 0 && (
         <>
-          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Tests to take</h2>
+          <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">{d.trade === 'CARPENTRY' ? 'Measure first' : 'Tests to take'}</h2>
           <Card className="mb-3 p-4"><ul className="list-disc space-y-1 pl-5 text-sm">{d.checks!.map((t, i) => <li key={i} className={t.startsWith('LIVE TEST') ? 'font-semibold text-ochre-700' : ''}>{t}</li>)}</ul></Card>
         </>
       )}
@@ -329,7 +339,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
-      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : ''}.</p>
+      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : ''}.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
   );

@@ -47,8 +47,8 @@ export interface Me {
 export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
-  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL';
-  trade?: 'PLUMBING' | 'ELECTRICAL'; checks?: string[];
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY';
+  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   fixture: string; material?: string; defect: string; alternativeCauses: string[];
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
@@ -92,7 +92,11 @@ export interface Dashboard {
   earnings: { monthLabel: string; thisMonth: number; paidJobsThisMonth: number; pending: number; allTime: number };
 }
 
+export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY';
+export interface DiagnoseTrade { id: DiagnosisTradeId; label: string; icon: string; intro: string; notice: string | null; beta: boolean; available: boolean; reason: string | null }
+
 export const api = {
+  diagnoseTrades: () => request<{ trades: DiagnoseTrade[] }>('/api/artisan/me/diagnose-trades'),
   dashboard: () => request<Dashboard>('/api/artisan/me/dashboard'),
   banks: () => request<{ name: string; code: string }[]>('/api/public/banks'),
   saveBank: (bankCode: string, accountNumber: string) =>
@@ -145,7 +149,7 @@ export const api = {
       body: JSON.stringify({ certificateId }),
     }),
 
-  diagnose: async (files: File[], note: string, trade: 'PLUMBING' | 'ELECTRICAL' = 'PLUMBING') => {
+  diagnose: async (files: File[], note: string, trade: DiagnosisTradeId = 'PLUMBING') => {
     const form = new FormData();
     files.forEach((f) => form.append('images', f, f.name));
     if (note.trim()) form.append('note', note.trim());
