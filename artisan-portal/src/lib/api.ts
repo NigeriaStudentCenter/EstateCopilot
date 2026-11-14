@@ -45,12 +45,13 @@ export interface Me {
   certificates?: Certificate[]; certified?: boolean;
 }
 export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string; critical?: boolean; gated?: boolean }
+export interface ClientInfo { area: 'SKIN' | 'HAIR' | 'NAILS'; fitzpatrick?: number; pregnant?: boolean; breastfeeding?: boolean; isotretinoin?: boolean; retinoids?: boolean; antibiotics?: boolean; steroids?: boolean; bloodThinners?: boolean; immunosuppressants?: boolean; keloidProne?: boolean; diabetic?: boolean; eczemaOrPsoriasis?: boolean; openWoundOrInfection?: boolean; allergies?: string }
 export interface VehicleInfo { vin?: string; make?: string; model?: string; year?: number; market?: string; fuel?: string; codes?: string[]; modified?: { exhaust: boolean; sensors: boolean; wiring: boolean } }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null; materials?: boolean;
-  drive?: 'SAFE' | 'CAUTION' | 'DO_NOT_DRIVE'; codes?: string[]; acknowledge?: string[]; verifyFirst?: string[]; vehicle?: VehicleInfo;
-  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC' | 'NOT_AUTOMOTIVE';
-  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE'; checks?: string[];
+  drive?: 'SAFE' | 'CAUTION' | 'DO_NOT_DRIVE'; codes?: string[]; acknowledge?: string[]; verifyFirst?: string[]; vehicle?: VehicleInfo; scores?: { name: string; score: number; note?: string }[]; referral?: 'NONE' | 'ROUTINE' | 'URGENT'; client?: ClientInfo;
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC' | 'NOT_AUTOMOTIVE' | 'NOT_BEAUTY';
+  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE' | 'BEAUTY'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   fixture: string; material?: string; defect: string; alternativeCauses: string[];
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
@@ -96,7 +97,7 @@ export interface Dashboard {
 
 export interface LabelReading { readable: boolean; name: string | null; watts: number | null; source: 'label' | 'volts x amps' | 'VA' | null; volts: number | null; amps: number | null; note: string | null }
 
-export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE';
+export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE' | 'BEAUTY';
 export interface DiagnoseTrade { id: DiagnosisTradeId; label: string; icon: string; intro: string; notice: string | null; beta: boolean; available: boolean; reason: string | null }
 
 export const api = {
@@ -153,9 +154,9 @@ export const api = {
       body: JSON.stringify({ certificateId }),
     }),
 
-  diagnose: async (files: File[], note: string, trade: DiagnosisTradeId = 'PLUMBING', extra?: { vehicle: VehicleInfo; terms: string }) => {
+  diagnose: async (files: File[], note: string, trade: DiagnosisTradeId = 'PLUMBING', extra?: { vehicle?: VehicleInfo; client?: ClientInfo; terms: string; consent?: string }) => {
     const form = new FormData();
-    if (extra) { form.append('vehicle', JSON.stringify(extra.vehicle)); form.append('terms', extra.terms); }
+    if (extra) { if (extra.vehicle) form.append('vehicle', JSON.stringify(extra.vehicle)); if (extra.client) form.append('client', JSON.stringify(extra.client)); form.append('terms', extra.terms); if (extra.consent) form.append('consent', extra.consent); }
     files.forEach((f) => form.append('images', f, f.name));
     if (note.trim()) form.append('note', note.trim());
     form.append('trade', trade);

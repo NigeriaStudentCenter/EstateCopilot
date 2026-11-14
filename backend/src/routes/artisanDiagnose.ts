@@ -9,13 +9,15 @@ import { requireArtisanAuth, type ArtisanAuthedRequest } from './artisan.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { putPrivateDoc } from '../lib/blobStorage.js';
 import { runPlumbingDiagnosis, DiagnosisUnavailable, type Diagnosis } from '../lib/plumbingDiagnosis.js';
-import { vehicleSchema, type Vehicle } from '../lib/diagnosisSchema.js';
+import { vehicleSchema, clientSchema, type Vehicle, type Client } from '../lib/diagnosisSchema.js';
 import { TRADE_IDS, tradeConfig, tradeAccess, parseTrade, isDiagnosisTrade, type TradeRollout } from '../lib/diagnosisTrades/index.js';
 import { supplyConfigured, getCatalogue, rateSupplyRequest, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, confirmSupplyOrder, disputeSupplyOrder, externalRefFor, SupplyError, type SupplyRequestView } from '../lib/supplyClient.js';
 
 export const artisanDiagnoseRouter = Router();
 
 const MAX_PHOTOS = 3;
+export const BEAUTY_TERMS_VERSION = 'BEAUTY_V1'; // the therapist accepts; the client's own consent is recorded alongside
+export const BEAUTY_CONSENT_VERSION = 'CLIENT_CONSENT_V1';
 export const AUTO_TERMS_VERSION = 'AUTO_V1'; // the wording the mechanic accepts on the capture screen (clickwrap)
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/avif']);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: env.storage.maxImageBytes, files: MAX_PHOTOS } });
@@ -121,6 +123,17 @@ artisanDiagnoseRouter.post(
       if (!pv.data.vin) return res.status(400).json({ error: 'Enter the 17-character VIN. Parts are matched by VIN, not by year and model, because Nigerian cars come in US, European, Japanese and GCC specifications.' });
       vehicle = pv.data;
     }
+    // Beauty: the therapist accepts the terms, confirms the CLIENT agreed to the photo and its analysis, and records the intake.
+    let client: Client | undefined;
+    if (tradeConfig(trade).needsClient) {
+      if (req.body?.terms !== BEAUTY_TERMS_VERSION) return res.status(400).json({ error: 'Accept the terms to continue: this app gives observations to support a consultation, not a medical diagnosis.' });
+      if (req.body?.consent !== BEAUTY_CONSENT_VERSION) return res.status(400).json({ error: "Confirm that the client agreed to this photo being taken and analysed. Never photograph a client without their consent." });
+      let raw: unknown;
+      try { raw = JSON.parse(String(req.body?.client ?? '{}')); } catch { return res.status(400).json({ error: 'Check the client details and try again.' }); }
+      const pc = clientSchema.safeParse(raw);
+      if (!pc.success) return res.status(400).json({ error: pc.error.issues[0]?.message ? `Check the client details: ${pc.error.issues[0].path.join('.')}.` : 'Check the client details.' });
+      client = pc.data;
+    }
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     if (files.length === 0) return res.status(400).json({ error: 'Add at least one photo (field "images").' });
     if (files.some((f) => !ALLOWED_MIME.has(f.mimetype))) return res.status(400).json({ error: 'Only JPEG, PNG, WebP, HEIC or AVIF photos are allowed.' });
@@ -146,12 +159,14 @@ artisanDiagnoseRouter.post(
         location: `${a.baseLga}, ${a.baseState}`,
         trade,
         vehicle,
+        client,
       }, fetch, await getCatalogue(trade));
     } catch (e) {
       if (!(e instanceof DiagnosisUnavailable)) console.error('[diagnose] unexpected', e);
       return res.status(503).json({ error: "The diagnosis service couldn't read this right now. Please try again in a moment." });
     }
 
+    if (client) { const at = new Date().toISOString(); result.diagnosis.client = client; result.diagnosis.termsAccepted = { version: BEAUTY_TERMS_VERSION, at }; result.diagnosis.clientConsent = { version: BEAUTY_CONSENT_VERSION, at }; }
     if (vehicle) { result.diagnosis.vehicle = vehicle; result.diagnosis.termsAccepted = { version: AUTO_TERMS_VERSION, at: new Date().toISOString() }; }
     const photoKeys = await Promise.all(jpegs.map((b) => putPrivateDoc(b, 'jpg', 'image/jpeg')));
     const base = { artisanId, trade, note: note || null, photoKeys, outcome: result.diagnosis.outcome, confidence: result.diagnosis.confidence, model: result.model };

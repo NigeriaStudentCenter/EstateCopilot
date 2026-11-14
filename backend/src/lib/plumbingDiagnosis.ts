@@ -1,5 +1,5 @@
 import { env } from '../config/env.js';
-import { diagnosisSchema, BASE_TOOL, str, type Diagnosis, type DiagnosisTrade, type Vehicle } from './diagnosisSchema.js';
+import { diagnosisSchema, BASE_TOOL, str, type Diagnosis, type DiagnosisTrade, type Vehicle, type Client } from './diagnosisSchema.js';
 import { tradeConfig, ISOLATE_STEP, RETEST_STEP } from './diagnosisTrades/index.js';
 
 // The diagnosis engine. Everything that differs per trade (prompt, guards, access, mock data) lives in
@@ -71,16 +71,24 @@ function vehicleText(v?: Vehicle): string {
   return `Vehicle: ${bits || 'not given'}${v.vin ? `, VIN ${v.vin}` : ''}${v.market ? `, market spec ${v.market}` : ''}${v.fuel ? `, fuel ${v.fuel}` : ''}${v.codes?.length ? `, fault codes ${v.codes.join(' ')}` : ''}${v.modified ? `. Modified by the owner: exhaust or catalytic converter ${v.modified.exhaust ? 'YES' : 'no'}, sensors bypassed or spaced ${v.modified.sensors ? 'YES' : 'no'}, wiring or relays bridged ${v.modified.wiring ? 'YES' : 'no'}` : ''}.\n`;
 }
 
+// The client's intake as plain text for the model (the free-text allergy note is not included).
+function clientText(c?: Client): string {
+  if (!c) return '';
+  const flags = [c.pregnant && 'pregnant', c.breastfeeding && 'breastfeeding', c.isotretinoin && 'on or recently off isotretinoin', c.retinoids && 'uses retinoids', c.antibiotics && 'on antibiotics', c.steroids && 'uses steroids', c.bloodThinners && 'on blood thinners', c.immunosuppressants && 'on immunosuppressants', c.keloidProne && 'keloid-prone', c.diabetic && 'diabetic', c.eczemaOrPsoriasis && 'eczema or psoriasis on the area', c.openWoundOrInfection && 'open wound or infection on the area'].filter(Boolean);
+  return `Client intake: area ${c.area}${c.fitzpatrick ? `, Fitzpatrick type ${c.fitzpatrick}` : ''}${flags.length ? `, ${flags.join(', ')}` : ', no flagged conditions'}${c.allergies ? ', has stated allergies' : ''}.\n`;
+}
+
 export interface DiagnosisInput {
   images: { base64: string; mediaType: 'image/jpeg' }[];
   note?: string;
   location?: string;
   trade?: DiagnosisTrade; // default PLUMBING
   vehicle?: Vehicle;
+  client?: Client;
 }
 
 // Enforced in code so a model slip cannot hand out step-by-step instructions for a dangerous job or invent parts.
-export function applySafetyRules(d: Diagnosis, ctx: { trade?: DiagnosisTrade; note?: string; vehicle?: Vehicle } = {}): Diagnosis {
+export function applySafetyRules(d: Diagnosis, ctx: { trade?: DiagnosisTrade; note?: string; vehicle?: Vehicle; client?: Client } = {}): Diagnosis {
   const out: Diagnosis = { ...d, safety: { ...d.safety } };
   if (out.outcome !== 'DIAGNOSED') {
     out.parts = [];
@@ -90,7 +98,7 @@ export function applySafetyRules(d: Diagnosis, ctx: { trade?: DiagnosisTrade; no
     out.estimatedMinutes = undefined;
     if (out.outcome === 'NEEDS_MORE_PHOTOS' && out.photoRequests.length === 0) out.photoRequests = ['A closer, well-lit photo of the fault', 'A wider photo showing the whole fixture or pipe run'];
   }
-  if (ctx.trade) tradeConfig(ctx.trade).rules?.(out, ctx.note ?? '', { vehicle: ctx.vehicle });
+  if (ctx.trade) tradeConfig(ctx.trade).rules?.(out, ctx.note ?? '', { vehicle: ctx.vehicle, client: ctx.client });
   if (out.safety.escalate || out.safety.level === 'STOP') {
     out.safety.escalate = true;
     out.safety.level = 'STOP';
@@ -106,13 +114,14 @@ export class DiagnosisUnavailable extends Error {}
 export async function runPlumbingDiagnosis(input: DiagnosisInput, fetchImpl: typeof fetch = fetch, catalogue: CatalogueEntry[] = []): Promise<{ diagnosis: Diagnosis; model: string }> {
   const trade: DiagnosisTrade = input.trade ?? 'PLUMBING';
   const cfg = tradeConfig(trade);
-  if (env.mockMode) return { diagnosis: applySafetyRules(cfg.mock(input), { trade, note: input.note, vehicle: input.vehicle }), model: 'mock' };
+  if (env.mockMode) return { diagnosis: applySafetyRules(cfg.mock(input), { trade, note: input.note, vehicle: input.vehicle, client: input.client }), model: 'mock' };
   if (!env.ai.anthropicApiKey) throw new DiagnosisUnavailable('AI is not configured');
   const model = env.diagnose.model;
   const text =
     `Location: ${input.location || 'Nigeria'}\n` +
     (input.note ? `${cfg.noteLabel} note (untrusted text):\n"""${input.note}"""\n` : 'No note.\n') +
     vehicleText(input.vehicle) +
+    clientText(input.client) +
     `${input.images.length} photo(s) attached. Diagnose the problem.`;
   const res = await fetchImpl(`${env.ai.anthropicBaseUrl}/v1/messages`, {
     method: 'POST',
@@ -132,6 +141,6 @@ export async function runPlumbingDiagnosis(input: DiagnosisInput, fetchImpl: typ
   const raw = data.content?.find((c) => c.type === 'tool_use')?.input;
   const parsed = diagnosisSchema.safeParse(raw);
   if (!parsed.success) throw new DiagnosisUnavailable('model output failed validation');
-  return { diagnosis: applySafetyRules({ ...parsed.data, parts: normaliseParts(parsed.data.parts, catalogue) }, { trade, note: input.note, vehicle: input.vehicle }), model };
+  return { diagnosis: applySafetyRules({ ...parsed.data, parts: normaliseParts(parsed.data.parts, catalogue) }, { trade, note: input.note, vehicle: input.vehicle, client: input.client }), model };
 }
 

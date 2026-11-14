@@ -1,7 +1,8 @@
 import React from 'react';
-import { api, ApiError, type DiagnoseTrade, type DiagnosisTradeId, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState, type VehicleInfo } from '../lib/api';
+import { api, ApiError, type DiagnoseTrade, type DiagnosisTradeId, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState, type VehicleInfo, type ClientInfo } from '../lib/api';
 import { compressImage } from '../lib/compressImage';
 import { loadList, loadOne, saveList, saveOne } from '../lib/diagnoseCache';
+import BeautyForm, { BEAUTY_CONSENT, BEAUTY_TERMS, clientFromDraft, emptyClient, type ClientDraft } from './BeautyForm';
 import VehicleForm, { AUTO_TERMS, emptyVehicle, vehicleFromDraft, type VehicleDraft } from './VehicleForm';
 import { Button, Card, Field, Screen, input } from '../lib/ui';
 
@@ -54,12 +55,13 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
   const [trades, setTrades] = React.useState<DiagnoseTrade[]>(FALLBACK);
   const [trade, setTrade] = React.useState<DiagnosisTradeId>('PLUMBING');
   const [veh, setVeh] = React.useState<VehicleDraft>(emptyVehicle);
+  const [cli, setCli] = React.useState<ClientDraft>(emptyClient);
   React.useEffect(() => {
     api.diagnoseTrades().then((r) => {
       if (r.trades.length === 0) return;
       setTrades(r.trades);
       // Start on the artisan's main trade when it is usable.
-      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING', SOLAR_INVERTER: 'SOLAR', BRICKLAYER: 'BUILDING', TILER: 'BUILDING', ROOFER: 'BUILDING', AC_TECHNICIAN: 'HVAC', AUTO_MECHANIC: 'AUTOMOTIVE' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
+      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING', SOLAR_INVERTER: 'SOLAR', BRICKLAYER: 'BUILDING', TILER: 'BUILDING', ROOFER: 'BUILDING', AC_TECHNICIAN: 'HVAC', AUTO_MECHANIC: 'AUTOMOTIVE', BEAUTY_THERAPIST: 'BEAUTY' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
       const pick = r.trades.find((t) => t.id === main && t.available) ?? r.trades.find((t) => t.available) ?? r.trades[0];
       setTrade(pick.id);
     }).catch(() => { /* offline: plumbing only */ });
@@ -99,7 +101,12 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
     setBusy(true);
     setError(null);
     try {
-      let extra: { vehicle: VehicleInfo; terms: string } | undefined;
+      let extra: { vehicle?: VehicleInfo; client?: ClientInfo; terms: string; consent?: string } | undefined;
+      if (trade === 'BEAUTY') {
+        const c = clientFromDraft(cli);
+        if ('error' in c) { setBusy(false); return setError(c.error); }
+        extra = { client: c.client, terms: BEAUTY_TERMS, consent: BEAUTY_CONSENT };
+      }
       if (trade === 'AUTOMOTIVE') {
         const v = vehicleFromDraft(veh);
         if ('error' in v) { setBusy(false); return setError(v.error); }
@@ -181,6 +188,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
       </Card>
 
       {trade === 'AUTOMOTIVE' && <VehicleForm v={veh} set={setVeh} />}
+      {trade === 'BEAUTY' && <BeautyForm v={cli} set={setCli} />}
 
       <Field label="What is wrong? (optional)" hint="Where is it and what do you see? E.g. “Water drips under the kitchen sink”.">
         <div className="flex gap-2">
@@ -205,7 +213,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
               <button key={h.id} onClick={() => void open(h.id)} className="flex w-full items-start gap-3 p-3 text-left active:bg-black/5">
                 <span className="mt-0.5 text-lg">{h.safetyLevel === 'STOP' ? '⛔' : h.outcome === 'DIAGNOSED' ? '🔧' : '📷'}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : (h as { trade?: string }).trade === 'SOLAR' ? '☀️ ' : (h as { trade?: string }).trade === 'BUILDING' ? '🧱 ' : (h as { trade?: string }).trade === 'HVAC' ? '❄️ ' : (h as { trade?: string }).trade === 'AUTOMOTIVE' ? '🚗 ' : ''}{h.summary}</span>
+                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : (h as { trade?: string }).trade === 'SOLAR' ? '☀️ ' : (h as { trade?: string }).trade === 'BUILDING' ? '🧱 ' : (h as { trade?: string }).trade === 'HVAC' ? '❄️ ' : (h as { trade?: string }).trade === 'AUTOMOTIVE' ? '🚗 ' : (h as { trade?: string }).trade === 'BEAUTY' ? '💆 ' : ''}{h.summary}</span>
                   <span className="block text-xs text-[#8a948d]">{when(h.createdAt)}{h.partsRequestedAt ? ' · parts requested' : ''}</span>
                 </span>
               </button>
@@ -258,7 +266,22 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   }
 
   return (
-    <Screen title={d.materials ? 'Materials list' : d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : d.outcome === 'NOT_BUILDING' ? 'Not a building fault' : d.outcome === 'NOT_HVAC' ? 'Not an AC or refrigeration fault' : d.outcome === 'NOT_AUTOMOTIVE' ? 'Not a vehicle fault' : 'Not a plumbing fault'}>
+    <Screen title={d.materials ? 'Materials list' : d.trade === 'BEAUTY' && d.outcome === 'DIAGNOSED' ? 'Consultation notes' : d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : d.outcome === 'NOT_BUILDING' ? 'Not a building fault' : d.outcome === 'NOT_HVAC' ? 'Not an AC or refrigeration fault' : d.outcome === 'NOT_AUTOMOTIVE' ? 'Not a vehicle fault' : d.outcome === 'NOT_BEAUTY' ? 'Not skin, hair or nails' : 'Not a plumbing fault'}>
+      {d.referral === 'URGENT' && <div role="alert" className="mb-3 rounded-2xl bg-red-700 p-4 text-white"><p className="text-lg font-extrabold">⚕️ See a doctor</p><p className="mt-1 text-sm">This needs medical attention, not a beauty treatment. Do not treat it.</p></div>}
+      {d.referral === 'ROUTINE' && <div role="alert" className="mb-3 rounded-2xl bg-ochre-500 p-4 text-white"><p className="text-lg font-extrabold">⚕️ Refer before you treat</p><p className="mt-1 text-sm">Send the client to a doctor, dermatologist or podiatrist first.</p></div>}
+      {(d.scores?.length ?? 0) > 0 && d.referral !== 'URGENT' && (
+        <Card className="mb-3 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">What the photo suggests (0 none, 10 severe)</p>
+          {d.scores!.map((sc, i) => (
+            <div key={i} className="mb-2">
+              <div className="flex items-baseline justify-between text-sm"><span className="font-semibold">{sc.name}</span><span className="font-bold">{sc.score}/10</span></div>
+              <div className="mt-1 h-2 overflow-hidden rounded-full bg-black/5"><div className={`h-full rounded-full ${sc.score >= 7 ? 'bg-red-600' : sc.score >= 4 ? 'bg-ochre-500' : 'bg-moss-600'}`} style={{ width: `${Math.min(100, sc.score * 10)}%` }} /></div>
+              {sc.note && <p className="mt-0.5 text-xs text-[#6d7a73]">{sc.note}</p>}
+            </div>
+          ))}
+          <p className="text-[11px] text-[#8a948d]">Visual impressions, not measurements. Confirm in person.</p>
+        </Card>
+      )}
       {d.drive === 'DO_NOT_DRIVE' && (
         <div role="alert" className="mb-3 rounded-2xl bg-red-700 p-4 text-white"><p className="text-lg font-extrabold">⛔ Do not drive this vehicle</p><p className="mt-1 text-sm">Tow it, or repair it where it stands. Driving it risks a crash, a fire or a ruined engine.</p></div>
       )}
@@ -369,7 +392,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
-      <p className={`mt-4 text-xs text-[#8a948d] ${d.materials ? 'hidden' : ''}`}>This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'BUILDING' ? ', wearing dust and eye protection, using fall protection on roofs and never touching structural work' : d.trade === 'AUTOMOTIVE' ? ', disconnecting the battery first, supporting the car on axle stands and keeping flames away from fuel' : d.trade === 'HVAC' ? ', isolating and discharging capacitors first and handling refrigerant correctly' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
+      <p className={`mt-4 text-xs text-[#8a948d] ${d.materials ? 'hidden' : ''}`}>This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'BUILDING' ? ', wearing dust and eye protection, using fall protection on roofs and never touching structural work' : d.trade === 'BEAUTY' ? ', taking consent, patch testing, keeping hands and tools clean and referring anything medical' : d.trade === 'AUTOMOTIVE' ? ', disconnecting the battery first, supporting the car on axle stands and keeping flames away from fuel' : d.trade === 'HVAC' ? ', isolating and discharging capacitors first and handling refrigerant correctly' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
   );
