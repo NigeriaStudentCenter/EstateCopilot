@@ -1,7 +1,8 @@
 import React from 'react';
-import { api, ApiError, type DiagnoseTrade, type DiagnosisTradeId, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState } from '../lib/api';
+import { api, ApiError, type DiagnoseTrade, type DiagnosisTradeId, type Diagnosis, type DiagnosisCard, type DiagnosisPart, type Me, type SupplyState, type VehicleInfo } from '../lib/api';
 import { compressImage } from '../lib/compressImage';
 import { loadList, loadOne, saveList, saveOne } from '../lib/diagnoseCache';
+import VehicleForm, { AUTO_TERMS, emptyVehicle, vehicleFromDraft, type VehicleDraft } from './VehicleForm';
 import { Button, Card, Field, Screen, input } from '../lib/ui';
 
 const MAX_PHOTOS = 3;
@@ -52,12 +53,13 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
   const FALLBACK: DiagnoseTrade[] = [{ id: 'PLUMBING', label: 'Plumbing', icon: '🔧', intro: 'Take a clear photo of the faulty fixture or pipe. The app tells you the fault, the tools, the parts to buy and the fix.', notice: null, beta: false, available: true, reason: null }];
   const [trades, setTrades] = React.useState<DiagnoseTrade[]>(FALLBACK);
   const [trade, setTrade] = React.useState<DiagnosisTradeId>('PLUMBING');
+  const [veh, setVeh] = React.useState<VehicleDraft>(emptyVehicle);
   React.useEffect(() => {
     api.diagnoseTrades().then((r) => {
       if (r.trades.length === 0) return;
       setTrades(r.trades);
       // Start on the artisan's main trade when it is usable.
-      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING', SOLAR_INVERTER: 'SOLAR', BRICKLAYER: 'BUILDING', TILER: 'BUILDING', ROOFER: 'BUILDING', AC_TECHNICIAN: 'HVAC' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
+      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING', SOLAR_INVERTER: 'SOLAR', BRICKLAYER: 'BUILDING', TILER: 'BUILDING', ROOFER: 'BUILDING', AC_TECHNICIAN: 'HVAC', AUTO_MECHANIC: 'AUTOMOTIVE' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
       const pick = r.trades.find((t) => t.id === main && t.available) ?? r.trades.find((t) => t.available) ?? r.trades[0];
       setTrade(pick.id);
     }).catch(() => { /* offline: plumbing only */ });
@@ -97,7 +99,13 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
     setBusy(true);
     setError(null);
     try {
-      const d = await api.diagnose(photos.map((p) => p.file), note, trade);
+      let extra: { vehicle: VehicleInfo; terms: string } | undefined;
+      if (trade === 'AUTOMOTIVE') {
+        const v = vehicleFromDraft(veh);
+        if ('error' in v) { setBusy(false); return setError(v.error); }
+        extra = { vehicle: v.vehicle, terms: AUTO_TERMS };
+      }
+      const d = await api.diagnose(photos.map((p) => p.file), note, trade, extra);
       saveOne(me.id, d);
       setView({ kind: 'result', d });
       refreshHistory();
@@ -172,6 +180,8 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
         <p className="mt-2 text-xs text-[#8a948d]">Up to {MAX_PHOTOS} photos. One close-up of the fault and one wider shot give the best result.</p>
       </Card>
 
+      {trade === 'AUTOMOTIVE' && <VehicleForm v={veh} set={setVeh} />}
+
       <Field label="What is wrong? (optional)" hint="Where is it and what do you see? E.g. “Water drips under the kitchen sink”.">
         <div className="flex gap-2">
           <textarea className={input + ' min-h-[84px]'} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -195,7 +205,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
               <button key={h.id} onClick={() => void open(h.id)} className="flex w-full items-start gap-3 p-3 text-left active:bg-black/5">
                 <span className="mt-0.5 text-lg">{h.safetyLevel === 'STOP' ? '⛔' : h.outcome === 'DIAGNOSED' ? '🔧' : '📷'}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : (h as { trade?: string }).trade === 'SOLAR' ? '☀️ ' : (h as { trade?: string }).trade === 'BUILDING' ? '🧱 ' : (h as { trade?: string }).trade === 'HVAC' ? '❄️ ' : ''}{h.summary}</span>
+                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : (h as { trade?: string }).trade === 'SOLAR' ? '☀️ ' : (h as { trade?: string }).trade === 'BUILDING' ? '🧱 ' : (h as { trade?: string }).trade === 'HVAC' ? '❄️ ' : (h as { trade?: string }).trade === 'AUTOMOTIVE' ? '🚗 ' : ''}{h.summary}</span>
                   <span className="block text-xs text-[#8a948d]">{when(h.createdAt)}{h.partsRequestedAt ? ' · parts requested' : ''}</span>
                 </span>
               </button>
@@ -214,12 +224,15 @@ function Pill({ children, tone }: { children: React.ReactNode; tone: 'good' | 'w
 
 function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me; flash: (t: string) => void; onNew: () => void; onRetry: () => void; onSent: () => void }) {
   void me;
-  const [sel, setSel] = React.useState(() => d.parts.map((p) => ({ on: true, qty: p.qty })));
+  const [sel, setSel] = React.useState(() => d.parts.map((p) => ({ on: !p.critical, qty: p.qty })));
+  const [acked, setAcked] = React.useState(!(d.acknowledge && d.acknowledge.length > 0));
+  const [checked, setChecked] = React.useState<boolean[]>(() => (d.verifyFirst ?? []).map(() => false));
   const [pidgin, setPidgin] = React.useState(false);
   const [sending, setSending] = React.useState(false);
   const [showQuotes, setShowQuotes] = React.useState(!!d.supplyRequestId);
   const stop = d.safety.level === 'STOP';
 
+  const gateOk = () => (d.verifyFirst?.length ?? 0) === 0 || !chosen().some((p) => p.gated) || checked.every(Boolean);
   const chosen = (): DiagnosisPart[] => d.parts.map((p, i) => ({ ...p, qty: sel[i].qty })).filter((_, i) => sel[i].on);
 
   // Ask nearby suppliers for prices. If the supplier network is unavailable, fall back to the trade desk on WhatsApp.
@@ -228,7 +241,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
     if (parts.length === 0) return flash('Select at least one part');
     setSending(true);
     try {
-      const r = await api.partsRequest(d.id, parts);
+      const r = await api.partsRequest(d.id, parts, (d.verifyFirst?.length ?? 0) > 0 ? true : undefined);
       onSent();
       if (r.supply && !viaWhatsApp) { setShowQuotes(true); return; }
       window.location.assign(r.whatsappUrl);
@@ -245,7 +258,11 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   }
 
   return (
-    <Screen title={d.materials ? 'Materials list' : d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : d.outcome === 'NOT_BUILDING' ? 'Not a building fault' : d.outcome === 'NOT_HVAC' ? 'Not an AC or refrigeration fault' : 'Not a plumbing fault'}>
+    <Screen title={d.materials ? 'Materials list' : d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : d.outcome === 'NOT_BUILDING' ? 'Not a building fault' : d.outcome === 'NOT_HVAC' ? 'Not an AC or refrigeration fault' : d.outcome === 'NOT_AUTOMOTIVE' ? 'Not a vehicle fault' : 'Not a plumbing fault'}>
+      {d.drive === 'DO_NOT_DRIVE' && (
+        <div role="alert" className="mb-3 rounded-2xl bg-red-700 p-4 text-white"><p className="text-lg font-extrabold">⛔ Do not drive this vehicle</p><p className="mt-1 text-sm">Tow it, or repair it where it stands. Driving it risks a crash, a fire or a ruined engine.</p></div>
+      )}
+      {d.drive === 'CAUTION' && d.safety.level !== 'STOP' && <p className="mb-3 rounded-xl bg-ochre-50 p-3 text-sm font-semibold text-ochre-700">Drive with caution until it is fixed.</p>}
       {d.safety.level !== 'NORMAL' && (
         <div role="alert" className={`mb-3 rounded-2xl border p-4 text-sm ${stop ? 'border-red-300 bg-red-50 text-red-900' : 'border-ochre-100 bg-ochre-50 text-ochre-700'}`}>
           <b className="block text-base">{stop ? '⛔ Stop. This needs a qualified person.' : '⚠️ Take care'}</b>
@@ -298,7 +315,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
           <Card className="mb-3 divide-y divide-black/5">
             {d.parts.map((p, i) => (
               <div key={i} className="flex items-center gap-3 p-3">
-                <input type="checkbox" className="h-5 w-5 accent-[#b4530e]" checked={sel[i].on} onChange={(e) => setSel((s) => s.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} aria-label={`Include ${p.name}`} />
+                <input type="checkbox" className="h-5 w-5 accent-[#b4530e]" checked={sel[i].on} onChange={(e) => setSel((s) => s.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))} disabled={!!p.critical} aria-label={`Include ${p.name}`} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">{p.name}</div>
                   <div className="text-xs text-[#8a948d]">{[p.spec, p.unit, p.note].filter(Boolean).join(' · ')}</div>
@@ -311,7 +328,14 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
               </div>
             ))}
           </Card>
-          {!showQuotes && <Button onClick={() => void sendParts()} disabled={sending}>{sending ? 'Sending…' : 'Get prices from suppliers'}</Button>}
+          {(d.verifyFirst?.length ?? 0) > 0 && !showQuotes && (
+            <Card className="mb-3 border-ochre-500/40 bg-ochre-50 p-3">
+              <p className="text-sm font-semibold text-ochre-700">Check these before you buy a costly part</p>
+              <p className="mb-1 text-xs text-ochre-700">A fault code points at a circuit, not always at a part. Tick each one when you have done it.</p>
+              {d.verifyFirst!.map((c, i) => <label key={i} className="flex items-start gap-2 py-1 text-sm"><input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#b4530e]" checked={checked[i]} onChange={(e) => setChecked((x) => x.map((v, j) => (j === i ? e.target.checked : v)))} />{c}</label>)}
+            </Card>
+          )}
+          {!showQuotes && <Button onClick={() => void sendParts()} disabled={sending || !gateOk()}>{sending ? 'Sending…' : 'Get prices from suppliers'}</Button>}
           {showQuotes && <Quotes diagnosisId={d.id} onTradeDesk={() => void sendParts(true)} flash={flash} />}
           <button onClick={() => void copyParts()} className="mt-3 w-full text-center text-xs font-semibold text-ochre-600 underline">Copy the list instead</button>
           {d.partsRequestedAt && <p className="mt-1 text-center text-xs text-[#8a948d]">Last sent {when(d.partsRequestedAt)}</p>}
@@ -332,14 +356,20 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
-      {d.steps.length > 0 && (
+      {d.steps.length > 0 && !acked && (
+        <Card className="mb-3 mt-6 border-red-300 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-900">Before you see the steps, confirm:</p>
+          <label className="mt-2 flex items-start gap-2 text-sm text-red-900"><input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-[#b4530e]" checked={false} onChange={() => setAcked(true)} />{d.acknowledge![0]}</label>
+        </Card>
+      )}
+      {d.steps.length > 0 && acked && (
         <>
           <h2 className="mb-1 mt-6 text-xs font-semibold uppercase tracking-wide text-[#6d7a73]">Steps</h2>
           <Card className="mb-3 p-4"><ol className="list-decimal space-y-2 pl-5 text-sm">{d.steps.map((s, i) => <li key={i}>{s}</li>)}</ol></Card>
         </>
       )}
 
-      <p className={`mt-4 text-xs text-[#8a948d] ${d.materials ? 'hidden' : ''}`}>This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'BUILDING' ? ', wearing dust and eye protection, using fall protection on roofs and never touching structural work' : d.trade === 'HVAC' ? ', isolating and discharging capacitors first and handling refrigerant correctly' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
+      <p className={`mt-4 text-xs text-[#8a948d] ${d.materials ? 'hidden' : ''}`}>This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'BUILDING' ? ', wearing dust and eye protection, using fall protection on roofs and never touching structural work' : d.trade === 'AUTOMOTIVE' ? ', disconnecting the battery first, supporting the car on axle stands and keeping flames away from fuel' : d.trade === 'HVAC' ? ', isolating and discharging capacitors first and handling refrigerant correctly' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
   );

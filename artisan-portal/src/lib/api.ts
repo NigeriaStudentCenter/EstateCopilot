@@ -44,11 +44,13 @@ export interface Me {
   bankAccountName?: string | null; bankAccountNumber?: string | null; paystackSubaccountCode?: string | null;
   certificates?: Certificate[]; certified?: boolean;
 }
-export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
+export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string; critical?: boolean; gated?: boolean }
+export interface VehicleInfo { vin?: string; make?: string; model?: string; year?: number; market?: string; fuel?: string; codes?: string[]; modified?: { exhaust: boolean; sensors: boolean; wiring: boolean } }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null; materials?: boolean;
-  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC';
-  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC'; checks?: string[];
+  drive?: 'SAFE' | 'CAUTION' | 'DO_NOT_DRIVE'; codes?: string[]; acknowledge?: string[]; verifyFirst?: string[]; vehicle?: VehicleInfo;
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC' | 'NOT_AUTOMOTIVE';
+  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   fixture: string; material?: string; defect: string; alternativeCauses: string[];
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
@@ -94,7 +96,7 @@ export interface Dashboard {
 
 export interface LabelReading { readable: boolean; name: string | null; watts: number | null; source: 'label' | 'volts x amps' | 'VA' | null; volts: number | null; amps: number | null; note: string | null }
 
-export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC';
+export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC' | 'AUTOMOTIVE';
 export interface DiagnoseTrade { id: DiagnosisTradeId; label: string; icon: string; intro: string; notice: string | null; beta: boolean; available: boolean; reason: string | null }
 
 export const api = {
@@ -151,8 +153,9 @@ export const api = {
       body: JSON.stringify({ certificateId }),
     }),
 
-  diagnose: async (files: File[], note: string, trade: DiagnosisTradeId = 'PLUMBING') => {
+  diagnose: async (files: File[], note: string, trade: DiagnosisTradeId = 'PLUMBING', extra?: { vehicle: VehicleInfo; terms: string }) => {
     const form = new FormData();
+    if (extra) { form.append('vehicle', JSON.stringify(extra.vehicle)); form.append('terms', extra.terms); }
     files.forEach((f) => form.append('images', f, f.name));
     if (note.trim()) form.append('note', note.trim());
     form.append('trade', trade);
@@ -181,10 +184,10 @@ export const api = {
     request<{ id: string; message: string; whatsappUrl: string; tradeDesk: string; supply: { requestId: string; suppliersAlerted: number; escalated: boolean } | null }>('/api/artisan/me/materials-request', { method: 'POST', body: JSON.stringify({ trade: 'BUILDING', title, items }) }),
   diagnoses: () => request<DiagnosisCard[]>('/api/artisan/me/diagnoses'),
   diagnosis: (id: string) => request<Diagnosis>(`/api/artisan/me/diagnoses/${id}`),
-  partsRequest: (id: string, parts?: DiagnosisPart[]) =>
+  partsRequest: (id: string, parts?: DiagnosisPart[], confirmedChecks?: boolean) =>
     request<{ message: string; whatsappUrl: string; tradeDesk: string; parts: DiagnosisPart[]; supply: { requestId: string; suppliersAlerted: number; escalated: boolean } | null }>(`/api/artisan/me/diagnoses/${id}/parts-request`, {
       method: 'POST',
-      body: JSON.stringify(parts ? { parts: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit })) } : {}),
+      body: JSON.stringify({ ...(parts ? { parts: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit })) } : {}), ...(confirmedChecks ? { confirmedChecks: true } : {}) }),
     }),
 
   quotes: (id: string) => request<{ supply: SupplyState | null }>(`/api/artisan/me/diagnoses/${id}/quotes`),

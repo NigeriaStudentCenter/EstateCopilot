@@ -7,7 +7,7 @@ export type TradeId =
   | 'BRICKLAYER' | 'ROOFER' | 'POP_CEILING' | 'TILER' | 'ALUMINIUM_GLAZING'
   | 'WELDER_FABRICATOR' | 'BOREHOLE_WATER' | 'DRAINAGE_SOAKAWAY' | 'PAINTER'
   | 'ELECTRICIAN' | 'PLUMBER' | 'AC_TECHNICIAN' | 'GENERATOR_TECHNICIAN'
-  | 'SOLAR_INVERTER' | 'CARPENTER_FURNITURE' | 'APPLIANCE_REPAIR' | 'LOCKSMITH'
+  | 'SOLAR_INVERTER' | 'AUTO_MECHANIC' | 'CARPENTER_FURNITURE' | 'APPLIANCE_REPAIR' | 'LOCKSMITH'
   | 'DSTV_CCTV' | 'FUMIGATION_PEST' | 'CLEANING_POST_CONSTRUCTION'
   | 'GARDENER_LANDSCAPING' | 'INTERLOCKING_PAVING' | 'UPHOLSTERY';
 
@@ -35,6 +35,7 @@ export const TRADES: TradeDef[] = [
   { id: 'AC_TECHNICIAN', label: 'AC Technician', group: 'SYSTEMS', blurb: 'Split units, servicing, gas, installs' },
   { id: 'GENERATOR_TECHNICIAN', label: 'Generator Technician', group: 'SYSTEMS', blurb: 'Service, AVR, changeover, diesel & petrol' },
   { id: 'SOLAR_INVERTER', label: 'Solar & Inverter', group: 'SYSTEMS', blurb: 'Panels, batteries, inverters, load design' },
+  { id: 'AUTO_MECHANIC', label: 'Auto Mechanic', group: 'SYSTEMS', blurb: 'Engine, brakes, suspension, car electrics, servicing' },
   { id: 'CARPENTER_FURNITURE', label: 'Carpenter / Furniture', group: 'SYSTEMS', blurb: 'Doors, wardrobes, kitchen cabinets' },
   { id: 'APPLIANCE_REPAIR', label: 'Appliance Repair', group: 'SYSTEMS', blurb: 'Fridge, washing machine, microwave, pump' },
   { id: 'LOCKSMITH', label: 'Locksmith', group: 'SYSTEMS', blurb: 'Locks, keys, digital locks, safes' },
