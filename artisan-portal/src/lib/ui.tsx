@@ -57,9 +57,10 @@ export function Toast({ text }: { text: string | null }) {
   );
 }
 
-export function Screen({ title, children }: { title: string; children: React.ReactNode }) {
+export function Screen({ title, children, embedded = false }: { title: string; children: React.ReactNode; embedded?: boolean }) {
+  // embedded: shown under another header (the Tools switcher), which already clears the phone's top safe area.
   return (
-    <div className="px-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
+    <div className={embedded ? 'px-4 pt-2' : 'px-4 pt-[calc(env(safe-area-inset-top)+1rem)]'}>
       <h1 className="mb-4 text-2xl font-extrabold tracking-tight">{title}</h1>
       {children}
     </div>

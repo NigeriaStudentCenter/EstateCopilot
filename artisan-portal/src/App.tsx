@@ -7,9 +7,9 @@ import Diagnose from './pages/Diagnose';
 import Home from './pages/Home';
 import Jobs from './pages/Jobs';
 import Profile from './pages/Profile';
-import Solar from './pages/Solar';
+import Tools, { TOOL_INFO, toolsFor } from './pages/tools/Tools';
 
-type Tab = 'home' | 'diagnose' | 'solar' | 'jobs' | 'profile';
+type Tab = 'home' | 'diagnose' | 'tools' | 'jobs' | 'profile';
 
 interface InstallEvent extends Event { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
 const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
@@ -19,7 +19,8 @@ function initialTab(): Tab {
   const q = new URLSearchParams(window.location.search);
   const t = q.get('tab');
   if (q.get('dx')) return 'diagnose'; // returning from Paystack lands on the diagnosis
-  return t === 'jobs' || t === 'profile' || t === 'diagnose' || t === 'solar' ? t : 'home';
+  if (t === 'solar') return 'tools'; // the Solar tab became the Tools tab
+  return t === 'jobs' || t === 'profile' || t === 'diagnose' || t === 'tools' ? t : 'home';
 }
 
 export default function App() {
@@ -74,8 +75,10 @@ export default function App() {
   if (loadErr) return <div className="p-6 text-sm text-ochre-700">{loadErr}</div>;
   if (!me) return <div className="p-6 text-sm text-[#8a948d]">Loading…</div>;
 
-  // The sizing tool is for solar & inverter installers.
-  const isSolar = me.trades.some((t) => t.trade === 'SOLAR_INVERTER');
+  // The calculators follow the trades on the profile (solar, building materials, AC sizing).
+  const toolList = toolsFor(me);
+  const hasTools = toolList.length > 0;
+  const toolTab = toolList.length === 1 ? ([TOOL_INFO[toolList[0]].label, TOOL_INFO[toolList[0]].icon] as const) : (['Tools', '🧮'] as const);
   const setupNeeded = me.trades.length === 0 || me.verificationTier < 1;
 
   return (
@@ -110,8 +113,8 @@ export default function App() {
         <Home me={me} flash={flash} go={setTab} reload={reload} />
       ) : tab === 'diagnose' ? (
         <Diagnose me={me} flash={flash} initialId={dx} />
-      ) : tab === 'solar' && isSolar ? (
-        <Solar me={me} flash={flash} />
+      ) : tab === 'tools' && hasTools ? (
+        <Tools me={me} flash={flash} />
       ) : tab === 'jobs' ? (
         <Jobs me={me} flash={flash} />
       ) : (
@@ -119,11 +122,11 @@ export default function App() {
       )}
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-black/10 bg-white/95 backdrop-blur">
-        <div className={`mx-auto grid max-w-md ${isSolar ? 'grid-cols-5' : 'grid-cols-4'} pb-[env(safe-area-inset-bottom)]`}>
+        <div className={`mx-auto grid max-w-md ${hasTools ? 'grid-cols-5' : 'grid-cols-4'} pb-[env(safe-area-inset-bottom)]`}>
           {([
             ['home', 'Home', '🏠'],
             ['diagnose', 'Diagnose', '📷'],
-            ...(isSolar ? ([['solar', 'Solar', '☀️']] as const) : []),
+            ...(hasTools ? ([['tools', toolTab[0], toolTab[1]]] as const) : []),
             ['jobs', 'Jobs', '🧰'],
             ['profile', 'Profile', '👤'],
           ] as const).map(([id, label, icon]) => (
