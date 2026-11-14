@@ -9,6 +9,7 @@ import { requireArtisanAuth, type ArtisanAuthedRequest } from './artisan.js';
 import { mockArtisans } from '../lib/mockArtisans.js';
 import { putPrivateDoc } from '../lib/blobStorage.js';
 import { runPlumbingDiagnosis, DiagnosisUnavailable, type Diagnosis } from '../lib/plumbingDiagnosis.js';
+import { TRADE_IDS, tradeConfig, tradeAccess, parseTrade, isDiagnosisTrade, type TradeRollout } from '../lib/diagnosisTrades/index.js';
 import { supplyConfigured, getCatalogue, rateSupplyRequest, createSupplyRequest, getSupplyRequest, acceptSupplyQuote, cancelSupplyRequest, confirmSupplyOrder, disputeSupplyOrder, externalRefFor, SupplyError, type SupplyRequestView } from '../lib/supplyClient.js';
 
 export const artisanDiagnoseRouter = Router();
@@ -63,15 +64,25 @@ async function who(artisanId: string) {
   return prisma.artisan.findUnique({ where: { id: artisanId }, include: { trades: true } });
 }
 
-// Electrical diagnosis is for electricians: the artisan must list the electrician trade and have passed the ID check.
-// Plumbing stays open to every registered artisan, as before.
-export function electricalEligibility(a: { verificationTier: number; trades?: { trade: string }[] }): { ok: true } | { ok: false; error: string } {
-  if (!(a.trades ?? []).some((t) => t.trade === 'ELECTRICIAN')) return { ok: false, error: 'Add Electrician to your trades on the Profile tab to use electrical diagnosis.' };
-  if (a.verificationTier < 1) return { ok: false, error: 'Verify your NIN or BVN on the Profile tab first. Electrical diagnosis is for verified electricians.' };
-  return { ok: true };
-}
+const rollout = (): TradeRollout => ({ live: env.diagnose.tradesLive, beta: env.diagnose.tradesBeta, betaPhones: env.diagnose.betaPhones });
 
-// ---- diagnose (plumbing for every artisan; electrical for verified electricians) ----------
+// Which trades this artisan sees in the app, and whether each can be used right now (and why not). The same rules are
+// enforced again on the diagnose call itself.
+artisanDiagnoseRouter.get('/artisan/me/diagnose-trades', requireArtisanAuth, async (req: ArtisanAuthedRequest, res) => {
+  const a = await who(req.artisan!.artisanId);
+  if (!a) return res.status(404).json({ error: 'Account not found' });
+  const ro = rollout();
+  const out = TRADE_IDS.flatMap((id) => {
+    const cfg = tradeConfig(id);
+    const acc = tradeAccess(cfg, a as { phone: string; verificationTier: number; trades?: { trade: string }[] }, ro);
+    // A trade that is not open to this artisan at all (not live, or beta and not on the list) is simply not shown.
+    if (!acc.ok && (acc.code === 'NOT_AVAILABLE' || acc.code === 'BETA_ONLY')) return [];
+    return [{ id, label: cfg.label, icon: cfg.icon, intro: cfg.intro, notice: cfg.notice ?? null, beta: acc.ok ? acc.beta : ro.beta.includes(id), available: acc.ok, reason: acc.ok ? null : acc.error }];
+  });
+  res.json({ trades: out });
+});
+
+// ---- diagnose (trades come from the registry in lib/diagnosisTrades; access follows the rollout env) ----------
 artisanDiagnoseRouter.post(
   '/artisan/me/diagnose',
   requireArtisanAuth,
@@ -90,13 +101,10 @@ artisanDiagnoseRouter.post(
     const a = await who(artisanId);
     if (!a) return res.status(404).json({ error: 'Account not found' });
 
-    const raw = String(req.body?.trade ?? 'PLUMBING').toUpperCase();
-    const trade = raw === 'ELECTRICIAN' ? 'ELECTRICAL' : raw;
-    if (trade !== 'PLUMBING' && trade !== 'ELECTRICAL') return res.status(400).json({ error: 'Photo diagnosis covers plumbing and electrical.' });
-    if (trade === 'ELECTRICAL') {
-      const el = electricalEligibility(a as { verificationTier: number; trades?: { trade: string }[] });
-      if (!el.ok) return res.status(403).json({ error: el.error });
-    }
+    const trade = parseTrade(req.body?.trade);
+    if (!trade) return res.status(400).json({ error: 'Unknown trade.' });
+    const acc = tradeAccess(tradeConfig(trade), a as { phone: string; verificationTier: number; trades?: { trade: string }[] }, rollout());
+    if (!acc.ok) return res.status(403).json({ error: acc.error });
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
     if (files.length === 0) return res.status(400).json({ error: 'Add at least one photo (field "images").' });
     if (files.some((f) => !ALLOWED_MIME.has(f.mimetype))) return res.status(400).json({ error: 'Only JPEG, PNG, WebP, HEIC or AVIF photos are allowed.' });
@@ -184,7 +192,7 @@ artisanDiagnoseRouter.post('/artisan/me/diagnoses/:id/parts-request', requireArt
   if (supplyConfigured()) {
     try {
       const ref = externalRefFor(d.id, parts);
-      const created = await createSupplyRequest({ trade: (d.trade === 'ELECTRICAL' ? 'ELECTRICAL' : 'PLUMBING'), externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
+      const created = await createSupplyRequest({ trade: (d.trade && isDiagnosisTrade(d.trade) ? d.trade : 'PLUMBING'), externalRef: ref, requesterName: a.name, requesterPhone: a.phone, state: a.baseState, lga: a.baseLga, jobSummary: d.result.summary, items: parts.map((p) => ({ name: p.name, spec: p.spec, qty: p.qty, unit: p.unit, catalogueId: p.catalogueId })) });
       // The list changed since last time: close the old open request so suppliers stop pricing it.
       if (supplyRequestId && supplyRequestId !== created.id) await cancelSupplyRequest(supplyRequestId).catch(() => undefined);
       supplyRequestId = created.id;

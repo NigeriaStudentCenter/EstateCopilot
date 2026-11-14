@@ -7,6 +7,11 @@ export const env = {
 
   diagnose: {
     model: process.env.DIAGNOSE_MODEL ?? 'claude-sonnet-5',
+    // Which trades the photo diagnosis is open for. A trade in neither list does not exist for artisans; a BETA trade is
+    // only usable by the phone numbers in DIAGNOSE_BETA_PHONES (comma-separated), so it can be tested before it opens.
+    tradesLive: (process.env.DIAGNOSE_TRADES_LIVE ?? 'PLUMBING,ELECTRICAL').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean),
+    tradesBeta: (process.env.DIAGNOSE_TRADES_BETA ?? '').split(',').map((x) => x.trim().toUpperCase()).filter(Boolean),
+    betaPhones: (process.env.DIAGNOSE_BETA_PHONES ?? '').split(',').map((x) => x.trim()).filter(Boolean),
     dailyLimit: Number(process.env.DIAGNOSE_DAILY_LIMIT ?? 20), // photo diagnoses per artisan per 24h (cost guard)
     // The WhatsApp number that receives parts requests until suppliers are connected through the Kolo partner app.
     tradeDeskWhatsapp: (process.env.TRADE_DESK_WHATSAPP ?? '2348074932438').replace(/\D/g, ''),

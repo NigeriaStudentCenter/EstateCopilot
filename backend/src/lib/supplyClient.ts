@@ -36,7 +36,7 @@ export class SupplyError extends Error {
 export const externalRefFor = (diagnosisId: string, parts: SupplyItem[]) =>
   `${diagnosisId}-${createHash('sha1').update(JSON.stringify(parts.map((p) => [p.name, p.spec ?? '', p.qty, p.unit ?? '']))).digest('hex').slice(0, 8)}`;
 
-export const createSupplyRequest = (input: { trade?: 'PLUMBING' | 'ELECTRICAL'; externalRef: string; requesterName: string; requesterPhone: string; state: string; lga: string; jobSummary: string; items: SupplyItem[] }) =>
+export const createSupplyRequest = (input: { trade?: string; externalRef: string; requesterName: string; requesterPhone: string; state: string; lga: string; jobSummary: string; items: SupplyItem[] }) =>
   call<SupplyRequestView>('POST', '/requests', { source: 'ESTATECOPILOT_ARTISAN', ...input, trade: input.trade ?? 'PLUMBING' });
 export const getSupplyRequest = (id: string) => call<SupplyRequestView>('GET', `/requests/${encodeURIComponent(id)}`);
 export const acceptSupplyQuote = (id: string, quoteId: string, returnUrl: string) => call<SupplyRequestView>('POST', `/requests/${encodeURIComponent(id)}/accept`, { quoteId, returnUrl });
@@ -47,7 +47,7 @@ export const rateSupplyRequest = (id: string, input: { stars: number; onTime?: b
 // The standard parts list, owned by Kolo so shops and the AI use the same names. Cached for an hour; if Kolo cannot be
 // reached the AI simply writes free-text part names as before (and Kolo matches them to the catalogue on arrival).
 const catalogueCache = new Map<string, { at: number; items: CatalogueItem[] }>();
-export async function getCatalogue(trade: 'PLUMBING' | 'ELECTRICAL' = 'PLUMBING', fetchImpl: typeof fetch = fetch): Promise<CatalogueItem[]> {
+export async function getCatalogue(trade: string = 'PLUMBING', fetchImpl: typeof fetch = fetch): Promise<CatalogueItem[]> {
   if (!supplyConfigured()) return [];
   const hit = catalogueCache.get(trade);
   if (hit && Date.now() - hit.at < 3600_000) return hit.items;
