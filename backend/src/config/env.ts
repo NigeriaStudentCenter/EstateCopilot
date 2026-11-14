@@ -16,6 +16,10 @@ export const env = {
     // The WhatsApp number that receives parts requests until suppliers are connected through the Kolo partner app.
     tradeDeskWhatsapp: (process.env.TRADE_DESK_WHATSAPP ?? '2348074932438').replace(/\D/g, ''),
   },
+  solar: {
+    // Label scans per artisan per 24h (each one is a vision-model call, so this is a cost guard).
+    scanDailyLimit: Number(process.env.SOLAR_SCAN_DAILY_LIMIT ?? 60),
+  },
   artisanPortal: {
     // Where Paystack sends an artisan back after paying for parts (must be allowed in Kolo's SUPPLY_RETURN_HOSTS).
     url: (process.env.ARTISAN_PORTAL_URL ?? 'https://artisans.estatecopilot.org').replace(/\/$/, ''),

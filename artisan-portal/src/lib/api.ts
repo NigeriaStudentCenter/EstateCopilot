@@ -47,8 +47,8 @@ export interface Me {
 export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
 export interface Diagnosis {
   id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
-  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY';
-  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY'; checks?: string[];
+  outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR';
+  trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   fixture: string; material?: string; defect: string; alternativeCauses: string[];
   urgency: 'URGENT' | 'SOON' | 'ROUTINE'; immediateAction?: string;
@@ -92,7 +92,9 @@ export interface Dashboard {
   earnings: { monthLabel: string; thisMonth: number; paidJobsThisMonth: number; pending: number; allTime: number };
 }
 
-export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY';
+export interface LabelReading { readable: boolean; name: string | null; watts: number | null; source: 'label' | 'volts x amps' | 'VA' | null; volts: number | null; amps: number | null; note: string | null }
+
+export type DiagnosisTradeId = 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR';
 export interface DiagnoseTrade { id: DiagnosisTradeId; label: string; icon: string; intro: string; notice: string | null; beta: boolean; available: boolean; reason: string | null }
 
 export const api = {
@@ -162,6 +164,18 @@ export const api = {
       throw new ApiError(res.status, body?.error ?? `Diagnosis failed (${res.status})`);
     }
     return body as Diagnosis;
+  },
+  scanLabel: async (file: File) => {
+    const form = new FormData();
+    form.append('image', file, file.name);
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/artisan/me/solar/scan-label`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      if (res.status === 401) clearToken();
+      throw new ApiError(res.status, body?.error ?? `Label scan failed (${res.status})`);
+    }
+    return body as LabelReading;
   },
   diagnoses: () => request<DiagnosisCard[]>('/api/artisan/me/diagnoses'),
   diagnosis: (id: string) => request<Diagnosis>(`/api/artisan/me/diagnoses/${id}`),

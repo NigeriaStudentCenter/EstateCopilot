@@ -9,7 +9,7 @@ export interface TradeConfig {
   /** The id of the matching trade on the artisan's profile (lib/trades.ts). */
   artisanTrade: string;
   /** Outcome the model uses when the photo is not this trade. */
-  notOutcome: 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY';
+  notOutcome: 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR';
   people: string; // "plumbers" / "electricians": used in access messages
   noteLabel: string; // "Plumber's" / "Electrician's"
   intro: string; // shown under the trade picker

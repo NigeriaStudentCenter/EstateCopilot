@@ -57,7 +57,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
       if (r.trades.length === 0) return;
       setTrades(r.trades);
       // Start on the artisan's main trade when it is usable.
-      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
+      const main = { ELECTRICIAN: 'ELECTRICAL', CARPENTER_FURNITURE: 'CARPENTRY', PLUMBER: 'PLUMBING', SOLAR_INVERTER: 'SOLAR' }[me.trades.find((t) => t.isPrimary)?.trade ?? ''] as DiagnosisTradeId | undefined;
       const pick = r.trades.find((t) => t.id === main && t.available) ?? r.trades.find((t) => t.available) ?? r.trades[0];
       setTrade(pick.id);
     }).catch(() => { /* offline: plumbing only */ });
@@ -195,7 +195,7 @@ export default function Diagnose({ me, flash, initialId }: { me: Me; flash: (t: 
               <button key={h.id} onClick={() => void open(h.id)} className="flex w-full items-start gap-3 p-3 text-left active:bg-black/5">
                 <span className="mt-0.5 text-lg">{h.safetyLevel === 'STOP' ? '⛔' : h.outcome === 'DIAGNOSED' ? '🔧' : '📷'}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : ''}{h.summary}</span>
+                  <span className="block truncate text-sm font-semibold">{(h as { trade?: string }).trade === 'ELECTRICAL' ? '⚡ ' : (h as { trade?: string }).trade === 'CARPENTRY' ? '🪚 ' : (h as { trade?: string }).trade === 'SOLAR' ? '☀️ ' : ''}{h.summary}</span>
                   <span className="block text-xs text-[#8a948d]">{when(h.createdAt)}{h.partsRequestedAt ? ' · parts requested' : ''}</span>
                 </span>
               </button>
@@ -245,7 +245,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
   }
 
   return (
-    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : 'Not a plumbing fault'}>
+    <Screen title={d.outcome === 'DIAGNOSED' ? 'Diagnosis' : d.outcome === 'NEEDS_MORE_PHOTOS' ? 'Need a clearer look' : d.outcome === 'NOT_ELECTRICAL' ? 'Not an electrical fault' : d.outcome === 'NOT_CARPENTRY' ? 'Not a carpentry fault' : d.outcome === 'NOT_SOLAR' ? 'Not a solar or inverter fault' : 'Not a plumbing fault'}>
       {d.safety.level !== 'NORMAL' && (
         <div role="alert" className={`mb-3 rounded-2xl border p-4 text-sm ${stop ? 'border-red-300 bg-red-50 text-red-900' : 'border-ochre-100 bg-ochre-50 text-ochre-700'}`}>
           <b className="block text-base">{stop ? '⛔ Stop. This needs a qualified person.' : '⚠️ Take care'}</b>
@@ -339,7 +339,7 @@ function Result({ d, me, flash, onNew, onRetry, onSent }: { d: Diagnosis; me: Me
         </>
       )}
 
-      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : ''}.</p>
+      <p className="mt-4 text-xs text-[#8a948d]">This is AI guidance from a photo. It can be wrong. Check the fault on site, and you stay responsible for safe, correct work{d.trade === 'ELECTRICAL' ? ', isolating and proving dead before you touch anything and following the wiring regulations' : d.trade === 'CARPENTRY' ? ', using guards and protective gear and never touching structural timber' : d.trade === 'SOLAR' ? ', shutting down in order, treating all PV cable as live in daylight and following the manufacturer and the regulations' : ''}.</p>
       <div className="mb-6 mt-4"><Button variant="ghost" onClick={onNew}>New diagnosis</Button></div>
     </Screen>
   );
