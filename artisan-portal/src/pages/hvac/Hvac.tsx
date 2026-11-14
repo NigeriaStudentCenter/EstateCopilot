@@ -5,9 +5,12 @@ import { CLIMATE, USE, analyseRoom, climateFor, newRoom, projectTotals, round, s
 import { ProjectBar, Select } from '../tools/parts';
 import { uid, useProjects } from '../tools/useProjects';
 import { RoomEditor } from './RoomForm';
+import { regionFor } from '../Solar';
+import { addAcsToSolar, solarProjectNames } from '../solar/store';
 import { cleanHvac, makeHvac, type HvacData } from './store';
 
-export default function Hvac({ me, flash, embedded = false }: { me: Me; flash: (t: string) => void; embedded?: boolean }) {
+export default function Hvac({ me, flash, embedded = false, hasSolar = false, openSolar }: { me: Me; flash: (t: string) => void; embedded?: boolean; hasSolar?: boolean; openSolar?: () => void }) {
+  const [solarId, setSolarId] = React.useState('');
   const climate0 = climateFor(me.baseState);
   const { projects, project, setActiveId, setData, patch, add, remove } = useProjects<HvacData>('hvac', me.id, () => makeHvac(climate0), (raw) => cleanHvac(raw, climate0), 'My first site');
   const [view, setView] = React.useState<'rooms' | 'summary'>('rooms');
@@ -102,7 +105,23 @@ export default function Hvac({ me, flash, embedded = false }: { me: Me; flash: (
                 <a className="inline-flex items-center justify-center rounded-xl bg-[#25D366] px-2 py-3 text-sm font-semibold text-white" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">WhatsApp</a>
                 <Button variant="ghost" onClick={() => void copy()}>Copy</Button>
               </div>
-              <p className="text-xs text-[#6d7a73]">Powering these from solar? Add the running watts and the energy a day to the Solar tool's load list.</p>
+              {hasSolar && (
+                <Card className="p-3">
+                  <p className="text-sm font-semibold">Powering these from solar?</p>
+                  <p className="mb-2 text-xs text-[#6d7a73]">Adds each room's AC to a solar design as a load, with its running watts, hours and start-up surge.</p>
+                  <div className="flex gap-2">
+                    <select className={input + ' !py-2'} aria-label="Solar design" value={solarId} onChange={(e) => setSolarId(e.target.value)}>
+                      <option value="">First solar design</option>
+                      {solarProjectNames(me.id, regionFor(me.baseState)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <button className="shrink-0 rounded-xl bg-ochre-500 px-4 text-sm font-semibold text-white" onClick={() => {
+                      const name = addAcsToSolar(me.id, regionFor(me.baseState), solarId || null, t.rooms.map(({ room, res }) => ({ name: room.name, units: res.sizing.units, runningW: res.electrical.runningW, hours: room.hoursPerDay, acType: room.acType, use: room.use })));
+                      if (!name) return flash('Could not find a solar design');
+                      flash(`Added to "${name}"`); openSolar?.();
+                    }}>Add to solar</button>
+                  </div>
+                </Card>
+              )}
             </>
           )}
         </div>

@@ -30,7 +30,7 @@ export default function App() {
   const [states, setStates] = React.useState<StateDef[]>([]);
   const [tab, setTab] = React.useState<Tab>(initialTab);
   // Paystack sends the artisan back to /?tab=diagnose&dx=<diagnosis id> after paying for parts.
-  const [dx] = React.useState<string | null>(() => new URLSearchParams(window.location.search).get('dx'));
+  const [dx, setDx] = React.useState<string | null>(() => new URLSearchParams(window.location.search).get('dx'));
   React.useEffect(() => { if (dx) window.history.replaceState({}, '', window.location.pathname); }, [dx]);
   const [installEvt, setInstallEvt] = React.useState<InstallEvent | null>(null);
   const [installed, setInstalled] = React.useState(isStandalone());
@@ -114,7 +114,7 @@ export default function App() {
       ) : tab === 'diagnose' ? (
         <Diagnose me={me} flash={flash} initialId={dx} />
       ) : tab === 'tools' && hasTools ? (
-        <Tools me={me} flash={flash} />
+        <Tools me={me} flash={flash} openDiagnosis={(id) => { setDx(id); setTab('diagnose'); window.scrollTo(0, 0); }} />
       ) : tab === 'jobs' ? (
         <Jobs me={me} flash={flash} />
       ) : (

@@ -22,7 +22,7 @@ export function toolsFor(me: Me): ToolId[] {
 }
 
 const KEY = 'ec_tools_last';
-export default function Tools({ me, flash }: { me: Me; flash: (t: string) => void }) {
+export default function Tools({ me, flash, openDiagnosis }: { me: Me; flash: (t: string) => void; openDiagnosis: (id: string) => void }) {
   const tools = toolsFor(me);
   const [tool, setTool] = React.useState<ToolId>(() => {
     try { const v = localStorage.getItem(KEY); if (v && (tools as string[]).includes(v)) return v as ToolId; } catch { /* storage blocked */ }
@@ -42,8 +42,8 @@ export default function Tools({ me, flash }: { me: Me; flash: (t: string) => voi
         </div>
       )}
       {current === 'solar' && <Solar me={me} flash={flash} embedded={embedded} />}
-      {current === 'building' && <Building me={me} flash={flash} embedded={embedded} />}
-      {current === 'hvac' && <Hvac me={me} flash={flash} embedded={embedded} />}
+      {current === 'building' && <Building me={me} flash={flash} embedded={embedded} openDiagnosis={openDiagnosis} />}
+      {current === 'hvac' && <Hvac me={me} flash={flash} embedded={embedded} hasSolar={tools.includes('solar')} openSolar={() => pick('solar')} />}
     </>
   );
 }

@@ -1,6 +1,6 @@
 // Hand-calculated checks for the building materials estimator. Run: cd backend && npx tsx ../artisan-portal/scripts/building-check.mts
 import assert from 'node:assert/strict';
-import { newJob, tileResult, blockResult, plasterResult, screedResult, concreteResult, roofResult, jobLines, totals, buyQty, mix, BAG_M3, summaryText, costOf, type Job, type TileJob, type BlockJob, type RoofJob } from '../src/lib/building.ts';
+import { newJob, tileResult, blockResult, plasterResult, screedResult, concreteResult, roofResult, jobLines, totals, buyQty, mix, requestItems, BAG_M3, summaryText, costOf, type Job, type TileJob, type BlockJob, type RoofJob } from '../src/lib/building.ts';
 let n = 0;
 const near = (got: number, want: number, tol = 0.005, msg = '') => { n++; assert.ok(Math.abs(got - want) <= Math.abs(want) * tol + 1e-9, `${msg} got ${got}, want ${want}`); };
 const job = <T extends Job>(kind: T['kind'], o: Partial<T> = {}): T => ({ ...newJob(kind, 'x'), ...o }) as T;
@@ -77,4 +77,10 @@ const prices = { 'cement|bag': 9500, 'block|9 inch|pcs': 450 };
 const txt = summaryText([job('blocks')], prices, { project: 'Boundary wall', customer: 'Mrs Ade', by: 'Tunde' });
 assert.ok(/Materials list for Mrs Ade \(Boundary wall\)/.test(txt) && /Sandcrete blocks \(9 inch\): 292 pcs = N131,400/.test(txt) && /Cement \(50kg bag\): 3 bags = N28,500/.test(txt) && /Estimated materials cost: N159,900/.test(txt)); n++;
 near(costOf({ ...cem, qty: 21 }, { 'cement|bag': 9000 }), 189000, 0, 'cost');
+// request items for suppliers: integers, cm tile spec, catalogue ids
+const ri = requestItems(totals([job<TileJob>('tiles'), job('blocks'), job<RoofJob>('roof')]));
+assert.ok(ri.every((x) => Number.isInteger(x.qty) && x.qty >= 1 && x.qty <= 5000 && x.unit.length <= 20 && x.name.length <= 100)); n++;
+assert.ok(ri.find((x) => x.catalogueId === 'tile-floor')!.spec === '60x60 porcelain' && ri.find((x) => x.catalogueId === 'tile-floor')!.qty === 10); n++;
+assert.ok(ri.find((x) => x.catalogueId === 'roof-sheet')!.qty === 125 && ri.find((x) => x.catalogueId === 'roof-sheet')!.unit === 'm'); n++; // 124.5 m rounds up
+assert.ok(ri.find((x) => x.catalogueId === 'cement')!.name === 'Cement' && ri.find((x) => x.catalogueId === 'plaster-sand')!.qty === 1 && ri.find((x) => x.catalogueId === 'plaster-sand')!.unit === 'm3'); n++; // 0.6 m3 -> 1
 console.log(`building estimator: ${n} checks passed`);

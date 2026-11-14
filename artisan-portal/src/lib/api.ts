@@ -46,7 +46,7 @@ export interface Me {
 }
 export interface DiagnosisPart { name: string; spec?: string; qty: number; unit?: string; note?: string; catalogueId?: string }
 export interface Diagnosis {
-  id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null;
+  id: string; createdAt: string; note: string | null; photoCount: number; partsRequestedAt: string | null; materials?: boolean;
   outcome: 'DIAGNOSED' | 'NEEDS_MORE_PHOTOS' | 'NOT_PLUMBING' | 'NOT_ELECTRICAL' | 'NOT_CARPENTRY' | 'NOT_SOLAR' | 'NOT_BUILDING' | 'NOT_HVAC';
   trade?: 'PLUMBING' | 'ELECTRICAL' | 'CARPENTRY' | 'SOLAR' | 'BUILDING' | 'HVAC'; checks?: string[];
   summary: string; summaryPidgin?: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -177,6 +177,8 @@ export const api = {
     }
     return body as LabelReading;
   },
+  materialsRequest: (title: string, items: { name: string; spec?: string; qty: number; unit: string; catalogueId?: string }[]) =>
+    request<{ id: string; message: string; whatsappUrl: string; tradeDesk: string; supply: { requestId: string; suppliersAlerted: number; escalated: boolean } | null }>('/api/artisan/me/materials-request', { method: 'POST', body: JSON.stringify({ trade: 'BUILDING', title, items }) }),
   diagnoses: () => request<DiagnosisCard[]>('/api/artisan/me/diagnoses'),
   diagnosis: (id: string) => request<Diagnosis>(`/api/artisan/me/diagnoses/${id}`),
   partsRequest: (id: string, parts?: DiagnosisPart[]) =>

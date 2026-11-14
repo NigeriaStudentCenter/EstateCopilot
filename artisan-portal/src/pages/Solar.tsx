@@ -12,7 +12,7 @@ type Sub = 'load' | 'battery' | 'solar' | 'summary';
 const SUBS: [Sub, string][] = [['load', '1 Load'], ['battery', '2 Battery'], ['solar', '3 Solar'], ['summary', '4 Spec']];
 
 // Match the artisan's base state to a sun-hours region ("Lagos State" -> Lagos, "FCT" -> FCT (Abuja)).
-function regionFor(state: string): string {
+export function regionFor(state: string): string {
   const s = state.toLowerCase().replace(/\bstate\b/g, '').trim();
   if (/fct|abuja|federal capital/.test(s)) return 'FCT (Abuja)';
   return REGIONS.find((r) => r.toLowerCase() === s) ?? 'Lagos';
